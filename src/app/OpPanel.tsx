@@ -15,6 +15,7 @@ import type {
 import { NumberPad, type PadVariable } from "./NumberPad";
 import { isCopyable, type OpFeature } from "./store";
 import { term } from "./terms";
+import { planeLabel } from "../doc/planes";
 
 interface Props {
   doc: CadDocument;
@@ -70,7 +71,7 @@ export function OpPanel({ doc, draft, pro, error, warning, busy, preview, variab
   const sketches = before.filter((f): f is SketchFeature => f.type === "sketch");
   const copyable = before.filter(isCopyable);
   // まだ立体がないときは「くっつける / けずる」は聞かない(けずるものがないので)
-  const hasBodyBefore = before.some((f) => f.type === "extrude" || f.type === "revolve");
+  const hasBodyBefore = before.some((f) => f.type === "extrude" || f.type === "revolve" || f.type === "loft");
   const title = panelTitle(draft, pro);
 
   /** 数を変える。変数の式は、式で入れたときだけ残す(−・＋ボタンで変えたら外す) */
@@ -180,6 +181,36 @@ export function OpPanel({ doc, draft, pro, error, warning, busy, preview, variab
         </>
       )}
 
+      {draft.type === "loft" && (
+        <>
+          <LoftSketches sketches={sketches} value={draft.sketchIds} onChange={(sketchIds) => onChange({ sketchIds })} />
+          <label className="check">
+            <input type="checkbox" checked={draft.ruled} onChange={(e) => onChange({ ruled: e.target.checked })} data-testid="op-ruled" />
+            まっすぐつなぐ(角ばった形にする)
+          </label>
+          {operation(draft.operation)}
+        </>
+      )}
+
+      {draft.type === "shell" && (
+        <>
+          {stepper({ label: "のこすあつさ", field: "thickness", unit: "mm", step: 0.5, min: 0.2, max: 1000, testid: "op-thickness" })}
+          <p className={draft.faces.length ? "op-edges" : "plane-hint"} data-testid="op-faces">
+            {draft.faces.length === 0 ? "👆 取りのぞく面(ペン立てなら上の面)を 3D でタップしてえらびます" : `取りのぞく面: ${draft.faces.length} こ`}
+          </p>
+          {draft.faces.length > 0 && (
+            <div className="op-row">
+              <button type="button" onClick={() => onChange({ faces: [] })}>
+                ぜんぶはずす
+              </button>
+              <button type="button" className={preview ? "active" : ""} aria-pressed={preview} onClick={() => onPreview(!preview)} data-testid="op-preview">
+                {preview ? "面をえらびなおす" : "できあがりを見る"}
+              </button>
+            </div>
+          )}
+        </>
+      )}
+
       {draft.type === "mirror" && <MirrorFields draft={draft} copyable={copyable} onChange={onChange} />}
 
       {draft.type === "pattern" && (
@@ -220,7 +251,7 @@ export function OpPanel({ doc, draft, pro, error, warning, busy, preview, variab
         <button type="button" onClick={onCancel}>
           やめる
         </button>
-        <button type="button" className="primary" onClick={onOk} disabled={!!error || busy || (draft.type === "fillet" && draft.edges.length === 0)} data-testid="op-ok">
+        <button type="button" className="primary" onClick={onOk} disabled={!!error || busy || (draft.type === "fillet" && draft.edges.length === 0) || (draft.type === "shell" && draft.faces.length === 0)} data-testid="op-ok">
           OK
         </button>
       </div>
@@ -256,7 +287,41 @@ function panelTitle(draft: OpFeature, pro: boolean): string {
       return term("mirror", pro);
     case "pattern":
       return term("pattern", pro);
+    case "loft":
+      return term("loft", pro);
+    case "shell":
+      return term("shell", pro);
   }
+}
+
+/**
+ * つなぐスケッチをえらぶ。タップした順が、つなぐ順になる(番号を出す)。
+ * もう一度タップすると外す。
+ */
+function LoftSketches({ sketches, value, onChange }: { sketches: SketchFeature[]; value: string[]; onChange: (ids: string[]) => void }) {
+  return (
+    <div className="field">
+      <span>つなぐスケッチ(タップした順につなぎます)</span>
+      <div className="loft-list" data-testid="op-loft-sketches">
+        {sketches.map((s) => {
+          const n = value.indexOf(s.id);
+          return (
+            <button
+              key={s.id}
+              type="button"
+              className={n >= 0 ? "active" : ""}
+              aria-pressed={n >= 0}
+              onClick={() => onChange(n >= 0 ? value.filter((id) => id !== s.id) : [...value, s.id])}
+            >
+              <span className="loft-num">{n >= 0 ? n + 1 : ""}</span>
+              {s.name}
+              <small>{planeLabel(s.plane)}</small>
+            </button>
+          );
+        })}
+      </div>
+    </div>
+  );
 }
 
 // ---- 小さな部品 ----

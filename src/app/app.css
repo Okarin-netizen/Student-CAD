@@ -1533,3 +1533,62 @@ button.danger {
   color: #fff;
   border-color: #ffffff55;
 }
+
+/* ---- フェーズ4: つなぐ・くりぬく・面をずらす ---- */
+
+.more-menu {
+  left: 0;
+  right: auto;
+}
+
+.plane-offset {
+  margin-top: 8px;
+}
+
+.plane-offset > span {
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.loft-list {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.loft-list button {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  text-align: left;
+}
+
+.loft-list small {
+  margin-left: auto;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.loft-num {
+  width: 24px;
+  height: 24px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  font-size: 0.85rem;
+}
+
+.loft-list .active .loft-num {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
+
+.plane-buttons small {
+  display: block;
+  font-weight: 400;
+  font-size: 0.78rem;
+  color: var(--muted);
+}

@@ -29,6 +29,8 @@ export const USE_WORDS: Record<Extract<AssignmentCheck, { kind: "uses" }>["featu
   fillet: "角を丸める・落とす",
   mirror: "対称にする",
   pattern: "ならべる",
+  loft: "つなぐ(ロフト)",
+  shell: "くりぬく",
   text: "文字",
 };
 

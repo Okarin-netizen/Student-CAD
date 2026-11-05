@@ -5,7 +5,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { make_gcs_wrapper, type GcsWrapper } from "@salusoft89/planegcs";
 import gcsWasmUrl from "@salusoft89/planegcs/dist/planegcs_dist/planegcs.wasm?url";
 import { BASE_PLANE_LABELS, planeFromFace, resolvePlane } from "../doc/planes";
-import { edgesOnPlane } from "./sketch/references";
+import { edgesOnPlane, linesProjected } from "./sketch/references";
 import type { BasePlaneName, CadDocument, EdgeRef, Vec3 } from "../doc/types";
 import { evaluateChecks } from "../doc/assignment";
 import type { Template } from "../doc/templates";
@@ -40,6 +40,8 @@ import {
   startFillet,
   startMirror,
   startPattern,
+  startLoft,
+  startShell,
   startRevolve,
   startPickPlane,
   startSketch,
@@ -49,7 +51,7 @@ import {
   useStore,
 } from "./store";
 import { term } from "./terms";
-import { Viewer3D, type PickResult } from "./Viewer3D";
+import { Viewer3D, faceGroupAt, type PickResult } from "./Viewer3D";
 import { VariablesPanel } from "./VariablesPanel";
 import { DrawingView } from "./DrawingView";
 import { AssignmentCard, AssignmentEditor } from "./AssignmentPanel";
@@ -58,7 +60,7 @@ import { ReplayBar } from "./ReplayBar";
 import { NewDialog } from "./NewDialog";
 import { Tutorial, markTutorialSeen, tutorialSeen } from "./Tutorial";
 import { emptyDocument } from "../doc/types";
-import type { PadVariable } from "./NumberPad";
+import { NumberPad, type PadVariable } from "./NumberPad";
 import "./app.css";
 
 const EMPTY = new Float32Array(0);
@@ -182,7 +184,12 @@ export function App() {
     // 文字だけのスケッチ(名札の文字など)も押し出せる
     const hasText = sk.entities.some((e) => e.type === "text");
     if (used) return;
-    if (regions > 0 && hasAxis) startRevolve(sk.id);
+    // ずらした面にかいたとき、まだ使っていない形のスケッチがほかにあれば「つなぐ」をすすめる
+    const unusedOther = s.doc.features.some(
+      (f) => f.type === "sketch" && f.id !== sk.id && !s.doc.features.some((g) => (g.type === "extrude" || g.type === "revolve") && g.sketchId === f.id) && !s.doc.features.some((g) => g.type === "loft" && g.sketchIds.includes(f.id)),
+    );
+    if (regions === 1 && sk.plane.kind === "offset" && unusedOther) startLoft();
+    else if (regions > 0 && hasAxis) startRevolve(sk.id);
     else if (regions > 0 || hasText) startExtrude(sk.id);
     else toast("閉じた形がないので、まだ立体にはできません");
   };
@@ -201,6 +208,26 @@ export function App() {
     updateOp({ edges: op.edges.some(near) ? op.edges.filter((e) => !near(e)) : [...op.edges, { mid }] });
   };
   const filletPicking = mode === "op" && s.draftOp?.type === "fillet" && !s.opPreview;
+
+  /** くりぬく面をえらぶ / はずす(同じ面をもう一度タップしたら、はずす) */
+  const toggleFace = (point: Vec3, normal: Vec3) => {
+    const op = s.draftOp;
+    const m = s.result?.mesh;
+    if (op?.type !== "shell" || !m) return;
+    const g = faceGroupAt(m, point);
+    const same = op.faces.filter((f) => faceGroupAt(m, f.point) === g);
+    updateOp({ faces: same.length ? op.faces.filter((f) => !same.includes(f)) : [...op.faces, { point, normal }] });
+  };
+  const shellPicking = mode === "op" && s.draftOp?.type === "shell" && !s.opPreview;
+  /** 「そのほかの作業」メニュー(対称・ならべる・つなぐ・くりぬく) */
+  const [showMore, setShowMore] = useState(false);
+  /** 基準面をずらす量(mm)。0 ならそのままの基準面にかく */
+  const [planeOffset, setPlaneOffset] = useState(0);
+  const [offsetPad, setOffsetPad] = useState(false);
+  const pickBase = (name: BasePlaneName) => {
+    startSketch(planeOffset > 0 ? { kind: "offset", base: name, distance: planeOffset } : { kind: "base", name });
+    setPlaneOffset(0);
+  };
 
   const export3mf = async () => {
     const buf = await clientRef.current?.export3MF(s.doc.name || "作品");
@@ -295,7 +322,30 @@ export function App() {
   // スケッチ平面の上にある立体の輪郭(下がき)。面にかくとき、どこにかけばよいか分かるように
   const mesh = s.result?.mesh ?? null;
   const plane = sketchFeature?.plane;
-  const references = useMemo(() => (plane && mesh ? edgesOnPlane(mesh.edges, resolvePlane(plane)) : EMPTY), [plane, mesh]);
+  const sketchDisplays = s.result?.sketches;
+  const draftId = sketchFeature?.id;
+  const references = useMemo(() => {
+    if (!plane) return EMPTY;
+    const p = resolvePlane(plane);
+    const parts: Float32Array[] = mesh ? [edgesOnPlane(mesh.edges, p)] : [];
+    // 平行な面にかいたほかのスケッチ(「つなぐ」の下の形など)も下がきにする
+    for (const d of sketchDisplays ?? []) {
+      if (d.featureId === draftId) continue;
+      const other = s.doc.features.find((f) => f.id === d.featureId);
+      if (other?.type !== "sketch") continue;
+      const q = resolvePlane(other.plane);
+      if (Math.abs(Math.abs(q.normal[0] * p.normal[0] + q.normal[1] * p.normal[1] + q.normal[2] * p.normal[2]) - 1) > 1e-6) continue;
+      parts.push(linesProjected(d.lines, p));
+    }
+    if (parts.length === 1) return parts[0];
+    const out = new Float32Array(parts.reduce((n, a) => n + a.length, 0));
+    let o = 0;
+    for (const a of parts) {
+      out.set(a, o);
+      o += a.length;
+    }
+    return out;
+  }, [plane, mesh, sketchDisplays, draftId, s.doc.features]);
 
   return (
     <div className={`app mode-${mode}`}>
@@ -402,8 +452,9 @@ export function App() {
               picking={mode === "pickPlane"}
               onPick={onPick}
               onMessage={(t) => toast(t)}
-              ghost={mode === "op" && s.draftOp?.type !== "fillet"}
+              ghost={mode === "op" && s.draftOp?.type !== "fillet" && s.draftOp?.type !== "shell"}
               edgePick={filletPicking && s.draftOp?.type === "fillet" ? { selected: s.draftOp.edges.map((e) => e.mid), onToggle: toggleEdge } : null}
+              facePick={shellPicking && s.draftOp?.type === "shell" ? { selected: s.draftOp.faces.map((f) => f.point), onToggle: toggleFace } : null}
             />
           </div>
 
@@ -429,11 +480,40 @@ export function App() {
               <h3>どこに絵をかきますか?</h3>
               <div className="plane-buttons">
                 {(Object.keys(BASE_PLANE_LABELS) as BasePlaneName[]).map((n) => (
-                  <button key={n} type="button" data-testid={`plane-${n}`} onClick={() => startSketch({ kind: "base", name: n })}>
+                  <button key={n} type="button" data-testid={`plane-${n}`} onClick={() => pickBase(n)}>
                     {BASE_PLANE_LABELS[n]}
+                    {planeOffset > 0 && <small> から {planeOffset}mm</small>}
                   </button>
                 ))}
               </div>
+              <div className="field plane-offset">
+                <span>面をずらす(高さのちがう形をかいて「つなぐ」ときに使います)</span>
+                <div className="stepper">
+                  <button type="button" aria-label="ずらす量を小さく" onClick={() => setPlaneOffset((v) => Math.max(0, v - 5))}>
+                    −
+                  </button>
+                  <button type="button" className="stepper-value" onClick={() => setOffsetPad(true)} data-testid="plane-offset">
+                    {planeOffset} mm
+                  </button>
+                  <button type="button" aria-label="ずらす量を大きく" onClick={() => setPlaneOffset((v) => v + 5)}>
+                    ＋
+                  </button>
+                </div>
+              </div>
+              {offsetPad && (
+                <NumberPad
+                  title="面をずらす量を入れる"
+                  unit="mm"
+                  initial={planeOffset}
+                  allowZero
+                  variables={padVariables}
+                  onSubmit={(v) => {
+                    setPlaneOffset(v);
+                    setOffsetPad(false);
+                  }}
+                  onCancel={() => setOffsetPad(false)}
+                />
+              )}
               {hasBody && (
                 <p className="plane-hint" data-testid="face-hint">
                   👆 立体の平らな面をタップすると、その面にかけます(指した面がオレンジになります)
@@ -483,12 +563,37 @@ export function App() {
             <button type="button" className="step" onClick={() => startFillet()} data-testid="new-fillet">
               ◜ {term("fillet", pro)}
             </button>
-            <button type="button" className="step" onClick={startMirror} data-testid="new-mirror">
-              🪞 {term("mirror", pro)}
-            </button>
-            <button type="button" className="step" onClick={startPattern} data-testid="new-pattern">
-              ⋯ {term("pattern", pro)}
-            </button>
+            <div className="export-wrap">
+              <button type="button" className="step" onClick={() => setShowMore((v) => !v)} aria-expanded={showMore} data-testid="open-more">
+                ＋ そのほか
+              </button>
+              {showMore && (
+                <div className="export-menu more-menu" role="menu" aria-label="そのほかの作業">
+                  {(
+                    [
+                      ["new-mirror", `🪞 ${term("mirror", pro)}`, "立体を鏡に写して、左右対称などにする", startMirror],
+                      ["new-pattern", `⋯ ${term("pattern", pro)}`, "穴などを、まっすぐや円のまわりにならべる", startPattern],
+                      ["new-loft", `🔺 ${term("loft", pro)}`, "高さのちがう面にかいた形を、なめらかにつなぐ", startLoft],
+                      ["new-shell", `🥛 ${term("shell", pro)}`, "面を1つ取りのぞいて、中をからにする(ペン立て・コップ)", startShell],
+                    ] as const
+                  ).map(([id, label, desc, run]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      role="menuitem"
+                      data-testid={id}
+                      onClick={() => {
+                        setShowMore(false);
+                        run();
+                      }}
+                    >
+                      <strong>{label}</strong>
+                      <small>{desc}</small>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
           <span className="step-arrow" aria-hidden>
             ▶
