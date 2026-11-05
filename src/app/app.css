@@ -1061,13 +1061,17 @@ button.danger {
   margin-left: auto;
 }
 
+.drawing-author + .drawing-author {
+  margin-left: 0;
+}
+
 .drawing-author input {
   min-height: var(--touch);
   padding: 6px 10px;
   border: var(--bw) solid var(--border);
   border-radius: 10px;
   font-size: 1rem;
-  width: 12em;
+  width: 9em;
   -webkit-user-select: text;
   user-select: text;
 }

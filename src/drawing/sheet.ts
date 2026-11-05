@@ -9,8 +9,8 @@ import type { DrawingKind, ProjectedView } from "../kernel/projection";
 
 export const PAPER = { width: 297, height: 210 } as const;
 
-/** 外形線・かくれ線・寸法線(細線)・わく・中心線(一点鎖線) */
-export type LineStyle = "visible" | "hidden" | "dim" | "frame" | "center";
+/** 外形線・かくれ線・寸法線(細線)・わく・中心線(一点鎖線)・矢印(ぬりつぶした三角) */
+export type LineStyle = "visible" | "hidden" | "dim" | "frame" | "center" | "arrow";
 
 export interface SheetLine {
   style: LineStyle;
@@ -43,6 +43,10 @@ export interface SheetOptions {
   author: string;
   /** 全体の寸法(はば・高さ・奥行き)を入れるか。第三角法のときだけ */
   dimensions: boolean;
+  /** 材料(表題欄に書く。空なら手で書けるように空けておく) */
+  material?: string;
+  /** 日付(表題欄に書く。例 "2026/11/05") */
+  date?: string;
 }
 
 export const KIND_LABELS: Record<DrawingKind, string> = {
@@ -65,9 +69,9 @@ const SCALES: { s: number; label: string }[] = [
   { s: 1 / 100, label: "1:100" },
 ];
 
-// 用紙のわく(左下 10mm、右上 287×200)と表題欄(右下 100×28)
+// 用紙のわく(JIS: A4 は紙のはしから 10mm の輪郭線)と表題欄(右下 130×32)
 const FRAME = { x0: 10, y0: 10, x1: 287, y1: 200 };
-const TITLE = { w: 110, h: 28 };
+const TITLE = { w: 130, h: 32 };
 /** 図をかける場所(表題欄の上と、わくの内側) */
 const AREA = { x0: 18, y0: FRAME.y0 + TITLE.h + 6, x1: 279, y1: 194 };
 /** 図と図のすき間、寸法のための余白(用紙の mm) */
@@ -123,8 +127,9 @@ export function buildSheet(views: ProjectedView[], opts: SheetOptions): Sheet {
   };
 
   const boxes = views.map(viewBounds);
-  if (opts.kind === "thirdAngle" && boxes.every(Boolean)) {
+  if (opts.kind === "thirdAngle" && boxes.slice(0, 3).every(Boolean)) {
     const [fb, tb, rb] = boxes as Box[];
+    const iso = views[3] && boxes[3] ? { view: views[3], box: boxes[3] } : null;
     const [W, H] = size(fb);
     const D = size(tb)[1];
     const dimRoom = opts.dimensions ? DIM_ROOM : 0;
@@ -134,7 +139,8 @@ export function buildSheet(views: ProjectedView[], opts: SheetOptions): Sheet {
     // 正面図を左下、平面図をその上、右側面図をその右に置き、全体を真ん中にする
     const groupW = (W + D) * s + GAP;
     const groupH = (H + D) * s + GAP;
-    const ox = (AREA.x0 + AREA.x1 - groupW) / 2 + dimRoom / 2;
+    // 等角図もそえるときは、三面図を左に寄せて、右のあいた所に等角図を置く
+    const ox = iso ? AREA.x0 + dimRoom + 4 : (AREA.x0 + AREA.x1 - groupW) / 2 + dimRoom / 2;
     const oy = (AREA.y0 + AREA.y1 - groupH) / 2 + dimRoom / 2;
     place(views[0], fb, [ox, oy], s);
     place(views[1], tb, [ox, oy + H * s + GAP], s, opts.dimensions);
@@ -146,6 +152,27 @@ export function buildSheet(views: ProjectedView[], opts: SheetOptions): Sheet {
       dimension(lines, texts, [ox, oy], [ox + W * s, oy], -9, W, "below");
       dimension(lines, texts, [ox, oy], [ox, oy + H * s], -9, H, "left");
       dimension(lines, texts, [ox + W * s + GAP, oy], [ox + W * s + GAP + D * s, oy], -9, D, "below");
+    }
+    if (iso) {
+      // あいている所: 右側面図の上(平面図の右)と、右側面図の右
+      const rightX = ox + W * s + GAP;
+      const regions: Box[] = [
+        { min: [rightX, oy + H * s + GAP], max: [AREA.x1, AREA.y1 - 6] },
+        { min: [rightX + D * s + GAP, AREA.y0], max: [AREA.x1, AREA.y1 - 6] },
+      ];
+      const [iw, ih] = size(iso.box);
+      let best: { region: Box; c: (typeof SCALES)[number] } | null = null;
+      for (const region of regions) {
+        const [rw, rh] = size(region);
+        const c = SCALES.find((c) => c.s <= s && iw * c.s <= rw && ih * c.s <= rh);
+        if (c && (!best || c.s > best.c.s)) best = { region, c };
+      }
+      if (best && Math.max(iw, ih) * best.c.s >= 25) {
+        const [rw, rh] = size(best.region);
+        const at: Vec2 = [best.region.min[0] + (rw - iw * best.c.s) / 2, best.region.min[1] + (rh - ih * best.c.s) / 2];
+        place(iso.view, iso.box, at, best.c.s);
+        labelView(texts, best.c.s === s ? "等角図" : `等角図(${best.c.label})`, [at[0] + (iw * best.c.s) / 2, at[1] + ih * best.c.s + 3]);
+      }
     }
   } else if (boxes[0]) {
     const b = boxes[0];
@@ -170,22 +197,32 @@ function labelView(texts: SheetText[], text: string, at: Vec2) {
  */
 function dimension(lines: SheetLine[], texts: SheetText[], a: Vec2, b: Vec2, offset: number, value: number, side: "below" | "left") {
   const text = formatMm(value);
-  const arrow = 2.5;
   if (side === "below") {
     const y = a[1] + offset;
-    lines.push({ style: "dim", points: [a, [a[0], y - 1.5]] }, { style: "dim", points: [b, [b[0], y - 1.5]] });
+    // 寸法補助線は、寸法線より 2mm 先まで出す(JIS)
+    lines.push({ style: "dim", points: [[a[0], a[1] - 1], [a[0], y - 2]] }, { style: "dim", points: [[b[0], b[1] - 1], [b[0], y - 2]] });
     lines.push({ style: "dim", points: [[a[0], y], [b[0], y]] });
-    lines.push({ style: "dim", points: [[a[0] + arrow, y + 0.9], [a[0], y], [a[0] + arrow, y - 0.9]] });
-    lines.push({ style: "dim", points: [[b[0] - arrow, y + 0.9], [b[0], y], [b[0] - arrow, y - 0.9]] });
+    lines.push(arrow([a[0], y], [1, 0]), arrow([b[0], y], [-1, 0]));
     texts.push({ at: [(a[0] + b[0]) / 2, y + 1.2], text, size: 3.5, anchor: "middle" });
   } else {
     const x = a[0] + offset;
-    lines.push({ style: "dim", points: [a, [x - 1.5, a[1]]] }, { style: "dim", points: [b, [x - 1.5, b[1]]] });
+    lines.push({ style: "dim", points: [[a[0] - 1, a[1]], [x - 2, a[1]]] }, { style: "dim", points: [[b[0] - 1, b[1]], [x - 2, b[1]]] });
     lines.push({ style: "dim", points: [[x, a[1]], [x, b[1]]] });
-    lines.push({ style: "dim", points: [[x - 0.9, a[1] + arrow], [x, a[1]], [x + 0.9, a[1] + arrow]] });
-    lines.push({ style: "dim", points: [[x - 0.9, b[1] - arrow], [x, b[1]], [x + 0.9, b[1] - arrow]] });
+    lines.push(arrow([x, a[1]], [0, 1]), arrow([x, b[1]], [0, -1]));
     texts.push({ at: [x - 1.2, (a[1] + b[1]) / 2], text, size: 3.5, anchor: "middle", rotate: 90 });
   }
+}
+
+/** 先が tip にあり、dir の向きに開く、ぬりつぶした矢印(長さ 3mm・開き 約 20°) */
+function arrow(tip: Vec2, dir: Vec2): SheetLine {
+  const [dx, dy] = dir;
+  const len = 3;
+  const half = 0.55;
+  const base: Vec2 = [tip[0] + dx * len, tip[1] + dy * len];
+  return {
+    style: "arrow",
+    points: [tip, [base[0] - dy * half, base[1] + dx * half], [base[0] + dy * half, base[1] - dx * half], tip],
+  };
 }
 
 /** 直径の引き出し線の向き(外の円は右上、内の円は左上) */
@@ -214,31 +251,91 @@ function diameter(lines: SheetLine[], texts: SheetText[], c: Vec2, rPaper: numbe
   const text = `⌀${formatMm(value)}`;
   const end: Vec2 = [elbow[0] + sx * (text.length * 2.2 + 1), elbow[1]];
   lines.push({ style: "dim", points: [edge, elbow, end] });
-  lines.push({ style: "dim", points: [[edge[0] + sx * 2.2, edge[1] + sy * 0.8], edge, [edge[0] + sx * 0.8, edge[1] + sy * 2.2]] });
+  lines.push(arrow(edge, [sx * Math.SQRT1_2, sy * Math.SQRT1_2]));
   texts.push({ at: [elbow[0] + sx * 0.5, elbow[1] + 1], text, size: 3.2, anchor: sx > 0 ? "start" : "end" });
 }
 
-/** わくと表題欄 */
+/** わく(輪郭線)・中心マーク・表題欄 */
 function frameAndTitle(lines: SheetLine[], texts: SheetText[], opts: SheetOptions, scaleLabel: string) {
   const { x0, y0, x1, y1 } = FRAME;
   lines.push({ style: "frame", points: [[x0, y0], [x1, y0], [x1, y1], [x0, y1], [x0, y0]] });
+  // 中心マーク: 紙のはしから輪郭線の内側 5mm まで、4辺のまん中に引く(JIS)
+  const mx = PAPER.width / 2;
+  const my = PAPER.height / 2;
+  lines.push(
+    { style: "frame", points: [[mx, 0], [mx, y0 + 5]] },
+    { style: "frame", points: [[mx, PAPER.height], [mx, y1 - 5]] },
+    { style: "frame", points: [[0, my], [x0 + 5, my]] },
+    { style: "frame", points: [[PAPER.width, my], [x1 - 5, my]] },
+  );
+
+  // 表題欄(右下)
+  //  ┌────┬──────────────────────────┐
+  //  │図名│ 作品名                    │
+  //  ├────┼───────────┬──────────────┤
+  //  │尺度│ 1:2        │ 投影法       │
+  //  ├────┼───────────┤  (記号)      │
+  //  │材料│            │              │
+  //  ├────┼───────────┼──────────────┤
+  //  │氏名│ 名前       │ 日付         │
+  //  └────┴───────────┴──────────────┘
   const tx = x1 - TITLE.w;
   const ty = y0 + TITLE.h;
   const row = TITLE.h / 4;
+  const labelW = 16;
+  const rightW = 42;
+  const rx = x1 - rightW;
   lines.push({ style: "frame", points: [[tx, y0], [tx, ty], [x1, ty]] });
-  for (let i = 1; i < 4; i++) lines.push({ style: "dim", points: [[tx, y0 + row * i], [x1, y0 + row * i]] });
-  lines.push({ style: "dim", points: [[tx + 22, y0], [tx + 22, ty]] });
-  const rows: [string, string][] = [
-    ["作品名", opts.title || "(なし)"],
-    ["名前", opts.author || ""],
-    ["図", KIND_LABELS[opts.kind]],
-    ["尺度", `${scaleLabel}   単位 mm`],
-  ];
-  rows.forEach(([k, v], i) => {
-    const y = ty - row * (i + 1) + 2;
-    texts.push({ at: [tx + 11, y], text: k, size: 3, anchor: "middle" });
-    texts.push({ at: [tx + 25, y], text: v, size: 3.2, anchor: "start" });
-  });
+  for (let i = 1; i < 4; i++) {
+    const y = y0 + row * i;
+    // 投影法の欄(2段目と3段目)は横線で切らない
+    lines.push({ style: "dim", points: [[tx, y], [i === 2 ? rx : x1, y]] });
+  }
+  lines.push({ style: "dim", points: [[tx + labelW, y0], [tx + labelW, ty]] });
+  lines.push({ style: "dim", points: [[rx, y0], [rx, ty - row]] });
+
+  const rowY = (i: number) => ty - row * i + 2.6; // i 段目(上から 1, 2, 3, 4)の文字の高さ
+  const label = (i: number, text: string) => texts.push({ at: [tx + labelW / 2, rowY(i)], text, size: 2.8, anchor: "middle" });
+  const value = (i: number, text: string, x = tx + labelW + 2.5, size = 3.5) => texts.push({ at: [x, rowY(i)], text, size, anchor: "start" });
+  label(1, "図名");
+  value(1, opts.title || "(なし)", undefined, 4);
+  label(2, "尺度");
+  value(2, scaleLabel);
+  label(3, "材料");
+  if (opts.material) value(3, opts.material);
+  label(4, "氏名");
+  value(4, opts.author || "");
+  texts.push({ at: [rx + 2.5, rowY(4)], text: `日付  ${opts.date ?? ""}`, size: 2.8, anchor: "start" });
+
+  // 投影法の欄: 第三角法なら記号をかく。等角図・キャビネット図は図の種類を書く
+  const cellTop = ty - row;
+  const cellCx = rx + rightW / 2;
+  if (opts.kind === "thirdAngle") {
+    texts.push({ at: [cellCx, cellTop - 3.6], text: "第三角法", size: 2.8, anchor: "middle" });
+    thirdAngleSymbol(lines, [cellCx, cellTop - row - 2.2]);
+  } else {
+    texts.push({ at: [cellCx, cellTop - row + 0.6], text: KIND_LABELS[opts.kind], size: 3.2, anchor: "middle" });
+  }
+}
+
+/**
+ * 第三角法の記号(JIS B 0001): 円すい台を横から見た図(台形)と、その右に右から見た図(2つの円)。
+ * 右から見るので、細い方が右になる。
+ */
+function thirdAngleSymbol(lines: SheetLine[], c: Vec2) {
+  const [cx, cy] = c;
+  const big = 3.2;
+  const small = 1.6;
+  const left = cx - 12;
+  const right = cx - 2;
+  lines.push({ style: "visible", points: [[left, cy - big], [right, cy - small], [right, cy + small], [left, cy + big], [left, cy - big]] });
+  const ccx = cx + 7;
+  lines.push({ style: "visible", points: circlePoints([ccx, cy], big) }, { style: "visible", points: circlePoints([ccx, cy], small) });
+  lines.push({ style: "center", points: [[left - 1.5, cy], [right + 1.5, cy]] }, { style: "center", points: [[ccx - big - 1.5, cy], [ccx + big + 1.5, cy]] }, { style: "center", points: [[ccx, cy - big - 1.5], [ccx, cy + big + 1.5]] });
+}
+
+function circlePoints(c: Vec2, r: number, n = 36): Vec2[] {
+  return Array.from({ length: n + 1 }, (_, i) => [c[0] + r * Math.cos((i / n) * Math.PI * 2), c[1] + r * Math.sin((i / n) * Math.PI * 2)] as Vec2);
 }
 
 /** 寸法の数字。整数ならそのまま、そうでなければ小数1けたまで */
@@ -249,12 +346,14 @@ export function formatMm(v: number): string {
 
 // ---- SVG ----
 
+// 線の太さは JIS の 太線 0.5・細線 0.25 にそろえる(わくは 0.7)
 const SVG_STYLE: Record<LineStyle, string> = {
   visible: 'stroke="#000" stroke-width="0.5"',
-  hidden: 'stroke="#000" stroke-width="0.3" stroke-dasharray="2.5 1.2"',
-  dim: 'stroke="#000" stroke-width="0.2"',
+  hidden: 'stroke="#000" stroke-width="0.35" stroke-dasharray="3 1"',
+  dim: 'stroke="#000" stroke-width="0.25"',
   frame: 'stroke="#000" stroke-width="0.7"',
-  center: 'stroke="#000" stroke-width="0.2" stroke-dasharray="5 1 1 1"',
+  center: 'stroke="#000" stroke-width="0.25" stroke-dasharray="8 1.2 1.2 1.2"',
+  arrow: 'stroke="#000" stroke-width="0.1" fill="#000"',
 };
 
 const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
@@ -269,9 +368,10 @@ export function sheetToSVG(sheet: Sheet): string {
     '<g fill="none" stroke-linecap="round" stroke-linejoin="round">',
   ];
   for (const l of sheet.lines) {
-    out.push(`<polyline ${SVG_STYLE[l.style]} points="${l.points.map(([x, y]) => `${n2(x)},${n2(H - y)}`).join(" ")}"/>`);
+    const tag = l.style === "arrow" ? "polygon" : "polyline";
+    out.push(`<${tag} ${SVG_STYLE[l.style]} points="${l.points.map(([x, y]) => `${n2(x)},${n2(H - y)}`).join(" ")}"/>`);
   }
-  out.push("</g>", '<g fill="#000" font-family="sans-serif">');
+  out.push("</g>", '<g fill="#000" font-family="\'BIZ UDPGothic\', \'BIZ UDPゴシック\', \'Hiragino Sans\', \'Noto Sans JP\', sans-serif">');
   for (const t of sheet.texts) {
     const [x, y] = [n2(t.at[0]), n2(H - t.at[1])];
     const rot = t.rotate ? ` transform="rotate(${-t.rotate} ${x} ${y})"` : "";
@@ -289,6 +389,7 @@ const DXF_LAYERS: Record<LineStyle, { name: string; ltype: string; color: number
   dim: { name: "DIMENSION", ltype: "CONTINUOUS", color: 3 },
   frame: { name: "FRAME", ltype: "CONTINUOUS", color: 7 },
   center: { name: "CENTER", ltype: "CENTER", color: 1 },
+  arrow: { name: "DIMENSION", ltype: "CONTINUOUS", color: 3 },
 };
 
 /** 日本語は R12 の決まりで \U+XXXX と書く */

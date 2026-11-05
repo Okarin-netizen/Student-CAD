@@ -57,7 +57,8 @@ describe("図をかく(投影)", () => {
     const views = projectViews(holed, "thirdAngle", false);
     expect(views[1].circles).toEqual([{ c: [20, 10], r: 4 }]);
     const sheet = buildSheet(views, { kind: "thirdAngle", title: "", author: "", dimensions: true });
-    expect(sheet.lines.filter((l) => l.style === "center")).toHaveLength(2);
+    // 穴の中心線 2 本 + 表題欄の第三角法の記号の中心線 3 本
+    expect(sheet.lines.filter((l) => l.style === "center")).toHaveLength(5);
     expect(sheet.texts.map((t) => t.text)).toContain("⌀8");
   });
 
