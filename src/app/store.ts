@@ -18,6 +18,8 @@ import {
   type SketchFeature,
   type DocMeta,
   type Assignment,
+  type LoftFeature,
+  type ShellFeature,
 } from "../doc/types";
 import type { RebuildReply } from "../worker/cad.worker";
 import type { SketchData } from "../sketch/edit";
@@ -36,10 +38,10 @@ export type Mode =
   | { kind: "replay"; step: number };
 
 /** スケッチ以外の作業 */
-export type OpFeature = ExtrudeFeature | RevolveFeature | FilletFeature | MirrorFeature | PatternFeature;
+export type OpFeature = ExtrudeFeature | RevolveFeature | FilletFeature | MirrorFeature | PatternFeature | LoftFeature | ShellFeature;
 
 /** ミラー・パターンで写せる作業(形を作った作業) */
-export const COPYABLE_TYPES = ["extrude", "revolve", "mirror", "pattern"] as const;
+export const COPYABLE_TYPES = ["extrude", "revolve", "mirror", "pattern", "loft"] as const;
 export const isCopyable = (f: Feature) => (COPYABLE_TYPES as readonly string[]).includes(f.type);
 
 export interface State {
@@ -275,14 +277,43 @@ function pickSketch(sketchId?: Id): Id | null {
     toast("先にスケッチ(絵)をかいてください", "error");
     return null;
   }
-  const used = new Set(state.doc.features.flatMap((f) => (f.type === "extrude" || f.type === "revolve" ? [f.sketchId] : [])));
+  const used = usedSketches();
   return sketchId ?? [...sketches].reverse().find((s) => !used.has(s.id))?.id ?? sketches.at(-1)!.id;
 }
 
 const names = () => state.doc.features.map((f) => f.name);
 
+/** 立体を作るのにもう使ったスケッチ */
+function usedSketches(): Set<Id> {
+  return new Set(state.doc.features.flatMap((f) => (f.type === "extrude" || f.type === "revolve" ? [f.sketchId] : f.type === "loft" ? f.sketchIds : [])));
+}
+
+/** つなぐ(ロフト)。まだ使っていないスケッチを、かいた順に全部えらんでおく */
+export function startLoft() {
+  const used = usedSketches();
+  const free = sketchesOf().filter((s) => !used.has(s.id));
+  if (sketchesOf().length < 2) {
+    toast("つなぐには、高さのちがう面にかいたスケッチが2つ以上いります", "error");
+    return;
+  }
+  const pick = (free.length >= 2 ? free : sketchesOf().slice(-2)).map((s) => s.id);
+  startOp({ id: newId("lf"), type: "loft", name: nextName("ロフト", names()), sketchIds: pick, operation: "add", ruled: false });
+}
+
+/** くりぬく。取りのぞく面は 3D でタップしてえらぶ */
+export function startShell() {
+  if (!state.result?.mesh) {
+    toast("先に立体を作ってください", "error");
+    return;
+  }
+  startOp({ id: newId("sh"), type: "shell", name: nextName("くりぬき", names()), thickness: 2, faces: [] });
+}
+
+/** 3D で辺や面をえらぶ作業(えらぶ間は、その作業の前の形を見せる) */
+export const picksOnBody = (f: Feature) => f.type === "fillet" || f.type === "shell";
+
 function startOp(op: OpFeature) {
-  setState({ mode: { kind: "op", isNew: true }, draftOp: op, opPreview: op.type !== "fillet", selectedFeature: null });
+  setState({ mode: { kind: "op", isNew: true }, draftOp: op, opPreview: !picksOnBody(op), selectedFeature: null });
 }
 
 export function startExtrude(sketchId?: Id) {
@@ -376,7 +407,7 @@ export function editFeature(id: Id) {
   if (f.type === "sketch") {
     setState({ mode: { kind: "sketch", isNew: false }, draftSketch: f, sketchPast: [], sketchFuture: [], selectedFeature: id });
   } else {
-    setState({ mode: { kind: "op", isNew: false }, draftOp: f, opPreview: f.type !== "fillet", selectedFeature: id });
+    setState({ mode: { kind: "op", isNew: false }, draftOp: f, opPreview: !picksOnBody(f), selectedFeature: id });
   }
 }
 
@@ -385,8 +416,8 @@ export function dependents(doc: CadDocument, id: Id): Feature[] {
   const gone = new Set([id]);
   const out: Feature[] = [];
   for (const f of doc.features) {
-    const uses = (f.type === "extrude" || f.type === "revolve") ? f.sketchId : f.type === "mirror" || f.type === "pattern" ? f.source : null;
-    if (uses && gone.has(uses)) {
+    const uses = f.type === "extrude" || f.type === "revolve" ? [f.sketchId] : f.type === "mirror" || f.type === "pattern" ? [f.source] : f.type === "loft" ? f.sketchIds : [];
+    if (uses.some((u) => gone.has(u))) {
       gone.add(f.id);
       out.push(f);
     }

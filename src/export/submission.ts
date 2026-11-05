@@ -88,6 +88,8 @@ const FEATURE_WORDS: Record<Feature["type"], string> = {
   fillet: "角を丸める・落とす",
   mirror: "対称にする",
   pattern: "ならべる",
+  loft: "つなぐ",
+  shell: "くりぬく",
 };
 
 function featureDetail(f: Feature): string {
@@ -104,6 +106,10 @@ function featureDetail(f: Feature): string {
       return f.source === "body" ? "立体ぜんぶ" : "作業1つ";
     case "pattern":
       return f.kind === "linear" ? `${f.count}${f.count2 > 1 ? `×${f.count2}` : ""} こ` : `${f.count} こ / ${f.angle}°`;
+    case "loft":
+      return `${f.operation === "cut" ? "けずる" : "くっつける"} スケッチ ${f.sketchIds.length} こ`;
+    case "shell":
+      return `あつさ ${f.thickness}mm ・ 面 ${f.faces.length} こ`;
   }
 }
 

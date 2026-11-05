@@ -26,6 +26,26 @@ export function edgesOnPlane(edges: Float32Array, plane: Plane3): Float32Array {
   return Float32Array.from(out);
 }
 
+/**
+ * ほかのスケッチの線(xyz の線分の並び)を、平行なスケッチ平面にまっすぐ写す。
+ * 「つなぐ」で上の形を下の形に合わせてかくときの下がきに使う。平行でない線分は使わない。
+ */
+export function linesProjected(lines: Float32Array, plane: Plane3): Float32Array {
+  const o = plane.origin;
+  const n = plane.normal;
+  const x = plane.xDir;
+  const y = planeYDir(plane);
+  const out: number[] = [];
+  for (let i = 0; i + 5 < lines.length; i += 6) {
+    const a: Vec3 = [lines[i] - o[0], lines[i + 1] - o[1], lines[i + 2] - o[2]];
+    const b: Vec3 = [lines[i + 3] - o[0], lines[i + 4] - o[1], lines[i + 5] - o[2]];
+    // 線分が平面と平行(両はしの高さが同じ)なものだけ
+    if (Math.abs(dot3(a, n) - dot3(b, n)) > ON_PLANE_MM) continue;
+    out.push(dot3(a, x), dot3(a, y), dot3(b, x), dot3(b, y));
+  }
+  return Float32Array.from(out);
+}
+
 /** 下がきの線の端の点(重なりは1つにまとめる)。曲線は細かい線分なので、角だけが残るように間引く */
 export function referenceCorners(segs: Float32Array): Vec2[] {
   const count = new Map<string, { p: Vec2; dirs: Vec2[] }>();

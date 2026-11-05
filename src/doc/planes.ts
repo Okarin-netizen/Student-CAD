@@ -17,7 +17,19 @@ export const BASE_PLANE_LABELS: Record<BasePlaneName, string> = {
 };
 
 export function resolvePlane(ref: PlaneRef): Plane3 {
-  return ref.kind === "base" ? BASE_PLANES[ref.name] : ref.plane;
+  if (ref.kind === "base") return BASE_PLANES[ref.name];
+  if (ref.kind === "offset") {
+    const b = BASE_PLANES[ref.base];
+    return { ...b, origin: scale3(b.normal, ref.distance) };
+  }
+  return ref.plane;
+}
+
+/** 平面の名前(「上の面」「上の面から 30mm」など) */
+export function planeLabel(ref: PlaneRef): string {
+  if (ref.kind === "base") return BASE_PLANE_LABELS[ref.name];
+  if (ref.kind === "offset") return `${BASE_PLANE_LABELS[ref.base]}から ${ref.distance}mm`;
+  return "立体の面";
 }
 
 export const add3 = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];

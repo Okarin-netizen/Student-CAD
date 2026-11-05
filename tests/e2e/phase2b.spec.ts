@@ -52,6 +52,7 @@ test("文字ツールで名前を入れ、押し出して名札にできる", as
 
 test("立体を対称にし、穴をならべられる", async ({ page }) => {
   await makePlate(page);
+  await page.getByTestId("open-more").click();
   await page.getByTestId("new-mirror").click();
   await expect(page.getByTestId("op-source")).toHaveValue("body");
   await page.getByTestId("op-plane-front").click();
@@ -71,6 +72,7 @@ test("立体を対称にし、穴をならべられる", async ({ page }) => {
   await page.getByTestId("op-ok").click();
   await expect(tree.locator("li")).toHaveCount(5);
 
+  await page.getByTestId("open-more").click();
   await page.getByTestId("new-pattern").click();
   await page.getByTestId("op-count").click();
   await page.getByTestId("numpad-input").fill("4");

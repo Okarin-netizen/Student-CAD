@@ -20,7 +20,9 @@ export type BasePlaneName = "top" | "front" | "right";
 export type PlaneRef =
   | { kind: "base"; name: BasePlaneName }
   /** 立体の平らな面。選んだときの位置で固定する(上流を変えても動かない) */
-  | { kind: "face"; featureId: Id; plane: Plane3 };
+  | { kind: "face"; featureId: Id; plane: Plane3 }
+  /** 基準面を、その向き(法線)に distance mm ずらした面(フェーズ4。ロフトで高さのちがう形をかくのに使う) */
+  | { kind: "offset"; base: BasePlaneName; distance: number };
 
 // ---- スケッチの図形 ----
 
@@ -222,10 +224,45 @@ export interface PatternFeature {
   exprs?: NumberExprs;
 }
 
+/**
+ * ロフト(つなぐ)。2つ以上のスケッチの形を、順番になめらかにつないだ立体を作る。
+ * どのスケッチも、閉じた形(穴なし)が1つだけ。
+ */
+export interface LoftFeature {
+  id: Id;
+  type: "loft";
+  name: string;
+  /** つなぐ順のスケッチ */
+  sketchIds: Id[];
+  operation: ExtrudeOperation;
+  /** true: となりの形をまっすぐ(平らな面で)つなぐ。false: なめらかにつなぐ */
+  ruled: boolean;
+  exprs?: NumberExprs;
+}
+
+/** 立体の平らな面の目印。えらんだときにタップした、面の上の点と、面の向き */
+export interface FaceRef {
+  point: Vec3;
+  normal: Vec3;
+}
+
+/**
+ * くりぬく(シェル)。えらんだ面を取りのぞき、のこりを thickness mm のあつさのからにする。
+ * ペン立てやコップの中をくりぬくのに使う。
+ */
+export interface ShellFeature {
+  id: Id;
+  type: "shell";
+  name: string;
+  thickness: number;
+  faces: FaceRef[];
+  exprs?: NumberExprs;
+}
+
 /** スケッチを使って立体を作る作業 */
 export type ProfileFeature = ExtrudeFeature | RevolveFeature;
 
-export type Feature = SketchFeature | ExtrudeFeature | RevolveFeature | FilletFeature | MirrorFeature | PatternFeature;
+export type Feature = SketchFeature | ExtrudeFeature | RevolveFeature | FilletFeature | MirrorFeature | PatternFeature | LoftFeature | ShellFeature;
 
 /**
  * 変数(名前のついた数)。寸法やあつさに名前で使える。

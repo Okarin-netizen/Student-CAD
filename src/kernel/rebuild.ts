@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 技術科　岡田
 
-import { Plane, draw, drawCircle, drawText, getFont, type Drawing, type Shape3D } from "replicad";
+import { FaceFinder, Plane, draw, drawCircle, drawText, getFont, type Drawing, type Shape3D } from "replicad";
 import type { GcsWrapper } from "@salusoft89/planegcs";
 import type {
   CadDocument,
@@ -12,12 +12,13 @@ import type {
   PatternFeature,
   Plane3,
   RevolveAxis,
+  ShellFeature,
   SketchFeature,
   Vec2,
   Vec3,
   WorldAxis,
 } from "../doc/types";
-import { BASE_PLANES, resolvePlane, scale3, toWorld } from "../doc/planes";
+import { BASE_PLANES, dot3, resolvePlane, scale3, toWorld } from "../doc/planes";
 import { pointPos, solveSketch } from "../sketch/solver";
 import { findProfiles, type Loop, type Region } from "../sketch/profiles";
 
@@ -110,6 +111,40 @@ export function rebuild(doc: CadDocument, gcs: GcsWrapper): RebuildOutput {
         statuses.push({ id: f.id, ok: true, warning: r.warning });
       } else {
         statuses.push({ id: f.id, ok: false, error: r.error });
+      }
+      continue;
+    }
+
+    if (f.type === "shell") {
+      if (!body) {
+        statuses.push({ id: f.id, ok: false, error: "くりぬく立体がまだありません" });
+        continue;
+      }
+      const r = applyShell(body, f);
+      if (r.ok) body = r.body;
+      statuses.push(r.ok ? { id: f.id, ok: true } : { id: f.id, ok: false, error: r.error });
+      continue;
+    }
+
+    if (f.type === "loft") {
+      const r = loftSketches(f.sketchIds.map((id) => solvedSketches.get(id)));
+      if (!r.ok) {
+        statuses.push({ id: f.id, ok: false, error: r.error });
+        continue;
+      }
+      for (const id of f.sketchIds) consumed.add(id);
+      if (f.operation === "cut" && !body) {
+        statuses.push({ id: f.id, ok: false, error: "けずる立体がまだありません" });
+        continue;
+      }
+      try {
+        const tool = r.make(f.ruled);
+        tools.set(f.id, { shape: tool, operation: f.operation });
+        body = combine(body, { shape: tool, operation: f.operation });
+        statuses.push({ id: f.id, ok: true });
+      } catch (err) {
+        console.warn(err);
+        statuses.push({ id: f.id, ok: false, error: "この形はつなげませんでした。形の向きや大きさを変えてみてください" });
       }
       continue;
     }
@@ -399,6 +434,63 @@ function distToEdge(e: { pointAt: (t: number) => { x: number; y: number; z: numb
     best = Math.min(best, Math.hypot(q.x - p[0], q.y - p[1], q.z - p[2]));
   }
   return best;
+}
+
+type LoftPrep = { ok: true; make: (ruled: boolean) => Shape3D } | { ok: false; error: string };
+
+/**
+ * ロフトの準備。どのスケッチも「閉じた形が1つ、穴なし」で、平面がちがうことを確かめる。
+ * 形はスケッチの順につなぐ。
+ */
+export function loftSketches(sketches: (SketchFeature | undefined)[]): LoftPrep {
+  if (sketches.length < 2) return { ok: false, error: "つなぐスケッチを2つ以上えらんでください" };
+  const loops: { loop: Loop; plane: Plane3 }[] = [];
+  for (const sk of sketches) {
+    if (!sk) return { ok: false, error: "使うスケッチが見つかりません" };
+    const { regions } = findProfiles(sk);
+    if (regions.length !== 1 || regions[0].holes.length > 0) {
+      return { ok: false, error: `「${sk.name}」には、閉じた形を1つだけ(穴なしで)かいてください` };
+    }
+    loops.push({ loop: regions[0].outer, plane: resolvePlane(sk.plane) });
+  }
+  for (let i = 1; i < loops.length; i++) {
+    const a = loops[i - 1].plane;
+    const b = loops[i].plane;
+    const d: Vec3 = [b.origin[0] - a.origin[0], b.origin[1] - a.origin[1], b.origin[2] - a.origin[2]];
+    const gap = dot3(d, a.normal);
+    if (Math.abs(gap) < 1e-6 && Math.abs(dot3(a.normal, b.normal)) > 1 - 1e-9) {
+      return { ok: false, error: "同じ面にかいたスケッチはつなげません。「面をずらす」で高さのちがう面にかいてください" };
+    }
+  }
+  return {
+    ok: true,
+    make: (ruled) => {
+      const [first, ...rest] = loops.map(({ loop, plane }) => loopDrawing(loop).sketchOnPlane(new Plane(plane.origin, plane.xDir, plane.normal)));
+      return (first as unknown as { loftWith: (o: unknown[], c: object) => Shape3D }).loftWith(rest, { ruled });
+    },
+  };
+}
+
+type ShellResult = { ok: true; body: Shape3D } | { ok: false; error: string };
+
+/** くりぬく。えらんだ面(タップした点をふくむ面)を取りのぞいて、thickness のあつさのからにする */
+export function applyShell(body: Shape3D, f: ShellFeature): ShellResult {
+  if (f.thickness <= 0) return { ok: false, error: "あつさは 0 より大きくしてください" };
+  if (f.faces.length === 0) return { ok: false, error: "取りのぞく面を、3D でタップしてえらんでください" };
+  // えらんだ点が、もう立体の面の上にないとき(前の作業で形が変わったとき)。少しの誤差は許す
+  const near = (p: Vec3) => new FaceFinder().atDistance(0, p, 1e-3).find(body).length > 0;
+  if (!f.faces.every((r) => near(r.point))) return { ok: false, error: "えらんだ面が見つかりません。面をえらび直してください" };
+  // のこすあつさが、立体のいちばんうすいところの半分より大きいと、中がなくなる
+  const [lo, hi] = body.boundingBox.bounds;
+  const thinnest = Math.min(hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]);
+  if (f.thickness * 2 >= thinnest) return { ok: false, error: `あつさが大きすぎます。${Math.floor((thinnest / 2) * 10) / 10}mm より小さくしてください` };
+  try {
+    const shelled = body.shell(f.thickness, (finder) => finder.either(f.faces.map((r) => (g: typeof finder) => g.atDistance(0, r.point, 1e-3))));
+    return { ok: true, body: shelled };
+  } catch (err) {
+    console.warn(err);
+    return { ok: false, error: "くりぬけませんでした。あつさを小さくしてみてください(丸めた角よりうすくします)" };
+  }
 }
 
 function loopDrawing(loop: Loop): Drawing {
