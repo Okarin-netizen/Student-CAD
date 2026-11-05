@@ -1450,3 +1450,86 @@ button.danger {
     gap: 6px;
   }
 }
+
+/* ---- 使い方ガイド ---- */
+
+.tutorial-ring {
+  position: fixed;
+  z-index: 900;
+  border: 3px solid #f08c00;
+  border-radius: 14px;
+  box-shadow: 0 0 0 4px #f08c0040;
+  pointer-events: none;
+  animation: tutorial-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes tutorial-pulse {
+  50% {
+    box-shadow: 0 0 0 10px #f08c0020;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tutorial-ring {
+    animation: none;
+  }
+}
+
+.tutorial-bubble {
+  position: fixed;
+  z-index: 901;
+  width: 340px;
+  max-width: calc(100vw - 24px);
+  padding: 14px 16px;
+  background: #1b2430;
+  color: #fff;
+  border-radius: 14px;
+  box-shadow: 0 8px 24px #0f172a40;
+}
+
+/* 光らせるボタンがないときは、3D の上のまん中に出す */
+.tutorial-bubble.floating {
+  left: 50%;
+  top: 96px;
+  transform: translateX(-50%);
+  width: 380px;
+}
+
+.tutorial-bubble p {
+  margin: 6px 0 10px;
+  line-height: 1.6;
+  font-size: 0.95rem;
+}
+
+.tutorial-title {
+  font-size: 1.05rem;
+}
+
+.tutorial-progress {
+  display: flex;
+  gap: 4px;
+  margin-bottom: 8px;
+}
+
+.tutorial-progress span {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: #ffffff33;
+}
+
+.tutorial-progress span.on {
+  background: #f08c00;
+}
+
+.tutorial-actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: 8px;
+}
+
+.tutorial-actions button:not(.primary) {
+  background: transparent;
+  color: #fff;
+  border-color: #ffffff55;
+}
