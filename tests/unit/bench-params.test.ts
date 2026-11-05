@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { DEFAULT_PARAMS, validateParams } from "../../src/model/params";
+import { DEFAULT_PARAMS, validateParams } from "../../src/bench/params";
 
 describe("validateParams", () => {
   it("初期値は作れる形", () => {

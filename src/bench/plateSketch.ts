@@ -1,5 +1,5 @@
 import { SolveStatus, type GcsWrapper, type SketchPrimitive } from "@salusoft89/planegcs";
-import type { PlateParams } from "../model/params";
+import type { PlateParams } from "./params";
 
 export type Vec2 = [number, number];
 

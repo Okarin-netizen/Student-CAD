@@ -1,4 +1,4 @@
-import type { InitReport, Timings } from "./worker/types";
+import type { InitReport, Timings } from "./types";
 
 /** 実機で計測した結果。この JSON をコピーして共有してもらう。 */
 export interface MetricsReport {

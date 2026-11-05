@@ -4,7 +4,7 @@ test("起動して、寸法を変えると形が追従し、STL を書き出せ�
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
 
-  await page.goto("/");
+  await page.goto("/?bench");
   await expect(page.getByTestId("status")).toHaveText("準備完了");
   await expect(page.getByTestId("last-timings")).toContainText("三角形");
 
@@ -34,7 +34,7 @@ test("起動して、寸法を変えると形が追従し、STL を書き出せ�
 });
 
 test("右上の角をドラッグすると、よこ・たての寸法が変わる", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?bench");
   await expect(page.getByTestId("status")).toHaveText("準備完了");
   const handle = page.getByTestId("handle-corner");
   const box = (await handle.boundingBox())!;
@@ -52,7 +52,7 @@ test("右上の角をドラッグすると、よこ・たての寸法が変わ�
 });
 
 test("連続テストを実行すると、計算時間が表示される", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?bench");
   await expect(page.getByTestId("status")).toHaveText("準備完了");
   await page.getByTestId("run-stress").click();
   await expect(page.getByTestId("stress")).toContainText("平均");
@@ -61,7 +61,7 @@ test("連続テストを実行すると、計算時間が表示される", async
 
 test("指(タッチ)で穴をドラッグすると、穴の位置が変わる", async ({ page, browserName }, testInfo) => {
   test.skip(browserName !== "chromium" || !testInfo.project.use.hasTouch, "タッチ入力は Chromium のタッチ端末設定で確認する");
-  await page.goto("/");
+  await page.goto("/?bench");
   await expect(page.getByTestId("status")).toHaveText("準備完了");
   const box = (await page.getByTestId("handle-hole").boundingBox())!;
   const x = box.x + box.width / 2;

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import type { ParamSpec } from "../model/params";
+import type { ParamSpec } from "./params";
 
 interface Props {
   spec: ParamSpec;

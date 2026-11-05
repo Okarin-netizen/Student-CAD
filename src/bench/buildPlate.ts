@@ -1,5 +1,5 @@
 import { draw, drawCircle, type Shape3D } from "replicad";
-import type { SolvedSketch } from "../sketch/plateSketch";
+import type { SolvedSketch } from "./plateSketch";
 
 export interface BuildOptions {
   thickness: number;

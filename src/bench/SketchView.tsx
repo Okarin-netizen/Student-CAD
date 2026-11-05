@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
-import type { PlateParams } from "../model/params";
-import type { SolvedSketch } from "../sketch/plateSketch";
+import type { PlateParams } from "./params";
+import type { SolvedSketch } from "./plateSketch";
 
 interface Props {
   params: PlateParams;
