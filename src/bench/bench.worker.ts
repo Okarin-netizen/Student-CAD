@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 /// <reference lib="webworker" />
 // 重い計算(拘束計算と3D形状計算)はすべてこの Web Worker の中で行う。
 // 画面側(メインスレッド)は計算中もタッチ操作を受け付けられる。

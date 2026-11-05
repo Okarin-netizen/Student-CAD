@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 import { defineConfig, devices } from "@playwright/test";
 
 // 学校の端末に近い画面サイズで、タッチ操作を含めて確認する。

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 import { SolveStatus, type GcsWrapper, type SketchPrimitive } from "@salusoft89/planegcs";
 import type { PlateParams } from "./params";
 

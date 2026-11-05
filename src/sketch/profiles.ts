@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 import { ORIGIN_ID, type Id, type SketchFeature, type Vec2 } from "../doc/types";
 
 /** 閉じた輪郭を作る1本の辺 */

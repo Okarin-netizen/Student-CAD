@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 import { expect, test } from "@playwright/test";
 
 test("起動して、寸法を変えると形が追従し、STL を書き出せる", async ({ page }) => {

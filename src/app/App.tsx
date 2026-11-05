@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { make_gcs_wrapper, type GcsWrapper } from "@salusoft89/planegcs";
 import gcsWasmUrl from "@salusoft89/planegcs/dist/planegcs_dist/planegcs.wasm?url";
@@ -28,6 +31,8 @@ import {
   setOpPreview,
   startExtrude,
   startFillet,
+  startMirror,
+  startPattern,
   startRevolve,
   startPickPlane,
   startSketch,
@@ -38,6 +43,8 @@ import {
 } from "./store";
 import { term } from "./terms";
 import { Viewer3D, type PickResult } from "./Viewer3D";
+import { VariablesPanel } from "./VariablesPanel";
+import type { PadVariable } from "./NumberPad";
 import "./app.css";
 
 const EMPTY = new Float32Array(0);
@@ -50,6 +57,7 @@ export function App() {
   /** 最後に保存できた設計図(いまの設計図と同じなら「保存ずみ」) */
   const [savedDoc, setSavedDoc] = useState<CadDocument | null>(null);
   const clientRef = useRef<CadClient | null>(null);
+  const [showVariables, setShowVariables] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const pro = s.proTerms;
 
@@ -115,6 +123,9 @@ export function App() {
     return () => window.removeEventListener("keydown", onKey);
   }, []);
 
+  // 数字キーパッドで使える変数(計算できたものだけ)
+  const padVariables = useMemo<PadVariable[]>(() => (s.doc.variables ?? []).map((v) => ({ name: v.name, value: v.value })), [s.doc.variables]);
+
   const statuses = s.result?.statuses ?? [];
   const mode = s.mode.kind;
   const canUndo = mode === "sketch" ? s.sketchPast.length > 0 : mode === "model" && s.past.length > 0;
@@ -124,6 +135,10 @@ export function App() {
     if (!s.draftOp) return undefined;
     const st = statuses.find((x) => x.id === s.draftOp!.id);
     return st && !st.ok ? st.error : undefined;
+  })();
+  const opWarning = (() => {
+    const st = s.draftOp && statuses.find((x) => x.id === s.draftOp!.id);
+    return st && st.ok ? st.warning : undefined;
   })();
 
   // ---- 操作 ----
@@ -141,8 +156,12 @@ export function App() {
     const used = s.doc.features.some((f) => (f.type === "extrude" || f.type === "revolve") && f.sketchId === sk.id);
     // 補助線(軸)をかいたスケッチは回転、それ以外は押し出しをすすめる
     const hasAxis = sk.entities.some((e) => e.type === "line" && e.construction);
-    if (regions > 0 && !used) (hasAxis ? startRevolve : startExtrude)(sk.id);
-    else if (regions === 0) toast("閉じた形がないので、まだ立体にはできません");
+    // 文字だけのスケッチ(名札の文字など)も押し出せる
+    const hasText = sk.entities.some((e) => e.type === "text");
+    if (used) return;
+    if (regions > 0 && hasAxis) startRevolve(sk.id);
+    else if (regions > 0 || hasText) startExtrude(sk.id);
+    else toast("閉じた形がないので、まだ立体にはできません");
   };
 
   const exportStep = async () => {
@@ -248,6 +267,9 @@ export function App() {
               <span className="save-state" data-testid="save-state">
                 {s.busy || !ready ? "⏳ 計算中…" : savedDoc === s.doc ? "✓ 保存ずみ" : "保存中…"}
               </span>
+              <button type="button" onClick={() => setShowVariables(true)} disabled={mode !== "model"} data-testid="open-variables">
+                📏 {term("variables", pro)}
+              </button>
               <button type="button" onClick={newDoc} disabled={mode !== "model"}>
                 新しく
               </button>
@@ -314,6 +336,7 @@ export function App() {
               onEdit={editSketch}
               onPreview={previewSketch}
               onMessage={(text, kind) => toast(text, kind)}
+              variables={padVariables}
             />
           )}
           {mode === "sketch" && !gcs && <p className="loading">準備しています…</p>}
@@ -345,8 +368,10 @@ export function App() {
               draft={s.draftOp}
               pro={pro}
               error={opError}
+              warning={opWarning}
               busy={s.busy}
               preview={s.opPreview}
+              variables={padVariables}
               onPreview={setOpPreview}
               onChange={updateOp}
               onOk={finishOp}
@@ -375,6 +400,12 @@ export function App() {
             <button type="button" className="step" onClick={() => startFillet()} data-testid="new-fillet">
               ◜ {term("fillet", pro)}
             </button>
+            <button type="button" className="step" onClick={startMirror} data-testid="new-mirror">
+              🪞 {term("mirror", pro)}
+            </button>
+            <button type="button" className="step" onClick={startPattern} data-testid="new-pattern">
+              ⋯ {term("pattern", pro)}
+            </button>
           </div>
           <span className="step-arrow" aria-hidden>
             ▶
@@ -390,6 +421,8 @@ export function App() {
           </div>
         </nav>
       )}
+
+      {showVariables && <VariablesPanel doc={s.doc} pro={pro} onClose={() => setShowVariables(false)} />}
 
       {confirmDiscard && (
         <div className="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && setConfirmDiscard(false)}>

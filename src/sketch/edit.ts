@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 // スケッチを編集する操作。どれも元のスケッチを変えずに、新しいスケッチを返す。
 import type { GcsWrapper } from "@salusoft89/planegcs";
 import { newId } from "../doc/ids";
@@ -94,6 +97,20 @@ export function addCircle(s: SketchData, center: PointSpec, r: number): SketchDa
   return { entities: [...s.entities, ...added], constraints: s.constraints };
 }
 
+/** 文字を置く。位置の点(左下)を作るか、既存の点にくっつける */
+export function addText(s: SketchData, at: PointSpec, text: string, size: number): { sketch: SketchData; textId: Id } {
+  const added: SketchEntity[] = [];
+  const p = resolvePoint(at, added);
+  const textId = newId("t");
+  added.push({ id: textId, type: "text", p, text, size });
+  return { sketch: { entities: [...s.entities, ...added], constraints: s.constraints }, textId };
+}
+
+/** 文字の中身や大きさを変える */
+export function updateText(s: SketchData, id: Id, patch: { text?: string; size?: number }): SketchData {
+  return { entities: s.entities.map((e) => (e.id === id && e.type === "text" ? { ...e, ...patch } : e)), constraints: s.constraints };
+}
+
 /** 中心・始点・終点で円弧を描く(始点から反時計回り)。終点は半径に合わせて調整する */
 export function addArc(s: SketchData, center: PointSpec, start: PointSpec, end: Vec2): SketchData {
   const added: SketchEntity[] = [];
@@ -168,10 +185,11 @@ export function addConstraint(gcs: GcsWrapper, s: SketchData, c: SketchConstrain
 }
 
 /** 寸法の値を変える */
-export function setDimension(gcs: GcsWrapper, s: SketchData, id: Id, value: number): EditResult {
+/** 寸法の数を変える。expr は変数を使った式(使わないときは undefined で、前の式も外す) */
+export function setDimension(gcs: GcsWrapper, s: SketchData, id: Id, value: number, expr?: string): EditResult {
   const next = {
     entities: s.entities,
-    constraints: s.constraints.map((c) => (c.id === id && "value" in c ? { ...c, value } : c)),
+    constraints: s.constraints.map((c) => (c.id === id && "value" in c ? { ...c, value, expr } : c)),
   };
   const r = solveSketch(gcs, next);
   if (!r.ok) return { ok: false, sketch: s, message: "この寸法では形が作れません。別の数字にしてみてください" };
@@ -216,10 +234,10 @@ export function deleteItems(s: SketchData, ids: Id[]): SketchData {
 /** 補助線にする/戻す */
 export function toggleConstruction(s: SketchData, ids: Id[]): SketchData {
   const set = new Set(ids);
-  const curves = s.entities.filter((e) => set.has(e.id) && e.type !== "point");
+  const curves = s.entities.filter((e) => set.has(e.id) && isCurve(e));
   const makeConstruction = curves.some((e) => !e.construction);
   return {
-    entities: s.entities.map((e) => (set.has(e.id) && e.type !== "point" ? { ...e, construction: makeConstruction } : e)),
+    entities: s.entities.map((e) => (set.has(e.id) && isCurve(e) ? { ...e, construction: makeConstruction } : e)),
     constraints: s.constraints,
   };
 }
@@ -232,6 +250,8 @@ export function curveRefs(e: SketchEntity): Id[] {
       return [e.c];
     case "arc":
       return [e.c, e.start, e.end];
+    case "text":
+      return [e.p];
     default:
       return [];
   }
@@ -259,8 +279,9 @@ export function constraintRefs(c: SketchConstraint): Id[] {
   }
 }
 
+/** 線・円・円弧(輪郭になるもの)か。点と文字はちがう */
 export function isCurve(e: SketchEntity | undefined): e is CurveEntity {
-  return !!e && e.type !== "point";
+  return !!e && (e.type === "line" || e.type === "circle" || e.type === "arc");
 }
 
 function conflictMessage() {

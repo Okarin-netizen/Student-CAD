@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 import { expect, test, type Page } from "@playwright/test";
 
 async function tapCanvas(page: Page, fx: number, fy: number) {

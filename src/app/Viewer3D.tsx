@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
@@ -93,6 +96,8 @@ export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, edgePick,
     const planes = new THREE.Group();
     for (const name of Object.keys(BASE_PLANES) as BasePlaneName[]) planes.add(makePlane(name));
     scene.add(planes);
+    // 原点の3本の軸(X 赤・Y 緑・Z 青)。「ならべる向き」をえらぶときの目印
+    scene.add(makeAxes());
 
     const part = new THREE.Group();
     const sketchGroup = new THREE.Group();
@@ -363,6 +368,26 @@ function makePlane(name: BasePlaneName): THREE.Mesh {
   label.position.set(PLANE_SIZE - 4, PLANE_SIZE - 4, 0);
   mesh.add(label);
   return mesh;
+}
+
+/** 原点から出る3本の軸と、その名前 */
+function makeAxes(): THREE.Group {
+  const g = new THREE.Group();
+  const len = 30;
+  const axes: [THREE.Vector3, number, string][] = [
+    [new THREE.Vector3(1, 0, 0), 0xd62828, "X"],
+    [new THREE.Vector3(0, 1, 0), 0x2b9348, "Y"],
+    [new THREE.Vector3(0, 0, 1), 0x1f6feb, "Z"],
+  ];
+  for (const [dir, color, name] of axes) {
+    const geom = new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(), dir.clone().multiplyScalar(len)]);
+    g.add(new THREE.Line(geom, new THREE.LineBasicMaterial({ color, depthTest: false })));
+    const label = textSprite(name, color);
+    label.position.copy(dir.clone().multiplyScalar(len + 4));
+    g.add(label);
+  }
+  g.renderOrder = 2;
+  return g;
 }
 
 function textSprite(text: string, color: number): THREE.Sprite {

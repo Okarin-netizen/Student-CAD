@@ -1,7 +1,23 @@
-import { Plane, draw, drawCircle, type Drawing, type Shape3D } from "replicad";
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
+import { Plane, draw, drawCircle, drawText, getFont, type Drawing, type Shape3D } from "replicad";
 import type { GcsWrapper } from "@salusoft89/planegcs";
-import type { CadDocument, FilletFeature, Id, Plane3, RevolveAxis, SketchFeature, Vec2, Vec3 } from "../doc/types";
-import { resolvePlane, scale3, toWorld } from "../doc/planes";
+import type {
+  CadDocument,
+  ExtrudeOperation,
+  FilletFeature,
+  Id,
+  MirrorFeature,
+  PatternFeature,
+  Plane3,
+  RevolveAxis,
+  SketchFeature,
+  Vec2,
+  Vec3,
+  WorldAxis,
+} from "../doc/types";
+import { BASE_PLANES, resolvePlane, scale3, toWorld } from "../doc/planes";
 import { pointPos, solveSketch } from "../sketch/solver";
 import { findProfiles, type Loop, type Region } from "../sketch/profiles";
 
@@ -36,6 +52,26 @@ export interface RebuildOutput {
 
 export const MESH_OPTIONS = { tolerance: 0.05, angularTolerance: 12 };
 
+/** 文字に使うフォントの名前(Worker で loadFont するときと同じ名前にする) */
+export const TEXT_FONT = "student-text";
+
+/** パターンで作れる数の上限(多すぎると計算に時間がかかりすぎるため) */
+export const PATTERN_MAX = 100;
+
+/**
+ * 作業ごとの「道具」の形と、それをくっつけたか・けずったか。
+ * ミラーとパターンは、この道具を写して使う。
+ */
+interface ToolShape {
+  shape: Shape3D;
+  operation: ExtrudeOperation;
+}
+
+/** 設計図にスケッチの文字があるか(あれば、計算の前にフォントを読み込む) */
+export function usesText(doc: CadDocument): boolean {
+  return doc.features.some((f) => f.type === "sketch" && f.entities.some((e) => e.type === "text" && e.text.trim() !== ""));
+}
+
 /**
  * 作業のれきしを頭から順に実行して、形を作り直す。
  * 途中の作業が失敗しても、そこで止めずに印を付けて次へ進む(Onshape と同じ)。
@@ -44,6 +80,7 @@ export function rebuild(doc: CadDocument, gcs: GcsWrapper): RebuildOutput {
   const statuses: FeatureStatus[] = [];
   const solvedSketches = new Map<Id, SketchFeature>();
   const consumed = new Set<Id>();
+  const tools = new Map<Id, ToolShape>();
   let body: Shape3D | null = null;
 
   for (const f of doc.features) {
@@ -65,6 +102,18 @@ export function rebuild(doc: CadDocument, gcs: GcsWrapper): RebuildOutput {
       continue;
     }
 
+    if (f.type === "mirror" || f.type === "pattern") {
+      const r: CopyResult = f.type === "mirror" ? applyMirror(body, tools, f) : applyPattern(body, tools, f);
+      if (r.ok) {
+        body = r.body;
+        tools.set(f.id, r.tool);
+        statuses.push({ id: f.id, ok: true, warning: r.warning });
+      } else {
+        statuses.push({ id: f.id, ok: false, error: r.error });
+      }
+      continue;
+    }
+
     // 押し出し・回転
     const sketch = solvedSketches.get(f.sketchId);
     if (!sketch) {
@@ -74,8 +123,17 @@ export function rebuild(doc: CadDocument, gcs: GcsWrapper): RebuildOutput {
     consumed.add(sketch.id);
     try {
       const { regions, openChains } = findProfiles(sketch);
-      if (regions.length === 0) {
-        statuses.push({ id: f.id, ok: false, error: "スケッチに閉じた形がありません。線のはしをつなげてください" });
+      const texts = f.type === "extrude" ? sketchTexts(sketch) : [];
+      if (regions.length === 0 && texts.length === 0) {
+        statuses.push({
+          id: f.id,
+          ok: false,
+          error: f.type === "revolve" && sketchTexts(sketch).length > 0 ? "文字は回転できません。押し出しを使ってください" : "スケッチに閉じた形がありません。線のはしをつなげてください",
+        });
+        continue;
+      }
+      if (texts.length > 0 && !getFont(TEXT_FONT)) {
+        statuses.push({ id: f.id, ok: false, error: "文字の形(フォント)を読み込めませんでした。ネットにつないで、ページを読み込み直してください" });
         continue;
       }
       const plane = resolvePlane(sketch.plane);
@@ -85,7 +143,7 @@ export function rebuild(doc: CadDocument, gcs: GcsWrapper): RebuildOutput {
           statuses.push({ id: f.id, ok: false, error: "長さは 0 より大きくしてください" });
           continue;
         }
-        tool = extrudeRegions(regions, plane, f.distance, f.operation === "cut" ? !f.flip : f.flip);
+        tool = extrudeRegions(regions, plane, f.distance, f.operation === "cut" ? !f.flip : f.flip, texts);
       } else {
         const axis = revolveAxis(sketch, f.axis);
         if (!axis) {
@@ -102,6 +160,7 @@ export function rebuild(doc: CadDocument, gcs: GcsWrapper): RebuildOutput {
         }
         tool = revolveRegions(regions, plane, axis, f.flip ? -f.angle : f.angle);
       }
+      tools.set(f.id, { shape: tool, operation: f.operation });
       if (f.operation === "add") {
         body = body ? body.fuse(tool) : tool;
       } else {
@@ -130,12 +189,30 @@ export function rebuild(doc: CadDocument, gcs: GcsWrapper): RebuildOutput {
   return { statuses, body, sketches };
 }
 
-/** 面(と穴)をまとめて押し出した立体を作る。reverse なら面の裏側へ押し出す */
-export function extrudeRegions(regions: Region[], plane: Plane3, distance: number, reverse: boolean): Shape3D {
+/** スケッチの文字(スケッチの座標の、左下の位置と大きさ) */
+export interface SketchText {
+  text: string;
+  size: number;
+  at: Vec2;
+}
+
+export function sketchTexts(sketch: SketchFeature): SketchText[] {
+  return sketch.entities.flatMap((e) => {
+    if (e.type !== "text" || e.text.trim() === "" || e.size <= 0) return [];
+    return [{ text: e.text, size: e.size, at: pointPos(sketch.entities, e.p) }];
+  });
+}
+
+/** 面(と穴)と文字をまとめて押し出した立体を作る。reverse なら面の裏側へ押し出す */
+export function extrudeRegions(regions: Region[], plane: Plane3, distance: number, reverse: boolean, texts: SketchText[] = []): Shape3D {
   let drawing: Drawing | null = null;
   for (const r of regions) {
     let d = loopDrawing(r.outer);
     for (const h of r.holes) d = d.cut(loopDrawing(h));
+    drawing = drawing ? drawing.fuse(d) : d;
+  }
+  for (const t of texts) {
+    const d = drawText(t.text, { startX: t.at[0], startY: t.at[1], fontSize: t.size, fontFamily: TEXT_FONT });
     drawing = drawing ? drawing.fuse(d) : d;
   }
   const rp = new Plane(plane.origin, plane.xDir, plane.normal);
@@ -191,6 +268,82 @@ export function revolveRegions(regions: Region[], plane: Plane3, axis: Axis2, an
     out = out ? out.fuse(solid) : solid;
   }
   return out!;
+}
+
+// ---- ミラー・パターン ----
+
+type CopyResult = { ok: true; body: Shape3D; tool: ToolShape; warning?: string } | { ok: false; error: string };
+
+/** 2つの形の外側の箱が同じか */
+function sameBounds(a: Shape3D, b: Shape3D): boolean {
+  const [la, ha] = a.boundingBox.bounds;
+  const [lb, hb] = b.boundingBox.bounds;
+  return [0, 1, 2].every((i) => Math.abs(la[i] - lb[i]) < 1e-4 && Math.abs(ha[i] - hb[i]) < 1e-4);
+}
+
+const AXIS_VECTORS: Record<WorldAxis, Vec3> = { x: [1, 0, 0], y: [0, 1, 0], z: [0, 0, 1] };
+
+/** 道具の形を体にくっつける、またはけずる */
+function combine(body: Shape3D | null, tool: ToolShape): Shape3D | null {
+  if (tool.operation === "add") return body ? body.fuse(tool.shape) : tool.shape;
+  return body ? body.cut(tool.shape) : null;
+}
+
+export function applyMirror(body: Shape3D | null, tools: Map<Id, ToolShape>, f: MirrorFeature): CopyResult {
+  if (!body) return { ok: false, error: "対称にする立体がまだありません" };
+  const normal = BASE_PLANES[f.plane].normal;
+  try {
+    if (f.source === "body") {
+      const mirrored = body.clone().mirror(normal, [0, 0, 0]);
+      const fused = body.fuse(mirrored);
+      // 写した形が元と同じ場所なら(もう対称なら)、見た目は変わらないので知らせる
+      const warning = sameBounds(body, fused) ? "もう対称なので、形は変わりませんでした。鏡にする面を変えるか、形を原点の片側にかいてください" : undefined;
+      return { ok: true, body: fused, tool: { shape: mirrored, operation: "add" }, warning };
+    }
+    const src = tools.get(f.source);
+    if (!src) return { ok: false, error: "対称にする作業がうまくできていません。先にそちらを直してください" };
+    const mirrored: ToolShape = { shape: src.shape.clone().mirror(normal, [0, 0, 0]), operation: src.operation };
+    return { ok: true, body: combine(body, mirrored)!, tool: mirrored };
+  } catch (err) {
+    console.warn(err);
+    return { ok: false, error: "対称にできませんでした。鏡にする面を変えてみてください" };
+  }
+}
+
+export function applyPattern(body: Shape3D | null, tools: Map<Id, ToolShape>, f: PatternFeature): CopyResult {
+  const src = tools.get(f.source);
+  if (!src) return { ok: false, error: "ならべる作業がうまくできていません。先にそちらを直してください" };
+  if (!Number.isInteger(f.count) || f.count < 2) return { ok: false, error: "数は 2 以上にしてください" };
+  const count2 = f.kind === "linear" ? Math.max(1, Math.round(f.count2)) : 1;
+  if (f.count * count2 > PATTERN_MAX) return { ok: false, error: `ならべる数は全部で ${PATTERN_MAX} こまでにしてください` };
+  if (f.kind === "linear" && (f.spacing <= 0 || (count2 > 1 && f.spacing2 <= 0))) return { ok: false, error: "間かくは 0 より大きくしてください" };
+  if (f.kind === "circular" && (f.angle <= 0 || f.angle > 360)) return { ok: false, error: "角度は 0 より大きく 360 以下にしてください" };
+
+  try {
+    let copies: Shape3D | null = null;
+    const add = (s: Shape3D) => (copies = copies ? copies.fuse(s) : s);
+    if (f.kind === "linear") {
+      const d1 = scale3(AXIS_VECTORS[f.axis], (f.flip ? -1 : 1) * f.spacing);
+      const d2 = scale3(AXIS_VECTORS[f.axis2], f.spacing2);
+      for (let i = 0; i < f.count; i++) {
+        for (let j = 0; j < count2; j++) {
+          if (i === 0 && j === 0) continue;
+          add(src.shape.clone().translate([d1[0] * i + d2[0] * j, d1[1] * i + d2[1] * j, d1[2] * i + d2[2] * j]));
+        }
+      }
+    } else {
+      // 一周(360°)なら最後が最初と重なるので、数で割る。それ以外は両はしを含めて割る
+      const step = f.angle >= 360 ? 360 / f.count : f.angle / (f.count - 1);
+      for (let i = 1; i < f.count; i++) add(src.shape.clone().rotate(step * i, [0, 0, 0], AXIS_VECTORS[f.axis]));
+    }
+    const tool: ToolShape = { shape: copies!, operation: src.operation };
+    const next = combine(body, tool);
+    if (!next) return { ok: false, error: "けずる立体がまだありません" };
+    return { ok: true, body: next, tool: { shape: src.shape.fuse(copies!), operation: src.operation } };
+  } catch (err) {
+    console.warn(err);
+    return { ok: false, error: "ならべられませんでした。間かくや数を変えてみてください" };
+  }
 }
 
 /** 辺の目印から、いまの立体で一番近い辺を探すときの許し(mm) */

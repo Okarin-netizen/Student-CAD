@@ -1,6 +1,10 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 import { useState } from "react";
 import type { CadDocument, Feature, Id } from "../doc/types";
 import type { FeatureStatus } from "../kernel/rebuild";
+import { BASE_PLANE_LABELS } from "../doc/planes";
 import { dependents } from "./store";
 import { term } from "./terms";
 
@@ -47,6 +51,13 @@ export function FeatureTree({ doc, statuses, selected, pro, disabled, onSelect, 
                       {f.radius} ・ 辺 {f.edges.length} 本
                     </small>
                   )}
+                  {f.type === "mirror" && <small> {f.source === "body" ? "立体ぜんぶ" : nameOf(f.source)} ・ {BASE_PLANE_LABELS[f.plane]}</small>}
+                  {f.type === "pattern" && (
+                    <small>
+                      {" "}
+                      {nameOf(f.source)} ・ {f.kind === "linear" ? `${f.count}${f.count2 > 1 ? `×${f.count2}` : ""} こ` : `${f.count} こ / ${f.angle}°`}
+                    </small>
+                  )}
                 </span>
                 {bad && (
                   <span className="tree-error" role="img" aria-label="エラー">
@@ -55,6 +66,7 @@ export function FeatureTree({ doc, statuses, selected, pro, disabled, onSelect, 
                 )}
               </button>
               {bad && <p className="tree-error-text">{(st as { error: string }).error}</p>}
+              {st?.ok && st.warning && <p className="tree-warning-text">{st.warning}</p>}
               {selected === f.id && !disabled && (
                 <div className="tree-actions">
                   <button type="button" onClick={() => onEdit(f.id)} data-testid="tree-edit">
@@ -104,8 +116,17 @@ export function FeatureTree({ doc, statuses, selected, pro, disabled, onSelect, 
 }
 
 function icon(f: Feature): string {
-  if (f.type === "sketch") return "✏️";
-  if (f.type === "fillet") return f.kind === "fillet" ? "◜" : "◸";
-  if (f.operation === "cut") return "🕳️";
-  return f.type === "revolve" ? "🔄" : "🧊";
+  switch (f.type) {
+    case "sketch":
+      return "✏️";
+    case "fillet":
+      return f.kind === "fillet" ? "◜" : "◸";
+    case "mirror":
+      return "🪞";
+    case "pattern":
+      return f.kind === "linear" ? "⋯" : "⟳";
+    default:
+      if (f.operation === "cut") return "🕳️";
+      return f.type === "revolve" ? "🔄" : "🧊";
+  }
 }

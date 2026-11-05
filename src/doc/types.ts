@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 // 設計図(作業のれきし)のデータ構造。
 // これだけを保存すれば、形はいつでも頭から計算し直せる(Onshape と同じく「履歴が正」)。
 
@@ -56,7 +59,19 @@ export interface ArcEntity extends EntityBase {
   a1: number;
 }
 
-export type SketchEntity = PointEntity | LineEntity | CircleEntity | ArcEntity;
+/**
+ * 文字(名札など)。p の点が文字の左下(ベースライン)になる。
+ * 輪郭の線ではないので、拘束はつけられない(位置は p の点で決める)。
+ */
+export interface TextEntity extends EntityBase {
+  type: "text";
+  p: Id;
+  text: string;
+  /** 文字の大きさ(mm)。だいたい漢字1文字の高さ */
+  size: number;
+}
+
+export type SketchEntity = PointEntity | LineEntity | CircleEntity | ArcEntity | TextEntity;
 export type CurveEntity = LineEntity | CircleEntity | ArcEntity;
 
 /** どのスケッチにもある、動かない原点 */
@@ -77,12 +92,16 @@ export type GeometricConstraint =
   /** 点を線の上(延長線を含む)にのせる */
   | { id: Id; type: "pointOnLine"; point: Id; line: Id };
 
+/**
+ * 寸法。expr があれば、それは変数を使った式(例: "幅/2")で、value はその計算結果。
+ * 変数を変えると value が計算し直される。
+ */
 export type DimensionConstraint =
-  | { id: Id; type: "length"; line: Id; value: number }
-  | { id: Id; type: "distance"; a: Id; b: Id; value: number }
-  | { id: Id; type: "diameter"; circle: Id; value: number }
+  | { id: Id; type: "length"; line: Id; value: number; expr?: string }
+  | { id: Id; type: "distance"; a: Id; b: Id; value: number; expr?: string }
+  | { id: Id; type: "diameter"; circle: Id; value: number; expr?: string }
   /** 2本の線の角度(度) */
-  | { id: Id; type: "angle"; a: Id; b: Id; value: number };
+  | { id: Id; type: "angle"; a: Id; b: Id; value: number; expr?: string };
 
 export type SketchConstraint = GeometricConstraint | DimensionConstraint;
 
@@ -104,6 +123,12 @@ export interface SketchFeature {
 
 export type ExtrudeOperation = "add" | "cut";
 
+/**
+ * 作業の数の欄を、変数を使った式で決めているときの式(欄の名前 → 式)。
+ * 例: { distance: "あつさ" }
+ */
+export type NumberExprs = Partial<Record<string, string>>;
+
 export interface ExtrudeFeature {
   id: Id;
   type: "extrude";
@@ -113,6 +138,7 @@ export interface ExtrudeFeature {
   operation: ExtrudeOperation;
   /** 向きを反対にする */
   flip: boolean;
+  exprs?: NumberExprs;
 }
 
 /** 回す軸: スケッチの横の軸(x)・たての軸(y)、またはスケッチの中の線 */
@@ -129,6 +155,7 @@ export interface RevolveFeature {
   operation: ExtrudeOperation;
   /** 回す向きを反対にする */
   flip: boolean;
+  exprs?: NumberExprs;
 }
 
 /**
@@ -147,20 +174,79 @@ export interface FilletFeature {
   kind: "fillet" | "chamfer";
   radius: number;
   edges: EdgeRef[];
+  exprs?: NumberExprs;
+}
+
+/** 世界の軸。x: 赤、y: 緑、z: 青(上向き) */
+export type WorldAxis = "x" | "y" | "z";
+
+/**
+ * ミラー(対称にする)。source が "body" なら、それまでの立体全体を鏡に映してくっつける。
+ * 作業の id なら、その作業(押し出し・回転など)だけを鏡に映して、同じようにくっつける / けずる。
+ */
+export interface MirrorFeature {
+  id: Id;
+  type: "mirror";
+  name: string;
+  source: "body" | Id;
+  /** 鏡にする基準面(原点を通る) */
+  plane: BasePlaneName;
+  /** 数の欄はないが、ほかの作業とそろえておく */
+  exprs?: NumberExprs;
+}
+
+/**
+ * パターン(ならべる)。source の作業を、まっすぐ(linear)または円のまわり(circular)にならべる。
+ * linear は2方向まで(count2 が 2 以上なら、格子のようにならべる)。
+ */
+export interface PatternFeature {
+  id: Id;
+  type: "pattern";
+  name: string;
+  source: Id;
+  kind: "linear" | "circular";
+  /** linear: ならべる向き、circular: 回す軸(原点を通る) */
+  axis: WorldAxis;
+  /** 向きを反対にする(linear のみ) */
+  flip: boolean;
+  /** いくつにするか(元のものを含む) */
+  count: number;
+  /** linear: となりとの間かく(mm) */
+  spacing: number;
+  /** circular: 全体の角度(360 なら一周に均等) */
+  angle: number;
+  /** linear の2つ目の向き(count2 が 1 なら使わない) */
+  axis2: WorldAxis;
+  count2: number;
+  spacing2: number;
+  exprs?: NumberExprs;
 }
 
 /** スケッチを使って立体を作る作業 */
 export type ProfileFeature = ExtrudeFeature | RevolveFeature;
 
-export type Feature = SketchFeature | ExtrudeFeature | RevolveFeature | FilletFeature;
+export type Feature = SketchFeature | ExtrudeFeature | RevolveFeature | FilletFeature | MirrorFeature | PatternFeature;
+
+/**
+ * 変数(名前のついた数)。寸法やあつさに名前で使える。
+ * expr は数か、ほかの変数を使った式(例: "幅/2")。value はその計算結果。
+ */
+export interface Variable {
+  id: Id;
+  name: string;
+  expr: string;
+  value: number;
+}
 
 export interface CadDocument {
   format: "student-cad";
   version: 1;
   name: string;
   features: Feature[];
+  /** 変数(フェーズ2で追加。古いファイルにはない) */
+  variables?: Variable[];
 }
 
 export function emptyDocument(name = "新しい作品"): CadDocument {
-  return { format: "student-cad", version: 1, name, features: [] };
+  return { format: "student-cad", version: 1, name, features: [], variables: [] };
 }

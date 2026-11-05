@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 // 画面の言葉。ふだんはやさしい言葉、設定で Onshape/SolidWorks と同じ専門用語に切り替えられる。
 const TERMS = {
   sketch: ["スケッチ", "スケッチ"],
@@ -8,6 +11,12 @@ const TERMS = {
   revolveName: ["回転", "回転"],
   fillet: ["角を丸める", "フィレット"],
   chamfer: ["角を落とす", "面取り"],
+  mirror: ["対称にする", "ミラー"],
+  pattern: ["ならべる", "パターン"],
+  linear: ["まっすぐ", "直線パターン"],
+  circular: ["円のまわり", "円形パターン"],
+  variables: ["名前つきの数", "変数"],
+  text: ["文字", "テキスト"],
   add: ["くっつける", "追加"],
   cut: ["けずる", "除去"],
   history: ["作業のれきし", "フィーチャーツリー"],

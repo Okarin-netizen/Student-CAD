@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 import type { CadDocument, SketchConstraint, SketchEntity, SketchFeature } from "../../src/doc/types";
 
 /** 原点を左下にした w×h の長方形(寸法つき)と、中心に直径 d の円 */

@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 import type { BasePlaneName, Plane3, PlaneRef, Vec2, Vec3 } from "./types";
 
 // Onshape と同じ3つの基準面(上・正面・右)。どれも Z が上の世界座標で定義する。

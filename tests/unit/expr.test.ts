@@ -1,5 +1,8 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 import { describe, expect, it } from "vitest";
-import { evaluate } from "../../src/app/expr";
+import { evaluate } from "../../src/doc/expr";
 
 describe("evaluate", () => {
   it.each([

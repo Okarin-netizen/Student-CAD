@@ -1,3 +1,12 @@
+/* SPDX-License-Identifier: MIT — Copyright (c) 2026 技術科　岡田 */
+
+/* スケッチの文字は、3D にするときと同じフォントで見せる(M PLUS Rounded 1c、SIL OFL 1.1) */
+@font-face {
+  font-family: "StudentCadText";
+  src: url("/fonts/MPLUSRounded1c-Bold.ttf") format("truetype");
+  font-display: swap;
+}
+
 :root {
   --bg: #eef2f7;
   --surface: #ffffff;
@@ -327,6 +336,9 @@ button.danger {
   flex-direction: column;
   gap: 12px;
   z-index: 5;
+  /* 設定が多いとき(ならべる など)は、パネルの中だけスクロールする */
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
 }
 
 .panel h3 {
@@ -865,4 +877,131 @@ button.danger {
   pointer-events: none;
   z-index: 3;
   white-space: nowrap;
+}
+
+/* ---- フェーズ2その2: 文字・対称・ならべる・変数 ---- */
+
+.sk-text {
+  font-family: "StudentCadText", sans-serif;
+  stroke: none;
+  pointer-events: none;
+}
+
+.segmented.vertical {
+  grid-template-columns: 1fr;
+}
+
+.segmented.wrap {
+  grid-template-columns: repeat(3, 1fr);
+}
+
+.check {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: var(--touch);
+}
+
+.check input {
+  width: 24px;
+  height: 24px;
+}
+
+.text-dialog input {
+  font-size: 1.4rem;
+  padding: 8px 12px;
+  border: 2px solid var(--accent);
+  border-radius: 12px;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.numpad-result {
+  margin: 6px 0 0;
+  color: var(--ok);
+  font-weight: 700;
+}
+
+.numpad-vars {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.numpad-vars button {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  line-height: 1.1;
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}
+
+.numpad-vars small {
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.variables-panel {
+  width: min(480px, calc(100% - 24px));
+  max-height: calc(100% - 24px);
+  overflow-y: auto;
+}
+
+.var-list {
+  list-style: none;
+  margin: 12px 0 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.var-list li {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1.3fr) auto;
+  align-items: center;
+  gap: 8px;
+}
+
+.var-list li .panel-error {
+  grid-column: 1 / -1;
+}
+
+.var-name {
+  font-size: 1.1rem;
+  font-weight: 700;
+  padding: 8px 10px;
+  min-height: var(--touch);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  min-width: 0;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.var-value {
+  font-size: 1.1rem;
+  text-align: left;
+}
+
+.var-value small {
+  color: var(--muted);
+}
+
+.sk-warn button {
+  margin-left: 8px;
+  min-height: 36px;
+}
+
+/* 作業はできたが、知らせたいこと(例: もう対称なので形が変わらない) */
+.panel-warning,
+.tree-warning-text {
+  margin: 0;
+  color: #7a4b00;
+  background: #fff6e0;
+  border-radius: 10px;
+  padding: 8px 10px;
+  font-size: 0.9rem;
 }

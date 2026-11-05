@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 import "./bench.css";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { DEFAULT_PARAMS, PARAM_SPECS, type PlateParams } from "./params";

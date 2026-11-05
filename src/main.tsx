@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 import { StrictMode } from "react";
 import { createRoot } from "react-dom/client";
 

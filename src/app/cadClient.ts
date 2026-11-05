@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 import * as Comlink from "comlink";
 import type { CadWorkerApi, RebuildReply } from "../worker/cad.worker";
 import type { CadDocument } from "../doc/types";

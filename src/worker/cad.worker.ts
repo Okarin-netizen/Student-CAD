@@ -1,12 +1,15 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 /// <reference lib="webworker" />
 // 作業のれきしからの形の計算(拘束計算 + OpenCascade)は、すべてこの Web Worker で行う。
 import * as Comlink from "comlink";
 import opencascade from "replicad-opencascadejs";
 import ocWasmUrl from "replicad-opencascadejs/wasm?url";
-import { setOC, type Shape3D } from "replicad";
+import { loadFont, setOC, type Shape3D } from "replicad";
 import { make_gcs_wrapper, type GcsWrapper } from "@salusoft89/planegcs";
 import gcsWasmUrl from "@salusoft89/planegcs/dist/planegcs_dist/planegcs.wasm?url";
-import { meshBody, rebuild, type BodyMesh, type FeatureStatus, type SketchDisplay } from "../kernel/rebuild";
+import { TEXT_FONT, meshBody, rebuild, usesText, type BodyMesh, type FeatureStatus, type SketchDisplay } from "../kernel/rebuild";
 import type { CadDocument } from "../doc/types";
 
 export interface RebuildReply {
@@ -28,11 +31,25 @@ function init() {
   return ready;
 }
 
+/** 文字のフォント(M PLUS Rounded 1c Bold、SIL OFL 1.1)。文字を使うときだけ読み込む(約3.5MB) */
+const FONT_URL = `${import.meta.env.BASE_URL}fonts/MPLUSRounded1c-Bold.ttf`;
+let font: Promise<unknown> | null = null;
+
+async function ensureFont() {
+  font ??= loadFont(FONT_URL, TEXT_FONT).catch((err) => {
+    // 失敗したら次の計算でもう一度試す。今回は文字なしで計算され、作業にエラーが出る
+    console.warn(err);
+    font = null;
+  });
+  await font;
+}
+
 const api = {
   init,
 
   async rebuild(doc: CadDocument): Promise<RebuildReply> {
     await init();
+    if (usesText(doc)) await ensureFont();
     const t0 = performance.now();
     const out = rebuild(doc, gcs!);
     body?.delete();
