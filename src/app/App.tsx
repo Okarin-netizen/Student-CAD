@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { make_gcs_wrapper, type GcsWrapper } from "@salusoft89/planegcs";
 import gcsWasmUrl from "@salusoft89/planegcs/dist/planegcs_dist/planegcs.wasm?url";
-import { BASE_PLANE_LABELS, planeFromFace } from "../doc/planes";
+import { BASE_PLANE_LABELS, planeFromFace, resolvePlane } from "../doc/planes";
+import { edgesOnPlane } from "./sketch/references";
 import type { BasePlaneName, CadDocument } from "../doc/types";
 import { emptyDocument } from "../doc/types";
 import { findProfiles } from "../sketch/profiles";
@@ -35,6 +36,8 @@ import {
 import { term } from "./terms";
 import { Viewer3D, type PickResult } from "./Viewer3D";
 import "./app.css";
+
+const EMPTY = new Float32Array(0);
 
 export function App() {
   const s = useStore((x) => x);
@@ -165,6 +168,10 @@ export function App() {
   };
 
   const sketchFeature = s.draftSketch;
+  // スケッチ平面の上にある立体の輪郭(下がき)。面にかくとき、どこにかけばよいか分かるように
+  const mesh = s.result?.mesh ?? null;
+  const plane = sketchFeature?.plane;
+  const references = useMemo(() => (plane && mesh ? edgesOnPlane(mesh.edges, resolvePlane(plane)) : EMPTY), [plane, mesh]);
 
   return (
     <div className={`app mode-${mode}`}>
@@ -264,6 +271,7 @@ export function App() {
               sketches={s.result?.sketches ?? []}
               picking={mode === "pickPlane"}
               onPick={onPick}
+              onMessage={(t) => toast(t, "error")}
               ghost={mode === "extrude"}
             />
           </div>
@@ -274,6 +282,7 @@ export function App() {
               sketch={sketchFeature}
               gcs={gcs}
               pro={pro}
+              references={references}
               onEdit={editSketch}
               onPreview={previewSketch}
               onMessage={(text, kind) => toast(text, kind)}
@@ -291,7 +300,11 @@ export function App() {
                   </button>
                 ))}
               </div>
-              {hasBody && <p className="muted">立体の平らな面をタップすると、その面にかけます。</p>}
+              {hasBody && (
+                <p className="plane-hint" data-testid="face-hint">
+                  👆 立体の平らな面をタップすると、その面にかけます(指した面がオレンジになります)
+                </p>
+              )}
               <button type="button" onClick={cancelMode}>
                 やめる
               </button>
