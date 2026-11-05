@@ -3,6 +3,7 @@
 
 import { useSyncExternalStore } from "react";
 import { newId, nextName } from "../doc/ids";
+import { readDeviceAuthor, saveDeviceAuthor } from "./author";
 import {
   emptyDocument,
   type CadDocument,
@@ -16,6 +17,7 @@ import {
   type Id,
   type PlaneRef,
   type SketchFeature,
+  type Author,
   type DocMeta,
   type DrawingNotes,
   type Assignment,
@@ -103,9 +105,10 @@ function emptyNotes(): DrawingNotes {
   return { hidden: [], added: [] };
 }
 
+/** 新しい作品の記録。作った人は、端末に覚えている人にしておく */
 function newMeta(): DocMeta {
   const now = new Date().toISOString();
-  return { createdAt: now, updatedAt: now, activeSeconds: 0 };
+  return { createdAt: now, updatedAt: now, activeSeconds: 0, author: readDeviceAuthor() };
 }
 
 /** 5分より長く手が止まっていたら、その間は作業時間に数えない */
@@ -160,7 +163,9 @@ export function commitDoc(next: CadDocument) {
 export function replaceDoc(next: CadDocument) {
   const { meta, drawing, ...doc } = next;
   lastActive = 0;
-  setState({ doc, meta: meta ?? newMeta(), drawing: drawing ?? emptyNotes(), past: [], future: [], mode: { kind: "model" }, draftSketch: null, draftOp: null, selectedFeature: null });
+  // 作った人が入っていない古い作品は、この端末の人にしておく
+  const m = meta ? { ...meta, author: meta.author ?? readDeviceAuthor() } : newMeta();
+  setState({ doc, meta: m, drawing: drawing ?? emptyNotes(), past: [], future: [], mode: { kind: "model" }, draftSketch: null, draftOp: null, selectedFeature: null });
 }
 
 export function undo() {
@@ -457,6 +462,12 @@ export function deleteFeature(id: Id) {
   const gone = new Set([id, ...dependents(state.doc, id).map((f) => f.id)]);
   commitDoc({ ...state.doc, features: state.doc.features.filter((f) => !gone.has(f.id)) });
   setState({ selectedFeature: null });
+}
+
+/** 作った人を変える(作品に保存し、端末にも覚える) */
+export function setAuthor(author: Author) {
+  saveDeviceAuthor(author);
+  setState({ meta: { ...state.meta, author } });
 }
 
 /** 図面の寸法の手直しを変える */

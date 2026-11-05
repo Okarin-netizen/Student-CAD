@@ -1065,6 +1065,34 @@ button.danger {
   margin-left: 0;
 }
 
+/* 作った人(組・番号・氏名)。ひとまとまりにして右に寄せる */
+.drawing-who {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: 0 0 0 auto;
+  padding: 0;
+  border: 0;
+}
+
+.drawing-who .drawing-author {
+  margin-left: 0;
+}
+
+.drawing-who + .drawing-author {
+  margin-left: 0;
+}
+
+.drawing-author.short input {
+  width: 4.5em;
+}
+
+/* 氏名がまだ入っていないときは、入れる所を目立たせる */
+.drawing-author.needs input {
+  border-color: var(--accent);
+  background: var(--pick);
+}
+
 .drawing-author input {
   min-height: var(--touch);
   padding: 6px 10px;

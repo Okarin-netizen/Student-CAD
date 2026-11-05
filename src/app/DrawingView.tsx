@@ -7,7 +7,8 @@ import { KIND_LABELS, PAPER, buildSheet, formatMm, laserDXF, sheetToDXF, sheetTo
 import { newId } from "../doc/ids";
 import type { CadClient } from "./cadClient";
 import { downloadFile } from "./persist";
-import { setDrawingNotes, toast, useStore } from "./store";
+import { setAuthor, setDrawingNotes, toast, useStore } from "./store";
+import { authorLabel, emptyAuthor, fileBaseName, isStudentId } from "./author";
 import { Icon } from "./Icon";
 
 interface Props {
@@ -19,7 +20,6 @@ interface Props {
   onClose: () => void;
 }
 
-const AUTHOR_KEY = "student-cad:author";
 const MATERIAL_KEY = "student-cad:material";
 
 const KINDS: { kind: DrawingKind; label: string; hint: string }[] = [
@@ -56,11 +56,12 @@ export function DrawingView({ client, title, version, onClose }: Props) {
   const [hidden, setHidden] = useState(true);
   const [dims, setDims] = useState(true);
   const [withIso, setWithIso] = useState(true);
-  const [author, setAuthor] = useState(() => readSaved(AUTHOR_KEY));
   const [material, setMaterial] = useState(() => readSaved(MATERIAL_KEY));
   const [views, setViews] = useState<ProjectedView[] | null>(null);
   const [loading, setLoading] = useState(true);
   const notes = useStore((s) => s.drawing);
+  const who = useStore((s) => s.meta.author) ?? emptyAuthor();
+  const author = authorLabel(who);
   /** 寸法を手で直すモード: add = 2つの点をタップして足す、erase = 数字をタップして消す */
   const [edit, setEdit] = useState<"none" | "add" | "erase">("none");
   const [pending, setPending] = useState<SheetSnap | null>(null);
@@ -110,12 +111,23 @@ export function DrawingView({ client, title, version, onClose }: Props) {
     }
     return out;
   }, [svg, editing, sheet, pending]);
-  const fileBase = `${title || "作品"}_${KINDS.find((k) => k.kind === kind)!.label}`;
+  // ファイル名は「学籍番号_氏名_作品名」。SVG・DXF は図の種類もつける
+  const pdfName = fileBaseName(who, title);
+  const fileBase = fileBaseName(who, title, KINDS.find((k) => k.kind === kind)!.label);
 
-  const saveAuthor = (v: string) => {
-    setAuthor(v);
-    saveLocal(AUTHOR_KEY, v);
+  /** 印刷(PDF に保存)。PDF のファイル名はページの題名になるので、印刷する間だけ題名をかえる */
+  const printSheet = () => {
+    if (!isStudentId(who.studentId) || !who.name.trim()) toast("学籍番号(4けた)と氏名を入れると、図面とファイル名に入ります");
+    const old = document.title;
+    document.title = pdfName;
+    const restore = () => {
+      document.title = old;
+      window.removeEventListener("afterprint", restore);
+    };
+    window.addEventListener("afterprint", restore);
+    window.print();
   };
+
   const saveMaterial = (v: string) => {
     setMaterial(v);
     saveLocal(MATERIAL_KEY, v);
@@ -174,7 +186,7 @@ export function DrawingView({ client, title, version, onClose }: Props) {
   const exportLaser = async () => {
     const v = await client.drawing("thirdAngle", false);
     if (!v) return toast("書き出す立体がありません", "error");
-    downloadFile(laserDXF(v[1]), `${title || "作品"}_レーザー用.dxf`, "application/dxf");
+    downloadFile(laserDXF(v[1]), `${fileBaseName(who, title, "レーザー用")}.dxf`, "application/dxf");
     toast("上から見た形を 1:1 の DXF にしました。レーザー加工機のソフトで開けます");
   };
 
@@ -207,10 +219,23 @@ export function DrawingView({ client, title, version, onClose }: Props) {
             </label>
           </>
         )}
-        <label className="drawing-author">
-          名前
-          <input value={author} onChange={(e) => saveAuthor(e.target.value)} placeholder="表題欄に入ります" data-testid="drawing-author" />
-        </label>
+        <fieldset className="drawing-who" aria-label="作った人(表題欄の氏名とファイル名に入ります)">
+          <label className={`drawing-author short ${isStudentId(who.studentId) ? "" : "needs"}`}>
+            学籍番号
+            <input
+              value={who.studentId}
+              inputMode="numeric"
+              maxLength={4}
+              onChange={(e) => setAuthor({ ...who, studentId: e.target.value.replace(/[^0-9０-９]/g, "").replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0)) })}
+              placeholder="2312"
+              data-testid="drawing-student-id"
+            />
+          </label>
+          <label className={`drawing-author ${who.name.trim() ? "" : "needs"}`}>
+            氏名
+            <input value={who.name} onChange={(e) => setAuthor({ ...who, name: e.target.value })} placeholder="作った人の名前" data-testid="drawing-author" />
+          </label>
+        </fieldset>
         <label className="drawing-author">
           材料
           <input value={material} onChange={(e) => saveMaterial(e.target.value)} placeholder="例: PLA、ヒノキ" data-testid="drawing-material" />
@@ -253,7 +278,7 @@ export function DrawingView({ client, title, version, onClose }: Props) {
         <span className="muted">
           {KIND_LABELS[kind]} ・ 尺度 {sheet?.scaleLabel ?? "-"} ・ A4 横
         </span>
-        <button type="button" disabled={!sheet} onClick={() => window.print()} data-testid="drawing-print">
+        <button type="button" disabled={!sheet} onClick={printSheet} data-testid="drawing-print">
           <Icon name="print" /> 印刷 / PDF
         </button>
         <button type="button" disabled={!sheet} onClick={() => downloadFile(svg, `${fileBase}.svg`, "image/svg+xml")} data-testid="drawing-svg">

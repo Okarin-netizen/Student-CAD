@@ -28,18 +28,28 @@ test("図面: 第三角法・等角図・キャビネット図をかいて、SVG
   await expect(sheet).toContainText("正面図");
   await expect(sheet).toContainText("右側面図");
 
+  await page.getByTestId("drawing-student-id").fill("2312");
   await page.getByTestId("drawing-author").fill("技術 太郎");
-  await expect(sheet).toContainText("技術 太郎");
+  await expect(sheet).toContainText("2312 技術 太郎");
 
   let download = page.waitForEvent("download");
   await page.getByTestId("drawing-svg").click();
-  expect((await download).suggestedFilename()).toMatch(/第三角法\.svg$/);
+  expect((await download).suggestedFilename()).toBe("2312_技術太郎_新しい作品_第三角法.svg");
   download = page.waitForEvent("download");
   await page.getByTestId("drawing-dxf").click();
   expect((await download).suggestedFilename()).toMatch(/\.dxf$/);
   download = page.waitForEvent("download");
   await page.getByTestId("drawing-laser").click();
   expect((await download).suggestedFilename()).toMatch(/レーザー用\.dxf$/);
+
+  // 印刷(PDF に保存)するときは、ページの題名を「学籍番号_氏名_作品名」にする(PDF のファイル名になる)
+  await page.evaluate(() => {
+    window.print = () => {
+      (window as unknown as { printedTitle: string }).printedTitle = document.title;
+    };
+  });
+  await page.getByTestId("drawing-print").click();
+  expect(await page.evaluate(() => (window as unknown as { printedTitle: string }).printedTitle)).toBe("2312_技術太郎_新しい作品");
 
   await page.getByTestId("drawing-isometric").click();
   await expect(sheet).toContainText("等角図");
@@ -49,6 +59,11 @@ test("図面: 第三角法・等角図・キャビネット図をかいて、SVG
 
   await page.getByTestId("drawing-close").click();
   await expect(page.getByTestId("new-sketch")).toBeVisible();
+
+  // 作った人は作品に残り、開き直しても表題欄に入る。印刷(PDF)のときのページの題名が PDF のファイル名になる
+  await page.reload();
+  await page.getByTestId("open-drawing").click();
+  await expect(page.getByTestId("drawing-sheet")).toContainText("2312 技術 太郎");
 });
 
 test("図面: 寸法を手で足して消し、自動の寸法も消してから もとにもどせる", async ({ page }) => {

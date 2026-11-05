@@ -130,7 +130,7 @@ export function App() {
       clearTimeout(t);
       document.removeEventListener("visibilitychange", now);
     };
-  }, [s.doc, s.drawing, loaded]);
+  }, [s.doc, s.drawing, s.meta.author, loaded]);
 
   // ---- キーボード(Chromebook 用) ----
   useEffect(() => {
