@@ -319,6 +319,25 @@ export interface DocMeta {
   activeSeconds: number;
 }
 
+/** 図面で手で足した寸法。点は その図の上の座標(実物の mm) */
+export interface AddedDimension {
+  id: string;
+  /** どの図か(0 正面図・1 平面図・2 右側面図) */
+  view: 0 | 1 | 2;
+  a: Vec2;
+  b: Vec2;
+  /** h = 横の長さをはかる、v = たての長さをはかる */
+  dir: "h" | "v";
+}
+
+/** 図面の寸法の手直し(フェーズ5で追加。古いファイルにはない) */
+export interface DrawingNotes {
+  /** 消した自動の寸法の名前 */
+  hidden: string[];
+  /** 手で足した寸法 */
+  added: AddedDimension[];
+}
+
 export interface CadDocument {
   format: "student-cad";
   version: 1;
@@ -330,6 +349,8 @@ export interface CadDocument {
   assignment?: Assignment;
   /** 作品の記録(フェーズ3で追加) */
   meta?: DocMeta;
+  /** 図面の寸法の手直し */
+  drawing?: DrawingNotes;
 }
 
 export function emptyDocument(name = "新しい作品"): CadDocument {

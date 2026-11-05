@@ -51,6 +51,37 @@ test("図面: 第三角法・等角図・キャビネット図をかいて、SVG
   await expect(page.getByTestId("new-sketch")).toBeVisible();
 });
 
+test("図面: 寸法を手で足して消し、自動の寸法も消してから もとにもどせる", async ({ page }) => {
+  await makeBox(page);
+  await page.getByTestId("open-drawing").click();
+  const sheet = page.getByTestId("drawing-sheet");
+  const texts = sheet.locator("svg > g text");
+  await expect(texts.first()).toBeVisible();
+  const before = await texts.count();
+
+  // 正面図の点(●)を2つタップして足す
+  await page.getByTestId("dim-add").click();
+  const dots = sheet.locator(".snap-dot");
+  await expect(dots.first()).toBeAttached();
+  await dots.nth(0).click({ force: true });
+  await expect(sheet.locator(".snap-picked")).toBeAttached();
+  await dots.nth(1).click({ force: true });
+  await expect(texts).toHaveCount(before + 1);
+
+  // 足した寸法の数字をタップして消す(足した寸法は最後にかかれる数字)
+  await page.getByTestId("dim-erase").click();
+  const dimTexts = sheet.locator("svg > g text").filter({ hasText: /^[0-9.]+$/ });
+  await dimTexts.last().click({ force: true });
+  await expect(texts).toHaveCount(before);
+  await expect(page.getByTestId("dim-reset")).toHaveCount(0);
+
+  // 自動の寸法を1つ消して、もとにもどす
+  await dimTexts.first().click({ force: true });
+  await expect(texts).toHaveCount(before - 1);
+  await page.getByTestId("dim-reset").click();
+  await expect(texts).toHaveCount(before);
+});
+
 test("3MF で書き出せる", async ({ page }) => {
   await makeBox(page);
   const download = page.waitForEvent("download");

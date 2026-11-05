@@ -17,6 +17,7 @@ import {
   type PlaneRef,
   type SketchFeature,
   type DocMeta,
+  type DrawingNotes,
   type Assignment,
   type LoftFeature,
   type ShellFeature,
@@ -65,6 +66,8 @@ export interface State {
   toast: { text: string; kind: "info" | "error" } | null;
   /** 作品の記録(作業時間など)。もどす/やりなおすで戻らないよう、設計図とは別に持つ */
   meta: DocMeta;
+  /** 図面の寸法の手直し。形を計算し直さなくてよいよう、設計図とは別に持つ */
+  drawing: DrawingNotes;
 }
 
 const PRO_KEY = "student-cad:proTerms";
@@ -93,7 +96,12 @@ let state: State = {
   proTerms: readPro(),
   toast: null,
   meta: newMeta(),
+  drawing: emptyNotes(),
 };
+
+function emptyNotes(): DrawingNotes {
+  return { hidden: [], added: [] };
+}
 
 function newMeta(): DocMeta {
   const now = new Date().toISOString();
@@ -115,7 +123,8 @@ function touch(): Partial<State> {
 
 /** 保存・提出するときの設計図(作品の記録を入れたもの) */
 export function docForSave(s: State): CadDocument {
-  return { ...s.doc, meta: s.meta };
+  const notes = s.drawing.hidden.length || s.drawing.added.length ? { drawing: s.drawing } : {};
+  return { ...s.doc, meta: s.meta, ...notes };
 }
 
 const listeners = new Set<() => void>();
@@ -149,9 +158,9 @@ export function commitDoc(next: CadDocument) {
 
 /** 作品を入れかえる(開く・新しく始める)。作品の記録はその作品のものにする */
 export function replaceDoc(next: CadDocument) {
-  const { meta, ...doc } = next;
+  const { meta, drawing, ...doc } = next;
   lastActive = 0;
-  setState({ doc, meta: meta ?? newMeta(), past: [], future: [], mode: { kind: "model" }, draftSketch: null, draftOp: null, selectedFeature: null });
+  setState({ doc, meta: meta ?? newMeta(), drawing: drawing ?? emptyNotes(), past: [], future: [], mode: { kind: "model" }, draftSketch: null, draftOp: null, selectedFeature: null });
 }
 
 export function undo() {
@@ -448,6 +457,11 @@ export function deleteFeature(id: Id) {
   const gone = new Set([id, ...dependents(state.doc, id).map((f) => f.id)]);
   commitDoc({ ...state.doc, features: state.doc.features.filter((f) => !gone.has(f.id)) });
   setState({ selectedFeature: null });
+}
+
+/** 図面の寸法の手直しを変える */
+export function setDrawingNotes(drawing: DrawingNotes) {
+  setState({ drawing, ...touch() });
 }
 
 export function renameDoc(name: string) {
