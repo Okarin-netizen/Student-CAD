@@ -5,6 +5,7 @@ import { useState } from "react";
 import type { Assignment, AssignmentCheck, WorldAxis } from "../doc/types";
 import { AXIS_WORDS, USE_WORDS, type CheckResult } from "../doc/assignment";
 import { newId } from "../doc/ids";
+import { Icon } from "./Icon";
 
 /** 生徒が見る課題のカード。説明と、条件ができたかどうか(自動で確かめる) */
 export function AssignmentCard({ assignment, results }: { assignment: Assignment; results: CheckResult[] }) {
@@ -14,14 +15,18 @@ export function AssignmentCard({ assignment, results }: { assignment: Assignment
   return (
     <section className={`assignment-card ${open ? "open" : ""}`} aria-label="課題" data-testid="assignment-card">
       <button type="button" className="assignment-head" onClick={() => setOpen((v) => !v)} aria-expanded={open} data-testid="assignment-toggle">
-        <span>📋 {assignment.title}</span>
+        <span>
+          <Icon name="assignment" /> {assignment.title}
+        </span>
         {results.length > 0 && (
           <span className={`assignment-count ${all ? "ok" : ""}`} data-testid="assignment-count">
-            {all ? "🎉 " : ""}
+            {all ? <Icon name="check" /> : null}
             {done} / {results.length}
           </span>
         )}
-        <span aria-hidden>{open ? "▲" : "▼"}</span>
+        <span aria-hidden className={`assignment-chevron ${open ? "open" : ""}`}>
+          <Icon name="chevron" />
+        </span>
       </button>
       {open && (
         <div className="assignment-body">
@@ -84,7 +89,7 @@ export function AssignmentEditor({ initial, onSave, onExport, onClose }: EditorP
   return (
     <div className="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="dialog assignment-editor" role="dialog" aria-label="課題を作る">
-        <h3>📋 課題を作る(先生用)</h3>
+        <h3>課題を作る(先生用)</h3>
         <p className="muted">いまの作品の形が、生徒が始めるときの形になります。白紙から始めさせたいときは、先に「新しく」で白紙にしてください。</p>
         <label className="field">
           課題の名前

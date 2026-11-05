@@ -10,7 +10,6 @@ import { emptyDocument } from "./types";
 export interface Template {
   id: string;
   label: string;
-  icon: string;
   /** えらぶ画面に出す短い説明 */
   summary: string;
   make: () => CadDocument;
@@ -60,14 +59,12 @@ export const TEMPLATES: Template[] = [
   {
     id: "blank",
     label: "白紙",
-    icon: "📄",
     summary: "何もないところから自由に作る",
     make: () => emptyDocument(),
   },
   {
     id: "nameplate",
     label: "名札",
-    icon: "🏷️",
     summary: "板の上に名前を浮き出させる。板は用意してあります",
     make: () =>
       withAssignment(
@@ -89,7 +86,6 @@ export const TEMPLATES: Template[] = [
   {
     id: "coaster",
     label: "コースター",
-    icon: "🥤",
     summary: "コップの下にしく、うすい円や多角形の板",
     make: () =>
       withAssignment("コースター", {
@@ -106,7 +102,6 @@ export const TEMPLATES: Template[] = [
   {
     id: "penstand",
     label: "ペン立て",
-    icon: "✏️",
     summary: "材料の量(体積)に気をつけて、ペンが入る入れ物を作る",
     make: () =>
       withAssignment("ペン立て", {
@@ -122,7 +117,6 @@ export const TEMPLATES: Template[] = [
   {
     id: "keyholder",
     label: "キーホルダー",
-    icon: "🔑",
     summary: "ひもを通す穴のある、小さな飾り",
     make: () =>
       withAssignment("キーホルダー", {

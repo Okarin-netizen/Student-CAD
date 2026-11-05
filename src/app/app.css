@@ -8,7 +8,7 @@
 }
 
 :root {
-  /* デザイン B「大きく はっきり」: 黒い線・白い面・黄色の「えらんでいる」・青の「すすむ」 */
+  /* デザイン E「モノトーン線画」(B「大きく はっきり」をもとに、大人向けに落ち着かせた): 黒い線・白い面・青1色 */
   --bg: #f3f4f6;
   --surface: #ffffff;
   --text: #111827;
@@ -19,7 +19,7 @@
   --accent: #0b5cad;
   --accent-soft: #fff3b0;
   --accent-text: #ffffff;
-  --pick: #ffd60a;
+  --pick: #e1ebf7;
   --danger: #b42318;
   --danger-bg: #fff1f0;
   --ok: #1a7f37;
@@ -32,7 +32,7 @@
   --sk-free: #0b5cad;
   --sk-region: #0b5cad22;
   --touch: 56px;
-  --bw: 2px;
+  --bw: 1.5px;
   color-scheme: light;
   /* 読みまちがえにくい UD 書体を先に使う(Windows は BIZ UDPゴシック、iPad はヒラギノ、Chromebook は Noto) */
   font-family: "BIZ UDPGothic", "BIZ UDPゴシック", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Noto Sans CJK JP", "Yu Gothic UI", system-ui, sans-serif;
@@ -250,7 +250,8 @@ button.danger {
 
 .tree li.selected .tree-item {
   background: var(--pick);
-  border-color: var(--line);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 .tree li.bad .tree-item {
@@ -392,7 +393,8 @@ button.danger {
 .segmented .active,
 .tool.active {
   background: var(--pick);
-  border-color: var(--line);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
   font-weight: 700;
 }
 
@@ -848,7 +850,8 @@ button.danger {
 
 .op-row button.active {
   background: var(--pick);
-  border-color: var(--line);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 /* ---- 目もり ---- */
@@ -946,7 +949,8 @@ button.danger {
   align-items: center;
   line-height: 1.1;
   background: var(--pick);
-  border-color: var(--line);
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
 }
 
 .numpad-vars small {
@@ -1604,32 +1608,67 @@ button.danger {
   color: var(--muted);
 }
 
-/* ---- デザイン B「大きく はっきり」(2026-11-05 おかだ さんが選択) ----
-   画面の区切りは太い黒線にして、どこが何の場所かを見分けやすくする。 */
+/* ---- デザイン E「モノトーン線画」(2026-11-05 おかだ さんが選択) ----
+   B「大きく はっきり」の大きなボタンと黒い区切り線はそのままに、線を細くし、色は青1色にした。
+   アイコンは絵文字をやめ、Icon.tsx の線のアイコンを使う。 */
 
 .topbar {
-  border-bottom-width: 3px;
+  border-bottom-width: 2px;
 }
 
 .tree {
-  border-right-width: 3px;
+  border-right-width: 2px;
 }
 
 .stepbar {
-  border-top-width: 3px;
+  border-top-width: 2px;
 }
 
 .panel,
 .dialog {
-  border: 3px solid var(--line);
-  box-shadow: 0 6px 0 #11182733;
+  border: 2px solid var(--line);
+  box-shadow: 0 8px 24px #11182724;
 }
 
 .step {
-  border-width: 3px;
-  font-size: 1.15rem;
+  font-size: 1.1rem;
 }
 
 .step-num {
   background: var(--line);
+}
+
+/* 線のアイコンは、となりの文字の高さにそろえる */
+.icon {
+  flex: none;
+  vertical-align: -0.22em;
+}
+
+.tree-icon,
+.tool-icon,
+.template-icon {
+  display: inline-flex;
+  color: var(--text);
+}
+
+.step-arrow .icon {
+  vertical-align: middle;
+}
+
+.assignment-chevron .icon {
+  transform: rotate(90deg);
+  transition: transform 0.15s;
+}
+
+.assignment-chevron.open .icon {
+  transform: rotate(-90deg);
+}
+
+button.primary .icon,
+.tree-error .icon {
+  color: inherit;
+}
+
+.tree-error {
+  color: var(--danger);
 }

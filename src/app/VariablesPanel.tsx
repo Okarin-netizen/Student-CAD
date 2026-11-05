@@ -52,7 +52,7 @@ export function VariablesPanel({ doc, pro, onClose }: Props) {
   return (
     <div className="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="dialog variables-panel" role="dialog" aria-label={term("variables", pro)}>
-        <h3>📏 {term("variables", pro)}</h3>
+        <h3>{term("variables", pro)}</h3>
         <p className="muted">
           数に名前をつけて、寸法やあつさに使えます。ここで数を変えると、その名前を使っているところが全部いっしょに変わります。
           寸法を入れる数字キーパッドで、名前のボタンを押すと使えます。

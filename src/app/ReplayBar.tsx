@@ -3,6 +3,7 @@
 
 import { useEffect, useState } from "react";
 import type { Feature } from "../doc/types";
+import { Icon } from "./Icon";
 
 interface Props {
   features: Feature[];
@@ -38,10 +39,10 @@ export function ReplayBar({ features, step, busy, onStep, onClose }: Props) {
     <nav className="replaybar" aria-label="作り方の再生" data-testid="replaybar">
       <div className="replay-buttons">
         <button type="button" onClick={() => onStep(1)} aria-label="最初へ" disabled={step <= 1}>
-          ⏮
+          <Icon name="first" />
         </button>
         <button type="button" onClick={() => onStep(step - 1)} aria-label="1つもどる" disabled={step <= 1} data-testid="replay-prev">
-          ◀
+          <Icon name="prev" />
         </button>
         <button
           type="button"
@@ -52,13 +53,13 @@ export function ReplayBar({ features, step, busy, onStep, onClose }: Props) {
           }}
           data-testid="replay-play"
         >
-          {playing && !atEnd ? "⏸ 止める" : atEnd ? "↺ もう一度" : "▶ 再生"}
+          {playing && !atEnd ? <><Icon name="pause" /> 止める</> : atEnd ? <><Icon name="replay" /> もう一度</> : <><Icon name="play" /> 再生</>}
         </button>
         <button type="button" onClick={() => onStep(step + 1)} aria-label="1つ進む" disabled={atEnd} data-testid="replay-next">
-          ▶
+          <Icon name="next" />
         </button>
         <button type="button" onClick={() => onStep(n)} aria-label="最後へ" disabled={atEnd}>
-          ⏭
+          <Icon name="last" />
         </button>
       </div>
       <input

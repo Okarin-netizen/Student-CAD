@@ -2,6 +2,7 @@
 // Copyright (c) 2026 技術科　岡田
 
 import { TEMPLATES, type Template } from "../doc/templates";
+import { Icon, type IconName } from "./Icon";
 
 interface Props {
   /** いまの作品に作業があるか(あれば、閉じてよいか注意を出す) */
@@ -11,6 +12,16 @@ interface Props {
 }
 
 /** 新しく始める画面。白紙か、課題のひな形をえらぶ */
+
+/** ひな形ごとの線のアイコン */
+const TEMPLATE_ICONS: Record<string, IconName> = {
+  blank: "blank",
+  nameplate: "nameplate",
+  coaster: "coaster",
+  penstand: "penstand",
+  keyholder: "keyholder",
+};
+
 export function NewDialog({ hasWork, onPick, onClose }: Props) {
   return (
     <div className="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
@@ -21,7 +32,7 @@ export function NewDialog({ hasWork, onPick, onClose }: Props) {
           {TEMPLATES.map((t) => (
             <button key={t.id} type="button" className="template" onClick={() => onPick(t)} data-testid={`template-${t.id}`}>
               <span className="template-icon" aria-hidden>
-                {t.icon}
+                <Icon name={TEMPLATE_ICONS[t.id] ?? "blank"} size={32} stroke={1.5} />
               </span>
               <strong>{t.label}</strong>
               <small>{t.summary}</small>

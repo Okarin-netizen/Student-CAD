@@ -394,7 +394,7 @@ export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, edgePick,
     <div className="viewer3d">
       {showHowTo && (
         <div className="howto" role="note" data-testid="howto-3d">
-          ☝️ 1本指でまわす ・ ✌️ 2本指で動かす・つまんで大きくする
+          1本指でまわす ・ 2本指で動かす ・ つまんで大きくする
         </div>
       )}
       <div className="viewer3d-canvas" ref={hostRef} data-testid="viewer-3d" />
