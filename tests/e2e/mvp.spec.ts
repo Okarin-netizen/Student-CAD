@@ -115,3 +115,34 @@ test("指のタップでも長方形をかける", async ({ page }, info) => {
   await page.getByTestId("sketch-done").tap();
   await expect(page.getByTestId("extrude-ok")).toBeEnabled();
 });
+
+test("立体の上の面をタップして、その面にスケッチをかける", async ({ page }) => {
+  await page.goto("/");
+  await page.getByTestId("new-sketch").click();
+  await page.getByTestId("plane-top").click();
+  await page.getByTestId("tool-rect").click();
+  await tapCanvas(page, 0.3, 0.3);
+  await tapCanvas(page, 0.7, 0.7);
+  await page.getByTestId("sketch-done").click();
+  await page.getByTestId("extrude-ok").click();
+  await expect(page.getByTestId("feature-tree").locator("li")).toHaveCount(2);
+
+  // 3D の上の面(画面のまん中あたり)をタップ
+  await page.getByTestId("new-sketch").click();
+  await expect(page.getByTestId("face-hint")).toBeVisible();
+  const view = (await page.getByTestId("viewer-3d").boundingBox())!;
+  await page.mouse.click(view.x + view.width * 0.5, view.y + view.height * 0.5);
+  await expect(page.getByTestId("sketch-canvas")).toBeVisible();
+
+  // 面の輪郭が下がきとして見えて、その角に吸い付いて長方形をかける
+  await expect(page.getByTestId("sketch-references")).toBeVisible();
+  const ref = (await page.getByTestId("sketch-references").boundingBox())!;
+  await page.getByTestId("tool-rect").click();
+  await page.mouse.click(ref.x + 3, ref.y + 3);
+  await page.mouse.click(ref.x + ref.width / 2, ref.y + ref.height / 2);
+  await expect(page.locator(".sk-region")).toHaveCount(1);
+  await page.getByTestId("sketch-done").click();
+  await page.getByTestId("extrude-ok").click();
+  await expect(page.getByTestId("feature-tree").locator("li")).toHaveCount(4);
+  await expect(page.getByTestId("feature-tree").locator("li.bad")).toHaveCount(0);
+});

@@ -31,6 +31,7 @@ import { measureAngle, measureLength, solveSketch } from "../../sketch/solver";
 import { findProfiles } from "../../sketch/profiles";
 import { term } from "../terms";
 import { NumberPad } from "../NumberPad";
+import { referenceCorners } from "./references";
 import { arcPath, bounds, distToArc, distToSegment, fmt, gridStep, positions, toScreen, toWorld, type Viewport } from "./geometry";
 
 export type Tool = "select" | "line" | "rect" | "circle" | "arc" | "polygon" | "dimension";
@@ -39,6 +40,8 @@ interface Props {
   sketch: SketchFeature;
   gcs: GcsWrapper;
   pro: boolean;
+  /** 下がき: スケッチ平面の上にある立体の輪郭(x, y の線分の並び) */
+  references?: Float32Array;
   onEdit: (next: SketchData, recordFrom?: SketchData) => void;
   onPreview: (next: SketchData) => void;
   onMessage: (text: string, kind?: "info" | "error") => void;
@@ -91,7 +94,7 @@ const TOOLS: { tool: Tool; label: string; icon: string; hint: string }[] = [
   { tool: "dimension", label: "寸法", icon: "↔", hint: "線(長さ)、円(直径)、2つの点(距離)、2本の線(角度)をタップして数字を入れます" },
 ];
 
-export function SketchEditor({ sketch, gcs, pro, onEdit, onPreview, onMessage }: Props) {
+export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, onMessage }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [vp, setVp] = useState<Viewport>({ cx: 30, cy: 20, scale: 6, width: 800, height: 600 });
   const [tool, setTool] = useState<Tool>("line");
@@ -112,6 +115,8 @@ export function SketchEditor({ sketch, gcs, pro, onEdit, onPreview, onMessage }:
   const ents = useMemo(() => new Map(sketch.entities.map((e) => [e.id, e])), [sketch.entities]);
   const status = useMemo(() => solveSketch(gcs, data), [sketch.entities, sketch.constraints]); // eslint-disable-line react-hooks/exhaustive-deps
   const profiles = useMemo(() => findProfiles(data), [sketch.entities, sketch.constraints]); // eslint-disable-line react-hooks/exhaustive-deps
+  const refs = references ?? NO_REFS;
+  const refCorners = useMemo(() => referenceCorners(refs), [refs]);
   const defined = status.ok && status.dof === 0 && sketch.entities.length > 0;
 
   // 画面の大きさに合わせる
@@ -139,10 +144,22 @@ export function SketchEditor({ sketch, gcs, pro, onEdit, onPreview, onMessage }:
     if (tool !== "select") setSelection([]);
   }, [tool]);
 
+  // 下がきが後から届いたら(面にかき始めたとき)、それが見えるように合わせ直す
+  const refFitted = useRef(false);
+  useEffect(() => {
+    if (refFitted.current || refs.length === 0 || vp.width < 50) return;
+    refFitted.current = true;
+    fit();
+  }, [refs, vp.width]); // eslint-disable-line react-hooks/exhaustive-deps
+
   const fit = () => {
     const b = bounds(sketch.entities);
-    const min = b ? b.min : ([0, 0] as Vec2);
-    const max = b ? b.max : ([60, 40] as Vec2);
+    let min: Vec2 = b ? b.min : refs.length ? [Infinity, Infinity] : [0, 0];
+    let max: Vec2 = b ? b.max : refs.length ? [-Infinity, -Infinity] : [60, 40];
+    for (let i = 0; i + 1 < refs.length; i += 2) {
+      min = [Math.min(min[0], refs[i]), Math.min(min[1], refs[i + 1])];
+      max = [Math.max(max[0], refs[i]), Math.max(max[1], refs[i + 1])];
+    }
     const w = Math.max(max[0] - min[0], 20);
     const h = Math.max(max[1] - min[1], 20);
     setVp((v) => ({
@@ -169,7 +186,24 @@ export function SketchEditor({ sketch, gcs, pro, onEdit, onPreview, onMessage }:
       if (d < HIT_PX && (!best || d < best.d)) best = { id, d };
     }
     if (best) return { spec: { id: best.id }, xy: pos.get(best.id)!, snapped: true };
-    // 2. マス目に吸い付ける。線の途中なら、水平・垂直にもそろえる
+    // 2. 下がき(立体の輪郭)の角、つぎに輪郭の線の上
+    let corner: { p: Vec2; d: number } | null = null;
+    for (const p of refCorners) {
+      const s = toScreen(vp, p);
+      const d = Math.hypot(s[0] - screen[0], s[1] - screen[1]);
+      if (d < HIT_PX && (!corner || d < corner.d)) corner = { p, d };
+    }
+    if (corner) return { spec: { xy: corner.p }, xy: corner.p, snapped: true };
+    const w = toWorld(vp, screen);
+    let onRef: { p: Vec2; d: number } | null = null;
+    for (let i = 0; i + 3 < refs.length; i += 4) {
+      const a: Vec2 = [refs[i], refs[i + 1]];
+      const b: Vec2 = [refs[i + 2], refs[i + 3]];
+      const d = distToSegment(w, a, b) * vp.scale;
+      if (d < HIT_PX / 2 && (!onRef || d < onRef.d)) onRef = { p: closestOnSegment(w, a, b), d };
+    }
+    if (onRef) return { spec: { xy: onRef.p }, xy: onRef.p, snapped: false };
+    // 3. マス目に吸い付ける。線の途中なら、水平・垂直にもそろえる
     const step = gridStep(vp.scale) / 2;
     let [x, y] = toWorld(vp, screen);
     x = Math.round(x / step) * step;
@@ -717,6 +751,19 @@ export function SketchEditor({ sketch, gcs, pro, onEdit, onPreview, onMessage }:
             />
           ))}
 
+          {/* 下がき: 面の上にある立体の輪郭 */}
+          {refs.length > 0 && (
+            <path
+              className="sk-ref"
+              data-testid="sketch-references"
+              d={Array.from({ length: refs.length / 4 }, (_, i) => {
+                const a = S([refs[i * 4], refs[i * 4 + 1]]);
+                const b = S([refs[i * 4 + 2], refs[i * 4 + 3]]);
+                return `M${a[0]} ${a[1]}L${b[0]} ${b[1]}`;
+              }).join("")}
+            />
+          )}
+
           {sketch.entities.map((e) => {
             const cls = e.construction ? "sk-curve construction" : "sk-curve";
             const stroke = color(e);
@@ -834,9 +881,17 @@ export function SketchEditor({ sketch, gcs, pro, onEdit, onPreview, onMessage }:
   );
 }
 
+const NO_REFS = new Float32Array(0);
 const dist = (a: Vec2, b: Vec2) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 const mid = (a: Vec2, b: Vec2): Vec2 => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
 const sub = (a: Vec2, b: Vec2): Vec2 => [a[0] - b[0], a[1] - b[1]];
+function closestOnSegment(p: Vec2, a: Vec2, b: Vec2): Vec2 {
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / (dx * dx + dy * dy || 1e-12)));
+  return [a[0] + t * dx, a[1] + t * dy];
+}
+
 /** スクリーン上の線分 a→b の左側の単位ベクトル */
 function normal(a: Vec2, b: Vec2): Vec2 {
   const dx = b[0] - a[0];

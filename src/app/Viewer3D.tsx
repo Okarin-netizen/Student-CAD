@@ -13,6 +13,7 @@ interface Props {
   /** 平面・面を選ぶ状態か */
   picking: boolean;
   onPick: (p: PickResult) => void;
+  onMessage?: (text: string) => void;
   /** 押し出しの作業中など、半透明で見せたいとき */
   ghost?: boolean;
 }
@@ -25,6 +26,7 @@ interface Stage {
   part: THREE.Group;
   sketchGroup: THREE.Group;
   planes: THREE.Group;
+  highlight: THREE.Group;
   cube: { renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.OrthographicCamera; mesh: THREE.Mesh };
   render: () => void;
   fitted: boolean;
@@ -46,12 +48,12 @@ const CUBE_DIRS: Vec3[] = [
  * 3Dビュー。Onshape のモバイル版と同じく 1本指で回転、2本指で移動・拡大。
  * 右上のビューキューブの面をタップすると、その向きから見られる。
  */
-export function Viewer3D({ mesh, sketches, picking, onPick, ghost }: Props) {
+export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, ghost }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const cubeRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Stage | null>(null);
-  const pickRef = useRef({ picking, onPick });
-  pickRef.current = { picking, onPick };
+  const pickRef = useRef({ picking, onPick, onMessage });
+  pickRef.current = { picking, onPick, onMessage };
 
   useEffect(() => {
     const host = hostRef.current!;
@@ -79,7 +81,8 @@ export function Viewer3D({ mesh, sketches, picking, onPick, ghost }: Props) {
 
     const part = new THREE.Group();
     const sketchGroup = new THREE.Group();
-    scene.add(part, sketchGroup);
+    const highlight = new THREE.Group();
+    scene.add(part, sketchGroup, highlight);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
@@ -128,6 +131,7 @@ export function Viewer3D({ mesh, sketches, picking, onPick, ghost }: Props) {
       part,
       sketchGroup,
       planes,
+      highlight,
       cube: { renderer: cubeRenderer, scene: cubeScene, camera: cubeCamera, mesh: cubeMesh },
       render,
       fitted: false,
@@ -139,18 +143,33 @@ export function Viewer3D({ mesh, sketches, picking, onPick, ghost }: Props) {
 
     // タップ(動かさずに離した)で平面・面を選ぶ
     let down: { x: number; y: number; t: number } | null = null;
+    const hover = (e: PointerEvent) => {
+      if (!pickRef.current.picking) return;
+      const h = pickAt(stage, e.clientX, e.clientY);
+      highlightFace(stage, h.face, h.result?.kind === "face");
+    };
     const onDown = (e: PointerEvent) => {
       down = { x: e.clientX, y: e.clientY, t: performance.now() };
+      hover(e);
+    };
+    const onMove = (e: PointerEvent) => {
+      // マウスのときは、ボタンを押していなくても指している面を見せる
+      if (e.pointerType === "mouse" && e.buttons === 0) hover(e);
     };
     const onUp = (e: PointerEvent) => {
       if (!down || !pickRef.current.picking) return;
       const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
       down = null;
-      if (moved > 8) return;
+      if (moved > 8) {
+        if (e.pointerType !== "mouse") highlightFace(stage, null, false);
+        return;
+      }
       const hit = pickAt(stage, e.clientX, e.clientY);
-      if (hit) pickRef.current.onPick(hit);
+      if (hit.result) pickRef.current.onPick(hit.result);
+      else if (hit.face != null) pickRef.current.onMessage?.("丸い面にはかけません。平らな面をえらんでください");
     };
     renderer.domElement.addEventListener("pointerdown", onDown);
+    renderer.domElement.addEventListener("pointermove", onMove);
     renderer.domElement.addEventListener("pointerup", onUp);
 
     const onCube = (e: PointerEvent) => {
@@ -233,9 +252,10 @@ export function Viewer3D({ mesh, sketches, picking, onPick, ghost }: Props) {
     if (!stage) return;
     for (const p of stage.planes.children) {
       const m = (p as THREE.Mesh).material as THREE.MeshBasicMaterial;
-      m.opacity = picking ? 0.28 : 0.07;
+      m.opacity = picking ? (mesh ? 0.1 : 0.28) : 0.07;
       p.visible = picking || !mesh;
     }
+    if (!picking) clear(stage.highlight);
     stage.render();
   }, [picking, mesh]);
 
@@ -302,25 +322,55 @@ function clear(group: THREE.Group) {
   }
 }
 
-function pickAt(stage: Stage, clientX: number, clientY: number): PickResult | null {
+interface PickHit {
+  result: PickResult | null;
+  /** 立体の面の番号(平らでない面も含む) */
+  face: number | null;
+}
+
+/**
+ * 指の下にある面・平面を探す。立体の面を基準面より先にする
+ * (基準面は半透明で立体の手前に重なることがあるため)。
+ */
+function pickAt(stage: Stage, clientX: number, clientY: number): PickHit {
   const rect = stage.renderer.domElement.getBoundingClientRect();
   const ndc = new THREE.Vector2(((clientX - rect.left) / rect.width) * 2 - 1, -((clientY - rect.top) / rect.height) * 2 + 1);
   const ray = new THREE.Raycaster();
   ray.setFromCamera(ndc, stage.camera);
-  const targets = [...stage.part.children.filter((c) => c.name === "body"), ...stage.planes.children];
-  for (const p of stage.planes.children) p.updateMatrixWorld(true);
-  const hits = ray.intersectObjects(targets, false);
-  for (const hit of hits) {
-    if (hit.object.userData.plane) return { kind: "base", name: hit.object.userData.plane as BasePlaneName };
-    const mesh = stage.mesh;
-    if (!mesh || hit.faceIndex == null) continue;
+  const body = stage.part.children.find((c) => c.name === "body");
+  const mesh = stage.mesh;
+  const hit = body ? ray.intersectObject(body, false)[0] : undefined;
+  if (hit && mesh && hit.faceIndex != null) {
     const tri = hit.faceIndex * 3;
     const group = mesh.faceGroups.find((g) => tri >= g.start && tri < g.start + g.count);
-    const face = group ? mesh.faces[group.face] : null;
-    if (face?.planar) return { kind: "face", origin: face.origin, normal: face.normal };
-    return null; // 曲面は選べない
+    if (!group) return { result: null, face: null };
+    const face = mesh.faces[group.face];
+    return { result: face.planar ? { kind: "face", origin: face.origin, normal: face.normal } : null, face: group.face };
   }
-  return null;
+  for (const p of stage.planes.children) p.updateMatrixWorld(true);
+  const planeHit = ray.intersectObjects(stage.planes.children.filter((p) => p.visible), false)[0];
+  if (planeHit) return { result: { kind: "base", name: planeHit.object.userData.plane as BasePlaneName }, face: null };
+  return { result: null, face: null };
+}
+
+/** 選べそうな面を明るく塗る */
+function highlightFace(stage: Stage, face: number | null, ok: boolean) {
+  clear(stage.highlight);
+  const mesh = stage.mesh;
+  if (face != null && mesh) {
+    const g = mesh.faceGroups.find((x) => x.face === face);
+    if (g) {
+      const geom = new THREE.BufferGeometry();
+      geom.setAttribute("position", new THREE.BufferAttribute(mesh.vertices, 3));
+      geom.setIndex(new THREE.BufferAttribute(mesh.triangles.slice(g.start, g.start + g.count), 1));
+      const m = new THREE.Mesh(
+        geom,
+        new THREE.MeshBasicMaterial({ color: ok ? 0xf08c00 : 0x9aa4b2, transparent: true, opacity: 0.6, depthTest: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }),
+      );
+      stage.highlight.add(m);
+    }
+  }
+  stage.render();
 }
 
 function setView(stage: Stage, dir: Vec3) {
