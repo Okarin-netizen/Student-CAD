@@ -76,7 +76,10 @@ const TITLE = { w: 130, h: 32 };
 const AREA = { x0: 18, y0: FRAME.y0 + TITLE.h + 6, x1: 279, y1: 194 };
 /** 図と図のすき間、寸法のための余白(用紙の mm) */
 const GAP = 22;
-const DIM_ROOM = 14;
+/** 寸法を2段(細かい寸法と全体の寸法)入れるための余白 */
+const DIM_ROOM = 21;
+/** 1段目・2段目の寸法線の、図からの距離 */
+const DIM_ROW = [-9, -16];
 
 interface Box {
   min: Vec2;
@@ -110,7 +113,11 @@ export function buildSheet(views: ProjectedView[], opts: SheetOptions): Sheet {
   const texts: SheetText[] = [];
   let scaleLabel = "1:1";
 
-  /** view の左下を at に置き、尺度 s でかく。円には中心線を入れ、diameters なら直径も書く */
+  /** すでに書いた半径(同じ R を何度も書かない) */
+  const radii = new Set<string>();
+  /** 半径の文字を置いた所(重ならないようにずらすのに使う) */
+  const taken: Box[] = [];
+  /** view の左下を at に置き、尺度 s でかく。円には中心線を入れ、dims なら直径と半径も書く */
   const place = (v: ProjectedView, b: Box, at: Vec2, s: number, diameters = false) => {
     const map = (p: Vec2): Vec2 => [at[0] + (p[0] - b.min[0]) * s, at[1] + (p[1] - b.min[1]) * s];
     for (const l of v.hidden) lines.push({ style: "hidden", points: l.map(map) });
@@ -124,6 +131,15 @@ export function buildSheet(views: ProjectedView[], opts: SheetOptions): Sheet {
       const labeled = group.length > 2 ? [group[0], group[group.length - 1]] : group;
       if (diameters) labeled.forEach((c, i) => diameter(lines, texts, [cx, cy], c.r * s, c.r * 2, LEADER_DIRS[i]));
     }
+    // 角の丸み・取っ手などの円弧は、半径(「R2」)を書く。同じ半径は図面の中で1回だけ
+    if (diameters) {
+      for (const arc of [...(v.arcs ?? [])].sort((p, q) => q.span - p.span)) {
+        const label = `R${formatMm(arc.r)}`;
+        if (radii.has(label) || arc.span < 0.3) continue;
+        radii.add(label);
+        radius(lines, texts, map(arc.c), map(arc.mid), label, taken);
+      }
+    }
   };
 
   const boxes = views.map(viewBounds);
@@ -133,7 +149,8 @@ export function buildSheet(views: ProjectedView[], opts: SheetOptions): Sheet {
     const [W, H] = size(fb);
     const D = size(tb)[1];
     const dimRoom = opts.dimensions ? DIM_ROOM : 0;
-    const scale = pickScale(W + D, H + D, GAP + dimRoom * 2, GAP + dimRoom * 2);
+    // 寸法は図の左と下だけに入れる。上下には図の名前の分(8mm)をとる
+    const scale = pickScale(W + D, H + D, GAP + dimRoom, GAP + dimRoom + 8);
     const s = scale.s;
     scaleLabel = scale.label;
     // 正面図を左下、平面図をその上、右側面図をその右に置き、全体を真ん中にする
@@ -142,16 +159,20 @@ export function buildSheet(views: ProjectedView[], opts: SheetOptions): Sheet {
     // 等角図もそえるときは、三面図を左に寄せて、右のあいた所に等角図を置く
     const ox = iso ? AREA.x0 + dimRoom + 4 : (AREA.x0 + AREA.x1 - groupW) / 2 + dimRoom / 2;
     const oy = (AREA.y0 + AREA.y1 - groupH) / 2 + dimRoom / 2;
-    place(views[0], fb, [ox, oy], s);
+    place(views[0], fb, [ox, oy], s, opts.dimensions);
     place(views[1], tb, [ox, oy + H * s + GAP], s, opts.dimensions);
-    place(views[2], rb, [ox + W * s + GAP, oy], s);
+    place(views[2], rb, [ox + W * s + GAP, oy], s, opts.dimensions);
     labelView(texts, "正面図", [ox + (W * s) / 2, oy - (opts.dimensions ? DIM_ROOM + 5 : 6)]);
     labelView(texts, "平面図", [ox + (W * s) / 2, oy + H * s + GAP + D * s + 3]);
     labelView(texts, "右側面図", [ox + W * s + GAP + (D * s) / 2, oy - (opts.dimensions ? DIM_ROOM + 5 : 6)]);
     if (opts.dimensions) {
-      dimension(lines, texts, [ox, oy], [ox + W * s, oy], -9, W, "below");
-      dimension(lines, texts, [ox, oy], [ox, oy + H * s], -9, H, "left");
-      dimension(lines, texts, [ox + W * s + GAP, oy], [ox + W * s + GAP + D * s, oy], -9, D, "below");
+      // はば(X)は正面図の下、高さ(Z)は正面図の左、奥行き(Y)は右側面図の下に、
+      // 1段目に段・穴・厚さなどの位置を順に(直列寸法)、2段目に全体の大きさを書く
+      const lv = featureLevels(views, [fb, tb, rb]);
+      const rx = ox + W * s + GAP;
+      chainDims(lines, texts, lv[0], (x) => [ox + (x - fb.min[0]) * s, oy], "below");
+      chainDims(lines, texts, lv[2], (z) => [ox, oy + (z - fb.min[1]) * s], "left");
+      chainDims(lines, texts, lv[1], (y) => [rx + (y - rb.min[0]) * s, oy], "below");
     }
     if (iso) {
       // あいている所: 右側面図の上(平面図の右)と、右側面図の右
@@ -195,23 +216,37 @@ function labelView(texts: SheetText[], text: string, at: Vec2) {
  * 寸法をかく(寸法補助線・矢印つきの寸法線・数字)。
  * a→b は図の上の2点、offset は図からはなす距離(mm)、value は実物の長さ。
  */
-function dimension(lines: SheetLine[], texts: SheetText[], a: Vec2, b: Vec2, offset: number, value: number, side: "below" | "left") {
+function dimension(lines: SheetLine[], texts: SheetText[], a: Vec2, b: Vec2, offset: number, value: number, side: "below" | "left", textAt?: number) {
   const text = formatMm(value);
-  if (side === "below") {
-    const y = a[1] + offset;
-    // 寸法補助線は、寸法線より 2mm 先まで出す(JIS)
-    lines.push({ style: "dim", points: [[a[0], a[1] - 1], [a[0], y - 2]] }, { style: "dim", points: [[b[0], b[1] - 1], [b[0], y - 2]] });
-    lines.push({ style: "dim", points: [[a[0], y], [b[0], y]] });
-    lines.push(arrow([a[0], y], [1, 0]), arrow([b[0], y], [-1, 0]));
-    texts.push({ at: [(a[0] + b[0]) / 2, y + 1.2], text, size: 3.5, anchor: "middle" });
+  // t は寸法線にそった向き、o は図からはなれる向きの座標。below なら t = x、left なら t = y
+  const horiz = side === "below";
+  const P = (t: number, o: number): Vec2 => (horiz ? [t, o] : [o, t]);
+  const dir = (d: number): Vec2 => (horiz ? [d, 0] : [0, d]);
+  const base = horiz ? a[1] : a[0];
+  const o = base + offset;
+  const lo = Math.min(horiz ? a[0] : a[1], horiz ? b[0] : b[1]);
+  const hi = Math.max(horiz ? a[0] : a[1], horiz ? b[0] : b[1]);
+  // 寸法補助線は、寸法線より 2mm 先まで出す(JIS)
+  lines.push({ style: "dim", points: [P(lo, base - 1), P(lo, o - 2)] }, { style: "dim", points: [P(hi, base - 1), P(hi, o - 2)] });
+  const len = hi - lo;
+  if (len >= 7) {
+    lines.push({ style: "dim", points: [P(lo, o), P(hi, o)] });
+    lines.push(arrow(P(lo, o), dir(1)), arrow(P(hi, o), dir(-1)));
   } else {
-    const x = a[0] + offset;
-    lines.push({ style: "dim", points: [[a[0] - 1, a[1]], [x - 2, a[1]]] }, { style: "dim", points: [[b[0] - 1, b[1]], [x - 2, b[1]]] });
-    lines.push({ style: "dim", points: [[x, a[1]], [x, b[1]]] });
-    lines.push(arrow([x, a[1]], [0, 1]), arrow([x, b[1]], [0, -1]));
-    texts.push({ at: [x - 1.2, (a[1] + b[1]) / 2], text, size: 3.5, anchor: "middle", rotate: 90 });
+    // せまい所は、矢印を外側から内に向けてかく
+    lines.push({ style: "dim", points: [P(lo - 4, o), P(hi + 4, o)] });
+    lines.push(arrow(P(lo, o), dir(-1)), arrow(P(hi, o), dir(1)));
   }
+  // 数字が寸法線の間に入らないときは、外(大きい方の先)に書く
+  const t = textAt ?? (fitsInside(text, len) ? (lo + hi) / 2 : hi + 4.5 + textWidth(text) / 2);
+  if (horiz) texts.push({ at: [t, o + 1.2], text, size: 3.5, anchor: "middle" });
+  else texts.push({ at: [o - 1.2, t], text, size: 3.5, anchor: "middle", rotate: 90 });
 }
+
+/** 寸法の数字の幅(mm、だいたい) */
+const textWidth = (text: string) => text.length * 1.9 + 1;
+/** 数字が寸法線の間に入るか */
+const fitsInside = (text: string, len: number) => len >= textWidth(text) + 1;
 
 /** 先が tip にあり、dir の向きに開く、ぬりつぶした矢印(長さ 3mm・開き 約 20°) */
 function arrow(tip: Vec2, dir: Vec2): SheetLine {
@@ -223,6 +258,132 @@ function arrow(tip: Vec2, dir: Vec2): SheetLine {
     style: "arrow",
     points: [tip, [base[0] - dy * half, base[1] + dx * half], [base[0] + dy * half, base[1] - dx * half], tip],
   };
+}
+
+/** 実物の軸(0 = X はば、1 = Y 奥行き、2 = Z 高さ)。第三角法の図の 紙の横・縦 がどの軸か */
+const VIEW_AXES: [number, number][] = [
+  [0, 2], // 正面図
+  [0, 1], // 平面図
+  [1, 2], // 右側面図
+];
+
+/**
+ * 寸法を入れる位置(実物の座標)を軸ごとに集める。
+ * 段や厚さ(図に平行な辺)、穴の中心、大きな円弧(取っ手など)の中心を入れる。
+ * 直径で分かる位置(穴のふち)は入れない。全体のはし(いちばん外)はかならず入れる。
+ */
+export function featureLevels(views: ProjectedView[], boxes: Box[]): number[][] {
+  const found: number[][] = [[], [], []];
+  const byDiameter: number[][] = [[], [], []];
+  const centersOf: number[][] = [[], [], []];
+  views.slice(0, 3).forEach((v, i) => {
+    const [ax, ay] = VIEW_AXES[i];
+    for (const [a, b] of v.segments ?? []) {
+      if (Math.abs(a[0] - b[0]) < 1e-3) found[ax].push(a[0]);
+      if (Math.abs(a[1] - b[1]) < 1e-3) found[ay].push(a[1]);
+    }
+    for (const c of v.circles) {
+      found[ax].push(c.c[0]);
+      found[ay].push(c.c[1]);
+      centersOf[ax].push(c.c[0]);
+      centersOf[ay].push(c.c[1]);
+      byDiameter[ax].push(c.c[0] - c.r, c.c[0] + c.r);
+      byDiameter[ay].push(c.c[1] - c.r, c.c[1] + c.r);
+    }
+    // 半円より大きく開いた円弧は、中心の位置も寸法にする。
+    // 角の丸み(小さな円弧)の中心は、丸みと平らな所の境目の線と同じ位置なので、寸法にしない(R で分かる)
+    for (const a of v.arcs ?? []) {
+      const target = a.span < 2.5 ? byDiameter : found;
+      target[ax].push(a.c[0]);
+      target[ay].push(a.c[1]);
+    }
+  });
+  const [fb, , rb] = boxes;
+  const range: [number, number][] = [
+    [fb.min[0], fb.max[0]],
+    [rb.min[0], rb.max[0]],
+    [fb.min[1], fb.max[1]],
+  ];
+  const near = (a: number, b: number) => Math.abs(a - b) < 0.05;
+  const isCenter = (axis: number, v: number) => centersOf[axis].some((c) => near(c, v));
+  return range.map(([lo, hi], axis) => {
+    // 穴や円の中心は、角の丸みの中心と同じ位置でも かならず入れる
+    const inner = found[axis].filter((v) => v > lo + 0.05 && v < hi - 0.05 && (!byDiameter[axis].some((d) => near(d, v)) || isCenter(axis, v)));
+    const out = [lo];
+    for (const v of inner.sort((a, b) => a - b)) if (!near(v, out[out.length - 1])) out.push(v);
+    out.push(hi);
+    return out;
+  });
+}
+
+/**
+ * 寸法を順につないでかく(直列寸法)。1段目に区切りごとの寸法、2段目に全体の寸法。
+ * 区切りが1つだけ(全体だけ)なら1段目に全体を書く。区切りが多すぎるときは全体だけにする。
+ */
+function chainDims(lines: SheetLine[], texts: SheetText[], levels: number[], at: (v: number) => Vec2, side: "below" | "left") {
+  const first = levels[0];
+  const last = levels[levels.length - 1];
+  const parts = levels.length - 1;
+  if (parts >= 2 && parts <= 8) {
+    // 数字の置き場所を決める。
+    // 間に入らない数字(せまい所)を先に、右(上)か左(下)の外の、ほかと重ならない所に置く。
+    // そのあと間に入る数字を真ん中に置き、せまい所の数字と重なるなら、自分の寸法線の中でずらす
+    const t = (v: number) => at(v)[side === "below" ? 0 : 1];
+    const spans = levels.slice(1).map((v, i) => ({ lo: t(levels[i]), hi: t(v), text: formatMm(v - levels[i]) }));
+    const placed: [number, number][] = [];
+    const clear = (c: number, w: number) => placed.every(([a, b]) => c + w / 2 + 0.5 < a || c - w / 2 - 0.5 > b);
+    const pos: number[] = spans.map(() => NaN);
+    spans.forEach((sp, i) => {
+      if (fitsInside(sp.text, sp.hi - sp.lo)) return;
+      const w = textWidth(sp.text);
+      const outHi = [sp.hi + 4.5 + w / 2, sp.hi + 9 + w / 2];
+      const outLo = [sp.lo - 4.5 - w / 2, sp.lo - 9 - w / 2];
+      // いちばん はしの区切りは、図の外側に書く
+      const cands = i === 0 ? [outLo[0], outHi[0], outLo[1], outHi[1]] : [outHi[0], outLo[0], outHi[1], outLo[1]];
+      pos[i] = cands.find((c) => clear(c, w)) ?? cands[0];
+      placed.push([pos[i] - w / 2, pos[i] + w / 2]);
+    });
+    spans.forEach((sp, i) => {
+      if (!Number.isNaN(pos[i])) return;
+      const w = textWidth(sp.text);
+      const [min, max] = [sp.lo + w / 2 + 0.5, sp.hi - w / 2 - 0.5];
+      const cands = [(sp.lo + sp.hi) / 2, ...placed.flatMap(([a, b]) => [b + 0.6 + w / 2, a - 0.6 - w / 2])].filter((c) => c >= min && c <= max);
+      pos[i] = cands.find((c) => clear(c, w)) ?? (sp.lo + sp.hi) / 2;
+      placed.push([pos[i] - w / 2, pos[i] + w / 2]);
+    });
+    for (let i = 0; i < parts; i++) dimension(lines, texts, at(levels[i]), at(levels[i + 1]), DIM_ROW[0], levels[i + 1] - levels[i], side, pos[i]);
+    dimension(lines, texts, at(first), at(last), DIM_ROW[1], last - first, side);
+  } else {
+    dimension(lines, texts, at(first), at(last), DIM_ROW[0], last - first, side);
+  }
+}
+
+/**
+ * 円弧の半径(「R2」)を、中心から弧のまん中へ向かう向きに引き出してかく。
+ * ほかの半径の文字と重なるときは、折れる所を上下にずらす。
+ */
+function radius(lines: SheetLine[], texts: SheetText[], c: Vec2, mid: Vec2, label: string, taken: Box[]) {
+  const len = Math.hypot(mid[0] - c[0], mid[1] - c[1]) || 1;
+  const u: Vec2 = [(mid[0] - c[0]) / len, (mid[1] - c[1]) / len];
+  const sx = u[0] >= 0 ? 1 : -1;
+  const w = label.length * 2 + 1;
+  const boxAt = (e: Vec2): Box => ({ min: [sx > 0 ? e[0] : e[0] - w, e[1] - 0.5], max: [sx > 0 ? e[0] + w : e[0], e[1] + 4.5] });
+  const hits = (b: Box) => taken.some((t) => b.min[0] < t.max[0] && b.max[0] > t.min[0] && b.min[1] < t.max[1] && b.max[1] > t.min[1]);
+  let elbow: Vec2 = [mid[0] + u[0] * 6, mid[1] + u[1] * 6];
+  for (const dy of [0, 6, -6, 12, -12]) {
+    const e: Vec2 = [mid[0] + u[0] * 6, mid[1] + u[1] * 6 + dy];
+    if (!hits(boxAt(e))) {
+      elbow = e;
+      break;
+    }
+  }
+  taken.push(boxAt(elbow));
+  const end: Vec2 = [elbow[0] + sx * w, elbow[1]];
+  lines.push({ style: "dim", points: [mid, elbow, end] });
+  // 矢印は弧に当たる所。引き出し線の向きに開く
+  const ll = Math.hypot(elbow[0] - mid[0], elbow[1] - mid[1]) || 1;
+  lines.push(arrow(mid, [(elbow[0] - mid[0]) / ll, (elbow[1] - mid[1]) / ll]));
+  texts.push({ at: [elbow[0] + sx * 0.5, elbow[1] + 1], text: label, size: 3.2, anchor: sx > 0 ? "start" : "end" });
 }
 
 /** 直径の引き出し線の向き(外の円は右上、内の円は左上) */

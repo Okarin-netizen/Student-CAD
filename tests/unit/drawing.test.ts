@@ -5,7 +5,7 @@ import { beforeAll, describe, expect, it } from "vitest";
 import opencascade from "replicad-opencascadejs";
 import { makeBox, makeCylinder, setOC } from "replicad";
 import { projectViews } from "../../src/kernel/projection";
-import { buildSheet, laserDXF, sheetToDXF, sheetToSVG, viewBounds } from "../../src/drawing/sheet";
+import { buildSheet, featureLevels, laserDXF, sheetToDXF, sheetToSVG, viewBounds } from "../../src/drawing/sheet";
 import { make3MF, weldMesh } from "../../src/export/threemf";
 import { crc32 } from "../../src/export/zip";
 import { make_gcs_wrapper, type GcsWrapper } from "@salusoft89/planegcs";
@@ -50,6 +50,28 @@ describe("図をかく(投影)", () => {
     expect(labels.map((t) => t.text).sort()).toEqual(["⌀70", "⌀80"]);
     const [a, b] = labels;
     expect(Math.hypot(a.at[0] - b.at[0], a.at[1] - b.at[1])).toBeGreaterThan(20);
+  });
+
+  it("細かい寸法: 段の位置・穴の中心・角の丸み R を入れ、全体の寸法も書く", () => {
+    // 40×20×10 の板に、高さ 6 までの段(右 15mm を けずる)と、⌀8 の穴(中心 x=12, y=10)
+    const step = box().cut(makeBox([25, 0, 6], [40, 20, 10])).cut(makeCylinder(4, 10, [12, 10, 0], [0, 0, 1]));
+    const views = projectViews(step, "thirdAngle", true);
+    const levels = featureLevels(views, views.slice(0, 3).map((v) => viewBounds(v)!));
+    // はば: 左はし・穴の中心・段・右はし(穴のふち 8 と 16 は直径で分かるので入れない)
+    expect(levels[0]).toEqual([0, 12, 25, 40]);
+    // 奥行き: 手前・穴の中心・奥
+    expect(levels[1]).toEqual([0, 10, 20]);
+    // 高さ: 底・段・上
+    expect(levels[2]).toEqual([0, 6, 10]);
+    const sheet = buildSheet(views, { kind: "thirdAngle", title: "", author: "", dimensions: true });
+    const t = sheet.texts.map((x) => x.text);
+    for (const v of ["12", "13", "15", "40", "6", "4", "10", "20", "⌀8"]) expect(t).toContain(v);
+
+    const rounded = box().fillet(3, (e) => e.inDirection("Z"));
+    const rv = projectViews(rounded, "thirdAngle", false);
+    const rt = buildSheet(rv, { kind: "thirdAngle", title: "", author: "", dimensions: true }).texts.map((x) => x.text);
+    // 同じ R は図面に1回だけ書く
+    expect(rt.filter((x) => x === "R3")).toHaveLength(1);
   });
 
   it("穴には中心線を入れ、平面図に直径を書く", () => {
