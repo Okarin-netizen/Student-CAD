@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
-import type { MeshData } from "../kernel/buildPlate";
+import type { MeshData } from "./buildPlate";
 
 type ViewName = "iso" | "top" | "front";
 

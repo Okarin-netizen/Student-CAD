@@ -1,17 +1,18 @@
+import "./bench.css";
 import { useCallback, useEffect, useRef, useState } from "react";
-import { DEFAULT_PARAMS, PARAM_SPECS, type PlateParams } from "./model/params";
-import type { SolvedSketch } from "./sketch/plateSketch";
-import type { MeshData } from "./kernel/buildPlate";
-import { createCadWorker, type CadClient } from "./worker/client";
-import type { InitReport, RebuildResult, Timings } from "./worker/types";
-import { SketchView } from "./view/SketchView";
-import { Viewer3D } from "./view/Viewer3D";
-import { DimensionInput } from "./ui/DimensionInput";
+import { DEFAULT_PARAMS, PARAM_SPECS, type PlateParams } from "./params";
+import type { SolvedSketch } from "./plateSketch";
+import type { MeshData } from "./buildPlate";
+import { createCadWorker, type CadClient } from "./client";
+import type { InitReport, RebuildResult, Timings } from "./types";
+import { SketchView } from "./SketchView";
+import { Viewer3D } from "./Viewer3D";
+import { DimensionInput } from "./DimensionInput";
 import { deviceInfo, jsHeapMB, ms, type MetricsReport, type StressResult } from "./metrics";
 
 type Phase = "loading" | "ready" | "error";
 
-export function App() {
+export function BenchApp() {
   const cadRef = useRef<CadClient | null>(null);
   const [phase, setPhase] = useState<Phase>("loading");
   const [loadError, setLoadError] = useState<string | null>(null);

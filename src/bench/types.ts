@@ -1,5 +1,5 @@
-import type { MeshData } from "../kernel/buildPlate";
-import type { SolvedSketch } from "../sketch/plateSketch";
+import type { MeshData } from "./buildPlate";
+import type { SolvedSketch } from "./plateSketch";
 
 export interface WasmResource {
   name: string;

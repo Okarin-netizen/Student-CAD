@@ -2,9 +2,9 @@ import { beforeAll, describe, expect, it } from "vitest";
 import opencascade from "replicad-opencascadejs";
 import { setOC } from "replicad";
 import { make_gcs_wrapper, type GcsWrapper } from "@salusoft89/planegcs";
-import { DEFAULT_PARAMS } from "../../src/model/params";
-import { solvePlateSketch } from "../../src/sketch/plateSketch";
-import { buildPlate, meshShape } from "../../src/kernel/buildPlate";
+import { DEFAULT_PARAMS } from "../../src/bench/params";
+import { solvePlateSketch } from "../../src/bench/plateSketch";
+import { buildPlate, meshShape } from "../../src/bench/buildPlate";
 
 let gcs: GcsWrapper;
 beforeAll(async () => {
