@@ -1,0 +1,306 @@
+:root {
+  --bg: #f6f8fb;
+  --surface: #ffffff;
+  --text: #1b2430;
+  --muted: #5b6675;
+  --border: #d5dbe3;
+  --accent: #1f6feb;
+  --accent-text: #ffffff;
+  --danger-bg: #fff1f0;
+  --danger: #b42318;
+  --grid: #e3e8ee;
+  --axis-x: #e5737333;
+  --axis-y: #4caf5033;
+  --sketch-line: #1b2a41;
+  --sketch-fill: #4f8fe61f;
+  --dim: #1f6feb;
+  --handle: #1f6feb;
+  /* タッチで押しやすい最小サイズ(Apple のガイドラインの 44pt 以上) */
+  --touch: 48px;
+  color-scheme: light;
+  font-family: system-ui, -apple-system, "Hiragino Sans", "Noto Sans JP", "Yu Gothic UI", sans-serif;
+  color: var(--text);
+  background: var(--bg);
+}
+
+* {
+  box-sizing: border-box;
+}
+
+html,
+body {
+  margin: 0;
+  background: var(--bg);
+  -webkit-tap-highlight-color: transparent;
+  overscroll-behavior: none;
+}
+
+button {
+  font: inherit;
+  min-height: var(--touch);
+  min-width: var(--touch);
+  padding: 0 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--text);
+  touch-action: manipulation;
+  cursor: pointer;
+}
+
+button:active {
+  transform: scale(0.97);
+}
+
+button:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+button.primary {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  font-weight: 600;
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 12px max(12px, env(safe-area-inset-right)) 24px max(12px, env(safe-area-inset-left));
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.topbar {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+}
+
+.topbar h1 {
+  font-size: 20px;
+  margin: 0;
+}
+
+.topbar h1 small {
+  font-size: 13px;
+  color: var(--muted);
+  font-weight: 400;
+}
+
+.steps {
+  display: flex;
+  gap: 6px;
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  flex-wrap: wrap;
+}
+
+.steps li {
+  font-size: 13px;
+  padding: 6px 10px;
+  border-radius: 999px;
+  border: 1px solid var(--border);
+  background: var(--surface);
+  color: var(--muted);
+}
+
+.steps li.current {
+  border-color: var(--accent);
+  color: var(--accent);
+  font-weight: 600;
+}
+
+.status {
+  margin-left: auto;
+  font-size: 14px;
+  padding: 6px 12px;
+  border-radius: 999px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+}
+
+.status-ready {
+  border-color: #2e7d32;
+  color: #2e7d32;
+}
+
+.status-error {
+  border-color: var(--danger);
+  color: var(--danger);
+}
+
+.workspace {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 12px;
+}
+
+/* 縦向きのタブレット・スマートフォンでは上下に並べる */
+@media (max-width: 820px), (orientation: portrait) {
+  .workspace {
+    grid-template-columns: 1fr;
+  }
+}
+
+.pane {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 8px 12px 12px;
+  display: flex;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.pane h2 {
+  font-size: 15px;
+  margin: 4px 0 8px;
+}
+
+.sketch svg,
+.viewer-canvas {
+  width: 100%;
+  aspect-ratio: 4 / 3;
+  border-radius: 12px;
+  background: var(--bg);
+  touch-action: none;
+  display: block;
+}
+
+.sketch-status {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.handle.active circle:first-child {
+  fill: #f59e0b;
+}
+
+.viewer {
+  position: relative;
+}
+
+.viewer-buttons {
+  display: flex;
+  gap: 8px;
+  margin-top: 8px;
+}
+
+.viewer-hint {
+  margin: 8px 0 0;
+  font-size: 13px;
+  color: var(--muted);
+}
+
+.panel {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 12px;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.dims {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: 12px 16px;
+}
+
+.dim label {
+  display: block;
+  font-size: 14px;
+  margin-bottom: 4px;
+}
+
+.dim-row {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.dim-row input {
+  min-height: var(--touch);
+  width: 100%;
+  min-width: 0;
+  font-size: 20px;
+  text-align: right;
+  padding: 0 10px;
+  border-radius: 12px;
+  border: 1px solid var(--border);
+  background: var(--bg);
+  color: var(--text);
+}
+
+.dim-row button {
+  font-size: 22px;
+  padding: 0;
+  flex: 0 0 var(--touch);
+}
+
+.unit {
+  color: var(--muted);
+  font-size: 14px;
+}
+
+.problems {
+  margin: 0;
+  padding: 10px 14px 10px 28px;
+  border-radius: 12px;
+  background: var(--danger-bg);
+  color: var(--danger);
+  font-size: 15px;
+}
+
+.actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.metrics {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  padding: 12px;
+  font-size: 14px;
+}
+
+.metrics summary {
+  font-weight: 600;
+  min-height: 32px;
+  cursor: pointer;
+}
+
+.metrics dl {
+  display: grid;
+  grid-template-columns: minmax(160px, max-content) 1fr;
+  gap: 6px 16px;
+}
+
+.metrics .dl-row {
+  display: contents;
+}
+
+.metrics dt {
+  color: var(--muted);
+}
+
+.metrics dd {
+  margin: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.metrics textarea {
+  margin-top: 8px;
+  width: 100%;
+  font-family: ui-monospace, monospace;
+  font-size: 12px;
+}
