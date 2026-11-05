@@ -51,14 +51,18 @@ const CABINET_K = 0.5 * Math.SQRT1_2;
 
 export function projectViews(body: Shape3D, kind: DrawingKind, withHidden: boolean): ProjectedView[] {
   if (kind === "thirdAngle") {
-    return (["front", "top", "right"] as const).map((name) => ({ name, ...project(body, CAMERAS[name], withHidden, true) }));
+    // 三面図に、形の感じが分かる等角図(かくれ線なし)を4つ目としてそえる
+    const views: ProjectedView[] = (["front", "top", "right"] as const).map((name) => ({ name, ...project(body, CAMERAS[name], withHidden, true) }));
+    return [...views, isometricView(body, false)];
   }
-  if (kind === "isometric") {
-    const v = project(body, ISOMETRIC, withHidden);
-    const s = (lines: Vec2[][]) => lines.map((l) => l.map(([x, y]): Vec2 => [x * ISOMETRIC_SCALE, y * ISOMETRIC_SCALE]));
-    return [{ name: "isometric", visible: s(v.visible), hidden: s(v.hidden), circles: [] }];
-  }
+  if (kind === "isometric") return [isometricView(body, withHidden)];
   return [{ name: "cabinet", ...cabinet(body, withHidden), circles: [] }];
+}
+
+function isometricView(body: Shape3D, withHidden: boolean): ProjectedView {
+  const v = project(body, ISOMETRIC, withHidden);
+  const s = (lines: Vec2[][]) => lines.map((l) => l.map(([x, y]): Vec2 => [x * ISOMETRIC_SCALE, y * ISOMETRIC_SCALE]));
+  return { name: "isometric", visible: s(v.visible), hidden: s(v.hidden), circles: [] };
 }
 
 /**

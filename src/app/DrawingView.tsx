@@ -19,6 +19,7 @@ interface Props {
 }
 
 const AUTHOR_KEY = "student-cad:author";
+const MATERIAL_KEY = "student-cad:material";
 
 const KINDS: { kind: DrawingKind; label: string; hint: string }[] = [
   { kind: "thirdAngle", label: "第三角法", hint: "正面図・平面図・右側面図の3つで、形を正確に表します" },
@@ -26,12 +27,26 @@ const KINDS: { kind: DrawingKind; label: string; hint: string }[] = [
   { kind: "cabinet", label: "キャビネット図", hint: "正面はそのままの形で、奥行きを 45° に半分の長さでかきます" },
 ];
 
-function readAuthor(): string {
+function readSaved(key: string): string {
   try {
-    return localStorage.getItem(AUTHOR_KEY) ?? "";
+    return localStorage.getItem(key) ?? "";
   } catch {
     return "";
   }
+}
+
+function saveLocal(key: string, v: string) {
+  try {
+    localStorage.setItem(key, v);
+  } catch {
+    // 保存できなくても、その場では使える
+  }
+}
+
+/** 表題欄の日付(例 "2026/11/05") */
+function today(): string {
+  const d = new Date();
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, "0")}/${String(d.getDate()).padStart(2, "0")}`;
 }
 
 /** 図面の画面。立体から図をかいて、SVG・DXF・印刷(PDF)で出せる */
@@ -39,7 +54,9 @@ export function DrawingView({ client, title, version, onClose }: Props) {
   const [kind, setKind] = useState<DrawingKind>("thirdAngle");
   const [hidden, setHidden] = useState(true);
   const [dims, setDims] = useState(true);
-  const [author, setAuthor] = useState(readAuthor);
+  const [withIso, setWithIso] = useState(true);
+  const [author, setAuthor] = useState(() => readSaved(AUTHOR_KEY));
+  const [material, setMaterial] = useState(() => readSaved(MATERIAL_KEY));
   const [views, setViews] = useState<ProjectedView[] | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -60,8 +77,18 @@ export function DrawingView({ client, title, version, onClose }: Props) {
   }, [client, kind, withHidden, version]);
 
   const sheet = useMemo(
-    () => (views ? buildSheet(views, { kind, title, author, dimensions: kind === "thirdAngle" && dims }) : null),
-    [views, kind, title, author, dims],
+    () =>
+      views
+        ? buildSheet(kind === "thirdAngle" && !withIso ? views.slice(0, 3) : views, {
+            kind,
+            title,
+            author,
+            material,
+            date: today(),
+            dimensions: kind === "thirdAngle" && dims,
+          })
+        : null,
+    [views, kind, title, author, material, dims, withIso],
   );
   const svg = useMemo(() => (sheet ? sheetToSVG(sheet) : ""), [sheet]);
   // 画面では枠いっぱいに縮めて見せる(保存・印刷は実際の mm の大きさ)
@@ -70,11 +97,11 @@ export function DrawingView({ client, title, version, onClose }: Props) {
 
   const saveAuthor = (v: string) => {
     setAuthor(v);
-    try {
-      localStorage.setItem(AUTHOR_KEY, v);
-    } catch {
-      // 保存できなくても、その場では使える
-    }
+    saveLocal(AUTHOR_KEY, v);
+  };
+  const saveMaterial = (v: string) => {
+    setMaterial(v);
+    saveLocal(MATERIAL_KEY, v);
   };
 
   const exportLaser = async () => {
@@ -107,11 +134,19 @@ export function DrawingView({ client, title, version, onClose }: Props) {
               <input type="checkbox" checked={dims} onChange={(e) => setDims(e.target.checked)} data-testid="drawing-dims" />
               寸法
             </label>
+            <label className="check">
+              <input type="checkbox" checked={withIso} onChange={(e) => setWithIso(e.target.checked)} data-testid="drawing-with-iso" />
+              等角図もそえる
+            </label>
           </>
         )}
         <label className="drawing-author">
           名前
           <input value={author} onChange={(e) => saveAuthor(e.target.value)} placeholder="表題欄に入ります" data-testid="drawing-author" />
+        </label>
+        <label className="drawing-author">
+          材料
+          <input value={material} onChange={(e) => saveMaterial(e.target.value)} placeholder="例: PLA、ヒノキ" data-testid="drawing-material" />
         </label>
       </div>
 
