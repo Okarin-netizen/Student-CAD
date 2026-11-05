@@ -1,0 +1,84 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
+import { useEffect, useState } from "react";
+import type { Feature } from "../doc/types";
+
+interface Props {
+  features: Feature[];
+  /** いま見せている作業の番号(1 から) */
+  step: number;
+  /** 形の計算中は、次へ進まない(計算が追いつかないと形が飛ぶため) */
+  busy: boolean;
+  onStep: (step: number) => void;
+  onClose: () => void;
+}
+
+/** 1つの作業を見せる時間(ミリ秒) */
+const INTERVAL = 1200;
+
+/** 作り方の再生。れきしを最初から1つずつ、形ができていく様子を見せる */
+export function ReplayBar({ features, step, busy, onStep, onClose }: Props) {
+  const [playing, setPlaying] = useState(true);
+  const n = features.length;
+  const atEnd = step >= n;
+
+  useEffect(() => {
+    if (!playing || busy) return;
+    if (atEnd) {
+      setPlaying(false);
+      return;
+    }
+    const t = setTimeout(() => onStep(step + 1), INTERVAL);
+    return () => clearTimeout(t);
+  }, [playing, busy, step, atEnd, onStep]);
+
+  const f = features[step - 1];
+  return (
+    <nav className="replaybar" aria-label="作り方の再生" data-testid="replaybar">
+      <div className="replay-buttons">
+        <button type="button" onClick={() => onStep(1)} aria-label="最初へ" disabled={step <= 1}>
+          ⏮
+        </button>
+        <button type="button" onClick={() => onStep(step - 1)} aria-label="1つもどる" disabled={step <= 1} data-testid="replay-prev">
+          ◀
+        </button>
+        <button
+          type="button"
+          className="primary"
+          onClick={() => {
+            if (atEnd) onStep(1);
+            setPlaying((p) => !p || atEnd);
+          }}
+          data-testid="replay-play"
+        >
+          {playing && !atEnd ? "⏸ 止める" : atEnd ? "↺ もう一度" : "▶ 再生"}
+        </button>
+        <button type="button" onClick={() => onStep(step + 1)} aria-label="1つ進む" disabled={atEnd} data-testid="replay-next">
+          ▶
+        </button>
+        <button type="button" onClick={() => onStep(n)} aria-label="最後へ" disabled={atEnd}>
+          ⏭
+        </button>
+      </div>
+      <input
+        type="range"
+        className="replay-slider"
+        min={1}
+        max={n}
+        value={step}
+        aria-label="何番目の作業まで見せるか"
+        onChange={(e) => {
+          setPlaying(false);
+          onStep(Number(e.target.value));
+        }}
+      />
+      <span className="replay-label" data-testid="replay-label">
+        {step} / {n} ・ {f?.name}
+      </span>
+      <button type="button" onClick={onClose} data-testid="replay-close">
+        おわる
+      </button>
+    </nav>
+  );
+}

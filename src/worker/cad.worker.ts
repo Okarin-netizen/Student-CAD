@@ -6,11 +6,12 @@
 import * as Comlink from "comlink";
 import opencascade from "replicad-opencascadejs";
 import ocWasmUrl from "replicad-opencascadejs/wasm?url";
-import { loadFont, setOC, type Shape3D } from "replicad";
+import { loadFont, measureVolume, setOC, type Shape3D } from "replicad";
 import { make_gcs_wrapper, type GcsWrapper } from "@salusoft89/planegcs";
 import gcsWasmUrl from "@salusoft89/planegcs/dist/planegcs_dist/planegcs.wasm?url";
 import { TEXT_FONT, meshBody, rebuild, usesText, type BodyMesh, type FeatureStatus, type SketchDisplay } from "../kernel/rebuild";
 import type { CadDocument } from "../doc/types";
+import type { Measure } from "../doc/assignment";
 import { projectViews, type DrawingKind, type ProjectedView } from "../kernel/projection";
 import { make3MF } from "../export/threemf";
 
@@ -18,7 +19,18 @@ export interface RebuildReply {
   statuses: FeatureStatus[];
   mesh: BodyMesh | null;
   sketches: SketchDisplay[];
+  /** 立体の大きさと体積(課題の条件を確かめるのに使う)。立体がなければ null */
+  measure: Measure | null;
   ms: number;
+}
+
+function measureBody(b: Shape3D): Measure | null {
+  try {
+    const [lo, hi] = b.boundingBox.bounds;
+    return { size: [hi[0] - lo[0], hi[1] - lo[1], hi[2] - lo[2]], volume: measureVolume(b) };
+  } catch {
+    return null;
+  }
 }
 
 let gcs: GcsWrapper | null = null;
@@ -57,7 +69,8 @@ const api = {
     body?.delete();
     body = out.body;
     const mesh = out.body ? meshBody(out.body) : null;
-    const reply: RebuildReply = { statuses: out.statuses, mesh, sketches: out.sketches, ms: performance.now() - t0 };
+    const measure = out.body ? measureBody(out.body) : null;
+    const reply: RebuildReply = { statuses: out.statuses, mesh, sketches: out.sketches, measure, ms: performance.now() - t0 };
     const transfers: Transferable[] = out.sketches.map((s) => s.lines.buffer as ArrayBuffer);
     if (mesh) transfers.push(mesh.vertices.buffer, mesh.normals.buffer, mesh.triangles.buffer, mesh.edges.buffer);
     return Comlink.transfer(reply, transfers);

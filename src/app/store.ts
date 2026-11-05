@@ -16,6 +16,8 @@ import {
   type Id,
   type PlaneRef,
   type SketchFeature,
+  type DocMeta,
+  type Assignment,
 } from "../doc/types";
 import type { RebuildReply } from "../worker/cad.worker";
 import type { SketchData } from "../sketch/edit";
@@ -29,7 +31,9 @@ export type Mode =
   /** 押し出し・回転・角を丸める・対称・ならべるの設定中 */
   | { kind: "op"; isNew: boolean }
   /** 図面を見ている */
-  | { kind: "drawing" };
+  | { kind: "drawing" }
+  /** 作り方の再生。れきしの最初から step 番目の作業までの形を見せる(見るだけで、変えられない) */
+  | { kind: "replay"; step: number };
 
 /** スケッチ以外の作業 */
 export type OpFeature = ExtrudeFeature | RevolveFeature | FilletFeature | MirrorFeature | PatternFeature;
@@ -55,6 +59,8 @@ export interface State {
   busy: boolean;
   proTerms: boolean;
   toast: { text: string; kind: "info" | "error" } | null;
+  /** 作品の記録(作業時間など)。もどす/やりなおすで戻らないよう、設計図とは別に持つ */
+  meta: DocMeta;
 }
 
 const PRO_KEY = "student-cad:proTerms";
@@ -82,7 +88,31 @@ let state: State = {
   busy: false,
   proTerms: readPro(),
   toast: null,
+  meta: newMeta(),
 };
+
+function newMeta(): DocMeta {
+  const now = new Date().toISOString();
+  return { createdAt: now, updatedAt: now, activeSeconds: 0 };
+}
+
+/** 5分より長く手が止まっていたら、その間は作業時間に数えない */
+const IDLE_MS = 5 * 60 * 1000;
+let lastActive = 0;
+
+/** 作業した(設計図やスケッチを変えた)ことを記録する */
+function touch(): Partial<State> {
+  const now = Date.now();
+  const gap = now - lastActive;
+  const add = lastActive > 0 && gap < IDLE_MS ? gap / 1000 : 0;
+  lastActive = now;
+  return { meta: { ...state.meta, updatedAt: new Date(now).toISOString(), activeSeconds: Math.round(state.meta.activeSeconds + add) } };
+}
+
+/** 保存・提出するときの設計図(作品の記録を入れたもの) */
+export function docForSave(s: State): CadDocument {
+  return { ...s.doc, meta: s.meta };
+}
 
 const listeners = new Set<() => void>();
 
@@ -110,11 +140,14 @@ const HISTORY_LIMIT = 100;
 // ---- 設計図の変更(もどす/やりなおすの対象) ----
 
 export function commitDoc(next: CadDocument) {
-  setState((s) => ({ doc: next, past: [...s.past, s.doc].slice(-HISTORY_LIMIT), future: [] }));
+  setState((s) => ({ doc: next, past: [...s.past, s.doc].slice(-HISTORY_LIMIT), future: [], ...touch() }));
 }
 
+/** 作品を入れかえる(開く・新しく始める)。作品の記録はその作品のものにする */
 export function replaceDoc(next: CadDocument) {
-  setState({ doc: next, past: [], future: [], mode: { kind: "model" }, draftSketch: null, draftOp: null, selectedFeature: null });
+  const { meta, ...doc } = next;
+  lastActive = 0;
+  setState({ doc, meta: meta ?? newMeta(), past: [], future: [], mode: { kind: "model" }, draftSketch: null, draftOp: null, selectedFeature: null });
 }
 
 export function undo() {
@@ -180,6 +213,7 @@ export function editSketch(next: SketchData, recordFrom?: SketchData) {
     draftSketch: { ...s.draftSketch, ...next },
     sketchPast: [...s.sketchPast, recordFrom ?? pick(s.draftSketch)].slice(-HISTORY_LIMIT),
     sketchFuture: [],
+    ...touch(),
   });
 }
 
@@ -205,6 +239,25 @@ export function startDrawing() {
     return;
   }
   setState({ mode: { kind: "drawing" }, selectedFeature: null });
+}
+
+// ---- 作り方の再生 ----
+
+export function startReplay() {
+  if (state.doc.features.length === 0) return toast("まだ作業がありません");
+  setState({ mode: { kind: "replay", step: 1 }, selectedFeature: null });
+}
+
+/** 再生の位置を変える(1〜作業の数) */
+export function setReplayStep(step: number) {
+  if (state.mode.kind !== "replay") return;
+  const n = state.doc.features.length;
+  setState({ mode: { kind: "replay", step: Math.max(1, Math.min(n, step)) } });
+}
+
+/** 課題を入れる・変える(先生が作るとき)。undefined で課題を外す */
+export function setAssignment(assignment: Assignment | undefined) {
+  commitDoc({ ...state.doc, assignment });
 }
 
 export function cancelMode() {
@@ -299,7 +352,7 @@ export function startPattern() {
 
 export function updateOp(patch: Partial<OpFeature>) {
   if (!state.draftOp) return;
-  setState({ draftOp: { ...state.draftOp, ...patch } as OpFeature });
+  setState({ draftOp: { ...state.draftOp, ...patch } as OpFeature, ...touch() });
 }
 
 export function setOpPreview(on: boolean) {
@@ -383,6 +436,7 @@ export function deleteVariable(id: Id) {
 
 /** 画面に出す設計図(編集中の作業を差し込んだもの) */
 export function previewDoc(s: State): CadDocument {
+  if (s.mode.kind === "replay") return { ...s.doc, features: s.doc.features.slice(0, s.mode.step) };
   const draft: Feature | null = s.mode.kind === "op" ? s.draftOp : s.mode.kind === "sketch" ? s.draftSketch : null;
   if (!draft) return s.doc;
   const idx = s.doc.features.findIndex((f) => f.id === draft.id);

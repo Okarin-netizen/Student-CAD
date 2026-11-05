@@ -17,24 +17,42 @@ interface Props {
   onSelect: (id: Id | null) => void;
   onEdit: (id: Id) => void;
   onDelete: (id: Id) => void;
+  /** 作り方の再生中なら、いま見せている作業の番号(1 から)。再生中でなければ null */
+  replayStep: number | null;
+  onReplay: () => void;
 }
 
 /** 作業のれきし(フィーチャーツリー)。上から順に実行される */
-export function FeatureTree({ doc, statuses, selected, pro, disabled, onSelect, onEdit, onDelete }: Props) {
+export function FeatureTree({ doc, statuses, selected, pro, disabled, onSelect, onEdit, onDelete, replayStep, onReplay }: Props) {
   const [confirm, setConfirm] = useState<Feature | null>(null);
   const status = new Map(statuses.map((s) => [s.id, s]));
   const nameOf = (id: Id) => doc.features.find((f) => f.id === id)?.name ?? "?";
 
   return (
     <aside className="tree" aria-label={term("history", pro)}>
-      <h2>{term("history", pro)}</h2>
+      <div className="tree-head">
+        <h2>{term("history", pro)}</h2>
+        {doc.features.length > 1 && replayStep === null && (
+          <button type="button" className="tree-replay" onClick={onReplay} disabled={disabled} title="作った順に、形ができていく様子を見る" data-testid="start-replay">
+            ▶ 作り方を再生
+          </button>
+        )}
+      </div>
       {doc.features.length === 0 && <p className="tree-empty">まだ何もありません。下の「{term("newSketch", pro)}」から始めましょう。</p>}
       <ol data-testid="feature-tree">
         {doc.features.map((f, i) => {
           const st = status.get(f.id);
           const bad = st && !st.ok;
           return (
-            <li key={f.id} className={[selected === f.id ? "selected" : "", bad ? "bad" : ""].join(" ")}>
+            <li
+              key={f.id}
+              className={[
+                selected === f.id ? "selected" : "",
+                bad ? "bad" : "",
+                replayStep !== null && i + 1 === replayStep ? "replay-current" : "",
+                replayStep !== null && i + 1 > replayStep ? "replay-future" : "",
+              ].join(" ")}
+            >
               <button type="button" className="tree-item" disabled={disabled} onClick={() => onSelect(selected === f.id ? null : f.id)} onDoubleClick={() => onEdit(f.id)}>
                 <span className="tree-num">{i + 1}</span>
                 <span className="tree-icon" aria-hidden>
