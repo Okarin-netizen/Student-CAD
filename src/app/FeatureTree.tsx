@@ -7,6 +7,7 @@ import type { FeatureStatus } from "../kernel/rebuild";
 import { BASE_PLANE_LABELS } from "../doc/planes";
 import { dependents } from "./store";
 import { term } from "./terms";
+import { Icon, type IconName } from "./Icon";
 
 interface Props {
   doc: CadDocument;
@@ -34,7 +35,7 @@ export function FeatureTree({ doc, statuses, selected, pro, disabled, onSelect, 
         <h2>{term("history", pro)}</h2>
         {doc.features.length > 1 && replayStep === null && (
           <button type="button" className="tree-replay" onClick={onReplay} disabled={disabled} title="作った順に、形ができていく様子を見る" data-testid="start-replay">
-            ▶ 作り方を再生
+            <Icon name="replay" /> 作り方を再生
           </button>
         )}
       </div>
@@ -56,7 +57,7 @@ export function FeatureTree({ doc, statuses, selected, pro, disabled, onSelect, 
               <button type="button" className="tree-item" disabled={disabled} onClick={() => onSelect(selected === f.id ? null : f.id)} onDoubleClick={() => onEdit(f.id)}>
                 <span className="tree-num">{i + 1}</span>
                 <span className="tree-icon" aria-hidden>
-                  {icon(f)}
+                  <Icon name={icon(f)} />
                 </span>
                 <span className="tree-name">
                   {f.name}
@@ -92,7 +93,7 @@ export function FeatureTree({ doc, statuses, selected, pro, disabled, onSelect, 
                 </span>
                 {bad && (
                   <span className="tree-error" role="img" aria-label="エラー">
-                    ⚠️
+                    <Icon name="alert" />
                   </span>
                 )}
               </button>
@@ -146,24 +147,24 @@ export function FeatureTree({ doc, statuses, selected, pro, disabled, onSelect, 
   );
 }
 
-function icon(f: Feature): string {
+function icon(f: Feature): IconName {
   switch (f.type) {
     case "sketch":
-      return "✏️";
+      return "sketch";
     case "fillet":
-      return f.kind === "fillet" ? "◜" : "◸";
+      return f.kind === "fillet" ? "fillet" : "chamfer";
     case "mirror":
-      return "🪞";
+      return "mirror";
     case "pattern":
-      return f.kind === "linear" ? "⋯" : "⟳";
+      return f.kind === "linear" ? "pattern" : "patternCircle";
     case "shell":
-      return "🥛";
+      return "shell";
     case "sweep":
-      return f.operation === "cut" ? "🕳️" : "➰";
+      return f.operation === "cut" ? "cut" : "sweep";
     case "loft":
-      return f.operation === "cut" ? "🕳️" : "🔺";
+      return f.operation === "cut" ? "cut" : "loft";
     default:
-      if (f.operation === "cut") return "🕳️";
-      return f.type === "revolve" ? "🔄" : "🧊";
+      if (f.operation === "cut") return "cut";
+      return f.type === "revolve" ? "revolve" : "extrude";
   }
 }

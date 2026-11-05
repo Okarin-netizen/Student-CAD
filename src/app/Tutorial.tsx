@@ -75,7 +75,7 @@ export const TUTORIAL: TutorialStep[] = [
   },
   {
     target: "open-export",
-    title: "できました! 🎉",
+    title: "できました",
     text: "「書き出す」で 3D プリンター用のファイルに、「図面」で第三角法などの図にできます。課題があるときは「提出」で先生に出します。",
   },
 ];
@@ -193,7 +193,7 @@ export function Tutorial({ state, step, onStep, onClose }: Props) {
           )}
           {last && (
             <button type="button" className="primary" onClick={onClose} data-testid="tutorial-finish">
-              ✓ おわり
+              おわり
             </button>
           )}
         </div>

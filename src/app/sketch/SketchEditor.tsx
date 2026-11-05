@@ -40,6 +40,7 @@ import { NumberPad, type PadVariable } from "../NumberPad";
 import { referenceCorners } from "./references";
 import { arcPath, bounds, distToArc, distToSegment, fmt, gridStep, positions, textBox, toScreen, toWorld, type Viewport } from "./geometry";
 import { TextDialog } from "./TextDialog";
+import { Icon, type IconName } from "../Icon";
 
 export type Tool = "select" | "line" | "rect" | "circle" | "arc" | "polygon" | "text" | "dimension";
 
@@ -93,15 +94,15 @@ type NewDimension = DimensionConstraint extends infer C ? (C extends DimensionCo
 const HIT_PX = 22;
 const MOVE_PX = 6;
 
-const TOOLS: { tool: Tool; label: string; icon: string; hint: string }[] = [
-  { tool: "select", label: "えらぶ", icon: "👆", hint: "点や線をタップしてえらびます。点はドラッグで動かせます。何もないところをドラッグすると画面が動きます" },
-  { tool: "line", label: "線", icon: "╱", hint: "点をタップしてつなげていきます。始めの点をタップすると形が閉じます" },
-  { tool: "rect", label: "長方形", icon: "▭", hint: "角をタップしてから、反対の角をタップします" },
-  { tool: "circle", label: "円", icon: "◯", hint: "中心をタップしてから、大きさを決める点をタップします" },
-  { tool: "arc", label: "円弧", icon: "◠", hint: "中心 → 始まり → 終わりの順にタップします(左回りにかけます)" },
-  { tool: "polygon", label: "多角形", icon: "⬡", hint: "中心をタップしてから、角の1つをタップします" },
-  { tool: "text", label: "文字", icon: "あ", hint: "文字を置きたいところ(文字の左下)をタップします。名札は、板の上の面にかいてから押し出します" },
-  { tool: "dimension", label: "寸法", icon: "↔", hint: "線をタップすると長さ、円をタップすると直径を入れられます。点を2つタップすると距離です" },
+const TOOLS: { tool: Tool; label: string; icon: IconName; hint: string }[] = [
+  { tool: "select", label: "えらぶ", icon: "select", hint: "点や線をタップしてえらびます。点はドラッグで動かせます。何もないところをドラッグすると画面が動きます" },
+  { tool: "line", label: "線", icon: "line", hint: "点をタップしてつなげていきます。始めの点をタップすると形が閉じます" },
+  { tool: "rect", label: "長方形", icon: "rect", hint: "角をタップしてから、反対の角をタップします" },
+  { tool: "circle", label: "円", icon: "circle", hint: "中心をタップしてから、大きさを決める点をタップします" },
+  { tool: "arc", label: "円弧", icon: "arc", hint: "中心 → 始まり → 終わりの順にタップします(左回りにかけます)" },
+  { tool: "polygon", label: "多角形", icon: "polygon", hint: "中心をタップしてから、角の1つをタップします" },
+  { tool: "text", label: "文字", icon: "text", hint: "文字を置きたいところ(文字の左下)をタップします。名札は、板の上の面にかいてから押し出します" },
+  { tool: "dimension", label: "寸法", icon: "dimension", hint: "線をタップすると長さ、円をタップすると直径を入れられます。点を2つタップすると距離です" },
 ];
 
 /** 1つ目の点を置いたあとの案内 */
@@ -838,7 +839,7 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
     : sketch.entities.length === 0
       ? "まだ何もかいていません"
       : status.dof === 0
-        ? `🔒 ${term("fullyDefined", pro)}`
+        ? term("fullyDefined", pro)
         : `このままでも立体にできます(あと ${status.dof} つ寸法か${term("constraint", pro)}を入れると、形が動かなくなります)`;
 
   const overflowText = sketch.entities.find((e): e is Extract<SketchEntity, { type: "text" }> => e.type === "text" && overflows(e)) ?? null;
@@ -858,7 +859,7 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
             onClick={() => setTool(t.tool)}
           >
             <span className="tool-icon" aria-hidden>
-              {t.icon}
+              <Icon name={t.icon} size={24} />
             </span>
             {t.label}
           </button>

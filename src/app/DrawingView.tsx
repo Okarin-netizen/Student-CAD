@@ -7,6 +7,7 @@ import { KIND_LABELS, buildSheet, laserDXF, sheetToDXF, sheetToSVG } from "../dr
 import type { CadClient } from "./cadClient";
 import { downloadFile } from "./persist";
 import { toast } from "./store";
+import { Icon } from "./Icon";
 
 interface Props {
   client: CadClient;
@@ -87,7 +88,7 @@ export function DrawingView({ client, title, version, onClose }: Props) {
     <div className="drawing-view" role="dialog" aria-label="図面">
       <div className="drawing-toolbar">
         <button type="button" onClick={onClose} data-testid="drawing-close">
-          ← 3D にもどる
+          <Icon name="back" /> 3D にもどる
         </button>
         <div className="segmented drawing-kinds" role="radiogroup" aria-label="図の種類">
           {KINDS.map((k) => (
@@ -127,7 +128,7 @@ export function DrawingView({ client, title, version, onClose }: Props) {
           {KIND_LABELS[kind]} ・ 尺度 {sheet?.scaleLabel ?? "-"} ・ A4 横
         </span>
         <button type="button" disabled={!sheet} onClick={() => window.print()} data-testid="drawing-print">
-          🖨️ 印刷 / PDF
+          <Icon name="print" /> 印刷 / PDF
         </button>
         <button type="button" disabled={!sheet} onClick={() => downloadFile(svg, `${fileBase}.svg`, "image/svg+xml")} data-testid="drawing-svg">
           SVG

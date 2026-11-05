@@ -59,6 +59,7 @@ import { AssignmentCard, AssignmentEditor } from "./AssignmentPanel";
 import { SubmitDialog } from "./SubmitDialog";
 import { ReplayBar } from "./ReplayBar";
 import { NewDialog } from "./NewDialog";
+import { Icon } from "./Icon";
 import { Tutorial, markTutorialSeen, tutorialSeen } from "./Tutorial";
 import { emptyDocument } from "../doc/types";
 import { NumberPad, type PadVariable } from "./NumberPad";
@@ -301,13 +302,13 @@ export function App() {
 
   const fileMenu = (
     [
-      ["file-new", "✨ 新しく", () => setDialog("new")],
-      ["file-open", "📂 ひらく", () => fileRef.current?.click()],
-      ["save-file", "💾 ファイルに保存", saveFile],
-      ["file-tutorial", "🎓 使い方ガイド", startTutorial],
-      ["file-assignment", s.doc.assignment ? "📋 課題をなおす(先生用)" : "📋 課題を作る(先生用)", () => setDialog("assignment")],
+      ["file-new", "plus", "新しく", () => setDialog("new")],
+      ["file-open", "open", "ひらく", () => fileRef.current?.click()],
+      ["save-file", "save", "ファイルに保存", saveFile],
+      ["file-tutorial", "help", "使い方ガイド", startTutorial],
+      ["file-assignment", "assignment", s.doc.assignment ? "課題をなおす(先生用)" : "課題を作る(先生用)", () => setDialog("assignment")],
     ] as const
-  ).map(([id, label, run]) => (
+  ).map(([id, iconName, label, run]) => (
     <button
       key={id}
       type="button"
@@ -318,6 +319,7 @@ export function App() {
         run();
       }}
     >
+      <Icon name={iconName} />
       {label}
     </button>
   ));
@@ -363,13 +365,13 @@ export function App() {
       <header className="topbar">
         {mode === "sketch" && sketchFeature ? (
           <>
-            <span className="topbar-title">✏️ {sketchFeature.name}</span>
+            <span className="topbar-title"><Icon name="sketch" /> {sketchFeature.name}</span>
             <div className="topbar-group">
               <button type="button" onClick={undo} disabled={!canUndo} aria-label="もどす" data-testid="undo">
-                ↶ もどす
+                <Icon name="undo" /> もどす
               </button>
               <button type="button" onClick={redo} disabled={!canRedo} aria-label="やりなおす" data-testid="redo">
-                ↷
+                <Icon name="redo" />
               </button>
             </div>
             <div className="topbar-group end">
@@ -377,7 +379,7 @@ export function App() {
                 やめる
               </button>
               <button type="button" className="primary" onClick={onFinishSketch} data-testid="sketch-done">
-                ✓ かけた!
+                <Icon name="check" /> かけた!
               </button>
             </div>
           </>
@@ -396,22 +398,22 @@ export function App() {
             />
             <div className="topbar-group">
               <button type="button" onClick={undo} disabled={!canUndo} data-testid="undo">
-                ↶ もどす
+                <Icon name="undo" /> もどす
               </button>
               <button type="button" onClick={redo} disabled={!canRedo} aria-label="やりなおす" data-testid="redo">
-                ↷
+                <Icon name="redo" />
               </button>
             </div>
             <div className="topbar-group end">
               <span className="save-state" data-testid="save-state">
-                {s.busy || !ready ? "⏳ 計算中…" : savedDoc === s.doc ? "✓ 保存ずみ" : "保存中…"}
+                {s.busy || !ready ? "計算中…" : savedDoc === s.doc ? "保存ずみ" : "保存中…"}
               </span>
               <button type="button" onClick={() => setShowVariables(true)} disabled={mode !== "model"} data-testid="open-variables">
-                📏 {term("variables", pro)}
+                <Icon name="variables" /> {term("variables", pro)}
               </button>
               <div className="export-wrap">
                 <button type="button" onClick={() => setShowFileMenu((v) => !v)} disabled={mode !== "model"} aria-expanded={showFileMenu} data-testid="open-file-menu">
-                  📁 ファイル
+                  <Icon name="folder" /> ファイル
                 </button>
                 {showFileMenu && (
                   <div className="export-menu file-menu" role="menu" aria-label="ファイル">
@@ -527,7 +529,7 @@ export function App() {
               )}
               {hasBody && (
                 <p className="plane-hint" data-testid="face-hint">
-                  👆 立体の平らな面をタップすると、その面にかけます(指した面がオレンジになります)
+                  <Icon name="tap" /> 立体の平らな面をタップすると、その面にかけます(指した面がオレンジになります)
                 </p>
               )}
               <button type="button" onClick={cancelMode}>
@@ -558,37 +560,37 @@ export function App() {
       {mode === "model" && (
         <nav className="stepbar" aria-label="作り方の手順">
           <button type="button" className="step" onClick={startPickPlane} data-testid="new-sketch">
-            <span className="step-num">1</span>✏️ {term("newSketch", pro)}
+            <span className="step-num">1</span><Icon name="sketch" /> {term("newSketch", pro)}
           </button>
           <span className="step-arrow" aria-hidden>
-            ▶
+            <Icon name="chevron" />
           </span>
           <div className="step-group">
             <span className="step-num">2</span>
             <button type="button" className="step" onClick={() => startExtrude()} data-testid="new-extrude">
-              🧊 {term("extrude", pro)}
+              <Icon name="extrude" /> {term("extrude", pro)}
             </button>
             <button type="button" className="step" onClick={() => startRevolve()} data-testid="new-revolve">
-              🔄 {term("revolveName", pro)}
+              <Icon name="revolve" /> {term("revolveName", pro)}
             </button>
             <button type="button" className="step" onClick={() => startFillet()} data-testid="new-fillet">
-              ◜ {term("fillet", pro)}
+              <Icon name="fillet" /> {term("fillet", pro)}
             </button>
             <div className="export-wrap">
               <button type="button" className="step" onClick={() => setShowMore((v) => !v)} aria-expanded={showMore} data-testid="open-more">
-                ＋ そのほか
+                <Icon name="more" /> そのほか
               </button>
               {showMore && (
                 <div className="export-menu more-menu" role="menu" aria-label="そのほかの作業">
                   {(
                     [
-                      ["new-mirror", `🪞 ${term("mirror", pro)}`, "立体を鏡に写して、左右対称などにする", startMirror],
-                      ["new-pattern", `⋯ ${term("pattern", pro)}`, "穴などを、まっすぐや円のまわりにならべる", startPattern],
-                      ["new-loft", `🔺 ${term("loft", pro)}`, "高さのちがう面にかいた形を、なめらかにつなぐ", startLoft],
-                      ["new-sweep", `➰ ${term("sweep", pro)}`, "断面の形を、線(道すじ)にそって動かす(取っ手・パイプ・リング)", startSweep],
-                      ["new-shell", `🥛 ${term("shell", pro)}`, "面を1つ取りのぞいて、中をからにする(ペン立て・コップ)", startShell],
+                      ["new-mirror", "mirror", term("mirror", pro), "立体を鏡に写して、左右対称などにする", startMirror],
+                      ["new-pattern", "pattern", term("pattern", pro), "穴などを、まっすぐや円のまわりにならべる", startPattern],
+                      ["new-loft", "loft", term("loft", pro), "高さのちがう面にかいた形を、なめらかにつなぐ", startLoft],
+                      ["new-sweep", "sweep", term("sweep", pro), "断面の形を、線(道すじ)にそって動かす(取っ手・パイプ・リング)", startSweep],
+                      ["new-shell", "shell", term("shell", pro), "面を1つ取りのぞいて、中をからにする(ペン立て・コップ)", startShell],
                     ] as const
-                  ).map(([id, label, desc, run]) => (
+                  ).map(([id, iconName, label, desc, run]) => (
                     <button
                       key={id}
                       type="button"
@@ -599,7 +601,9 @@ export function App() {
                         run();
                       }}
                     >
-                      <strong>{label}</strong>
+                      <strong>
+                        <Icon name={iconName} /> {label}
+                      </strong>
                       <small>{desc}</small>
                     </button>
                   ))}
@@ -608,23 +612,23 @@ export function App() {
             </div>
           </div>
           <span className="step-arrow" aria-hidden>
-            ▶
+            <Icon name="chevron" />
           </span>
           <div className="step-group">
             <span className="step-num">3</span>
             <div className="export-wrap">
               <button type="button" className="step" onClick={() => setShowExport((v) => !v)} disabled={!hasBody || s.busy} aria-expanded={showExport} data-testid="open-export">
-                💾 書き出す
+                <Icon name="export" /> 書き出す
               </button>
               {showExport && (
                 <div className="export-menu" role="menu" aria-label="書き出す">
                   {(
                     [
-                      ["export-stl", "🖨️ STL", "3Dプリンターのソフトで開く(いちばん多く使われる形式)", exportStl],
-                      ["export-3mf", "🧩 3MF", "新しい3Dプリンターのソフト(Bambu Studio・PrusaSlicer など)で開く", export3mf],
-                      ["export-step", "📐 STEP", "Onshape・SolidWorks・Fusion などの CAD で開く", exportStep],
+                      ["export-stl", "cube", "STL", "3Dプリンターのソフトで開く(いちばん多く使われる形式)", exportStl],
+                      ["export-3mf", "layers", "3MF", "新しい3Dプリンターのソフト(Bambu Studio・PrusaSlicer など)で開く", export3mf],
+                      ["export-step", "drawing", "STEP", "Onshape・SolidWorks・Fusion などの CAD で開く", exportStep],
                     ] as const
-                  ).map(([id, label, desc, run]) => (
+                  ).map(([id, iconName, label, desc, run]) => (
                     <button
                       key={id}
                       type="button"
@@ -635,7 +639,9 @@ export function App() {
                         void run();
                       }}
                     >
-                      <strong>{label}</strong>
+                      <strong>
+                        <Icon name={iconName} /> {label}
+                      </strong>
                       <small>{desc}</small>
                     </button>
                   ))}
@@ -643,10 +649,10 @@ export function App() {
               )}
             </div>
             <button type="button" className="step" onClick={startDrawing} disabled={!hasBody || s.busy} data-testid="open-drawing">
-              📄 図面
+              <Icon name="drawing" /> 図面
             </button>
             <button type="button" className="step" onClick={() => setDialog("submit")} disabled={!hasBody || s.busy} data-testid="open-submit">
-              📮 提出
+              <Icon name="submit" /> 提出
             </button>
           </div>
         </nav>

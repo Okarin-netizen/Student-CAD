@@ -123,7 +123,7 @@ export function OpPanel({ doc, draft, pro, error, warning, busy, preview, variab
       <Segmented
         label="どうする?"
         value={op}
-        options={(["add", "cut"] as const).map((o) => ({ value: o, label: `${o === "add" ? "🧊" : "🕳️"} ${term(o, pro)}`, testid: `op-${o}` }))}
+        options={(["add", "cut"] as const).map((o) => ({ value: o, label: term(o, pro), testid: `op-${o}` }))}
         onChange={(o) => onChange({ operation: o })}
       />
     );
@@ -166,7 +166,7 @@ export function OpPanel({ doc, draft, pro, error, warning, busy, preview, variab
           />
           {stepper({ label: draft.kind === "fillet" ? "丸める大きさ(半径)" : "落とす大きさ", field: "radius", unit: "mm", step: 0.5, min: 0.1, max: 1000, testid: "op-radius" })}
           <p className={draft.edges.length ? "op-edges" : "plane-hint"} data-testid="op-edges">
-            {draft.edges.length === 0 ? "👆 3D の辺(線)をタップしてえらびます。もう一度タップするとはずせます" : `えらんだ辺: ${draft.edges.length} 本`}
+            {draft.edges.length === 0 ? "3D の辺(線)をタップしてえらびます。もう一度タップするとはずせます" : `えらんだ辺: ${draft.edges.length} 本`}
           </p>
           {draft.edges.length > 0 && (
             <div className="op-row">
@@ -223,7 +223,7 @@ export function OpPanel({ doc, draft, pro, error, warning, busy, preview, variab
         <>
           {stepper({ label: "のこすあつさ", field: "thickness", unit: "mm", step: 0.5, min: 0.2, max: 1000, testid: "op-thickness" })}
           <p className={draft.faces.length ? "op-edges" : "plane-hint"} data-testid="op-faces">
-            {draft.faces.length === 0 ? "👆 取りのぞく面(ペン立てなら上の面)を 3D でタップしてえらびます" : `取りのぞく面: ${draft.faces.length} こ`}
+            {draft.faces.length === 0 ? "取りのぞく面(ペン立てなら上の面)を 3D でタップしてえらびます" : `取りのぞく面: ${draft.faces.length} こ`}
           </p>
           {draft.faces.length > 0 && (
             <div className="op-row">
@@ -444,7 +444,7 @@ function MirrorFields({ draft, copyable, onChange }: { draft: MirrorFeature; cop
           ))}
         </div>
       </div>
-      <p className="plane-hint">💡 形の真ん中を原点にしてかいておくと、きれいに対称になります</p>
+      <p className="plane-hint">形の真ん中を原点にしてかいておくと、きれいに対称になります</p>
     </>
   );
 }

@@ -71,7 +71,7 @@ export function SubmitDialog({ client, doc, checks, measure, onClose }: Props) {
   return (
     <div className="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="dialog submit-dialog" role="dialog" aria-label="提出用ファイルを作る">
-        <h3>📮 提出用ファイルを作る</h3>
+        <h3>提出用ファイルを作る</h3>
         <p className="muted">作品・STL・図面・見た目の絵・提出カードを1つのファイル(ZIP)にまとめます。</p>
         <div className="submit-fields">
           <label className="field">
