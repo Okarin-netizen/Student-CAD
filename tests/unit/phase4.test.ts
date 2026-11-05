@@ -97,3 +97,63 @@ describe("くりぬく(シェル)", () => {
     expect(thick.statuses.at(-1)).toMatchObject({ ok: false, error: expect.stringContaining("あつさ") });
   });
 });
+
+describe("なぞる(スイープ)", () => {
+  /** 上の面に、原点から x へ 40、そこから円弧で曲がって y へ進む道すじ */
+  const path: SketchFeature = {
+    id: "p",
+    type: "sketch",
+    name: "道すじ",
+    plane: { kind: "base", name: "top" },
+    entities: [
+      { id: "p0", type: "point", x: 0, y: 0 },
+      { id: "p1", type: "point", x: 40, y: 0 },
+      { id: "p2", type: "point", x: 40, y: 30 },
+      { id: "l1", type: "line", p1: "p0", p2: "p1" },
+      { id: "l2", type: "line", p1: "p1", p2: "p2" },
+    ],
+    constraints: [],
+  };
+  /** 右の面(原点を通る)に、原点を中心とした直径 6 の円 */
+  const profile: SketchFeature = {
+    id: "q",
+    type: "sketch",
+    name: "断面",
+    plane: { kind: "base", name: "right" },
+    entities: [
+      { id: "qc", type: "point", x: 0, y: 0 },
+      { id: "qo", type: "circle", c: "qc", r: 3 },
+    ],
+    constraints: [],
+  };
+  const sweep = { id: "sw1", type: "sweep" as const, name: "スイープ1", pathId: "p", profileId: "q", operation: "add" as const };
+
+  it("閉じていない線を、はしから順の道すじにする", async () => {
+    const { findProfiles } = await import("../../src/sketch/profiles");
+    const r = findProfiles(path);
+    expect(r.regions).toHaveLength(0);
+    expect(r.paths).toHaveLength(1);
+    const ends = [r.paths[0][0].from, r.paths[0].at(-1)!.to].map((p) => p.join(","));
+    expect(ends.sort()).toEqual(["0,0", "40,30"]);
+  });
+
+  it("円の断面を、曲がった道すじにそって動かす(パイプ)", () => {
+    const out = rebuild(docWith(path, profile, sweep), gcs);
+    expect(out.statuses.every((s) => s.ok)).toBe(true);
+    // 角でつながる2本のパイプ。体積はおおよそ 断面積 × 長さ
+    expect(measureVolume(out.body!)).toBeGreaterThan(Math.PI * 9 * 60);
+    expect(measureVolume(out.body!)).toBeLessThan(Math.PI * 9 * 75);
+  });
+
+  it("断面はどの面にかいても、原点のまわりの形を道すじのはじめに置く。形がちがうときはエラー", () => {
+    const base = measureVolume(rebuild(docWith(path, profile, sweep), gcs).body!);
+    const elsewhere = { ...profile, plane: { kind: "offset" as const, base: "front" as const, distance: 20 } };
+    const out = rebuild(docWith(path, elsewhere, sweep), gcs);
+    expect(out.statuses.every((s) => s.ok)).toBe(true);
+    expect(measureVolume(out.body!)).toBeCloseTo(base, 1);
+    const [lo] = out.body!.boundingBox.bounds;
+    expect(lo[0]).toBeCloseTo(0, 0);
+    const swapped = rebuild(docWith(path, profile, { ...sweep, pathId: "q", profileId: "p" }), gcs);
+    expect(swapped.statuses.at(-1)).toMatchObject({ ok: false, error: expect.stringContaining("閉じていない線") });
+  });
+});

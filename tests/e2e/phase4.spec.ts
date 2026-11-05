@@ -71,3 +71,31 @@ test("箱の上の面をタップして、くりぬく(シェル)", async ({ pag
   await expect(tree).toContainText("あつさ 2mm ・ 面 1 こ");
   await expect(tree.locator("li.bad")).toHaveCount(0);
 });
+
+test("線をかいて道すじにし、断面の円をそれにそって動かす(スイープ)", async ({ page }) => {
+  await page.goto("/");
+  // 道すじ: 上の面に、折れ線(閉じていない線)
+  await page.getByTestId("new-sketch").click();
+  await page.getByTestId("plane-top").click();
+  await page.getByTestId("tool-line").click();
+  await tapCanvas(page, 0.3, 0.6);
+  await tapCanvas(page, 0.5, 0.6);
+  await tapCanvas(page, 0.6, 0.4);
+  await page.getByTestId("sketch-done").click();
+  await expect(page.getByTestId("toast")).toContainText("道すじ");
+  // 断面: 右の面に円
+  await page.getByTestId("new-sketch").click();
+  await page.getByTestId("plane-right").click();
+  await page.getByTestId("tool-circle").click();
+  await tapCanvas(page, 0.5, 0.5);
+  await tapCanvas(page, 0.52, 0.5);
+  await page.getByTestId("sketch-done").click();
+  // 道すじがあるので、自動で「なぞる」になる
+  await expect(page.getByRole("dialog", { name: "なぞる" })).toBeVisible();
+  await expect(page.getByTestId("op-path")).toHaveValue(/.+/);
+  await page.getByTestId("op-ok").click();
+  const tree = page.getByTestId("feature-tree");
+  await expect(tree.locator("li")).toHaveCount(3);
+  await expect(tree).toContainText("スケッチ2 を スケッチ1 にそって");
+  await expect(tree.locator("li.bad")).toHaveCount(0);
+});

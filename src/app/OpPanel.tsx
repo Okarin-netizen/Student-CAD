@@ -71,7 +71,7 @@ export function OpPanel({ doc, draft, pro, error, warning, busy, preview, variab
   const sketches = before.filter((f): f is SketchFeature => f.type === "sketch");
   const copyable = before.filter(isCopyable);
   // まだ立体がないときは「くっつける / けずる」は聞かない(けずるものがないので)
-  const hasBodyBefore = before.some((f) => f.type === "extrude" || f.type === "revolve" || f.type === "loft");
+  const hasBodyBefore = before.some((f) => f.type === "extrude" || f.type === "revolve" || f.type === "loft" || f.type === "sweep");
   const title = panelTitle(draft, pro);
 
   /** 数を変える。変数の式は、式で入れたときだけ残す(−・＋ボタンで変えたら外す) */
@@ -192,6 +192,33 @@ export function OpPanel({ doc, draft, pro, error, warning, busy, preview, variab
         </>
       )}
 
+      {draft.type === "sweep" && (
+        <>
+          <label className="field">
+            <span>道すじ(閉じていない線のスケッチ)</span>
+            <select value={draft.pathId} onChange={(e) => onChange({ pathId: e.target.value })} data-testid="op-path">
+              {sketches.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}({planeLabel(s.plane)})
+                </option>
+              ))}
+            </select>
+          </label>
+          <label className="field">
+            <span>断面(動かす形のスケッチ)</span>
+            <select value={draft.profileId} onChange={(e) => onChange({ profileId: e.target.value })} data-testid="op-profile">
+              {sketches.map((s) => (
+                <option key={s.id} value={s.id}>
+                  {s.name}({planeLabel(s.plane)})
+                </option>
+              ))}
+            </select>
+          </label>
+          <p className="plane-hint">断面は、スケッチの原点(赤い点)のまわりにかきます。道すじのはじめの点に、道すじと直角になるように置きます</p>
+          {operation(draft.operation)}
+        </>
+      )}
+
       {draft.type === "shell" && (
         <>
           {stepper({ label: "のこすあつさ", field: "thickness", unit: "mm", step: 0.5, min: 0.2, max: 1000, testid: "op-thickness" })}
@@ -291,6 +318,8 @@ function panelTitle(draft: OpFeature, pro: boolean): string {
       return term("loft", pro);
     case "shell":
       return term("shell", pro);
+    case "sweep":
+      return term("sweep", pro);
   }
 }
 

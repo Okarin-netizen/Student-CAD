@@ -6,7 +6,7 @@ import { make_gcs_wrapper, type GcsWrapper } from "@salusoft89/planegcs";
 import gcsWasmUrl from "@salusoft89/planegcs/dist/planegcs_dist/planegcs.wasm?url";
 import { BASE_PLANE_LABELS, planeFromFace, resolvePlane } from "../doc/planes";
 import { edgesOnPlane, linesProjected } from "./sketch/references";
-import type { BasePlaneName, CadDocument, EdgeRef, Vec3 } from "../doc/types";
+import type { BasePlaneName, CadDocument, EdgeRef, SketchFeature, Vec3 } from "../doc/types";
 import { evaluateChecks } from "../doc/assignment";
 import type { Template } from "../doc/templates";
 import { findProfiles } from "../sketch/profiles";
@@ -42,6 +42,7 @@ import {
   startPattern,
   startLoft,
   startShell,
+  startSweep,
   startRevolve,
   startPickPlane,
   startSketch,
@@ -184,14 +185,24 @@ export function App() {
     // 文字だけのスケッチ(名札の文字など)も押し出せる
     const hasText = sk.entities.some((e) => e.type === "text");
     if (used) return;
-    // ずらした面にかいたとき、まだ使っていない形のスケッチがほかにあれば「つなぐ」をすすめる
-    const unusedOther = s.doc.features.some(
-      (f) => f.type === "sketch" && f.id !== sk.id && !s.doc.features.some((g) => (g.type === "extrude" || g.type === "revolve") && g.sketchId === f.id) && !s.doc.features.some((g) => g.type === "loft" && g.sketchIds.includes(f.id)),
+    // ほかの、まだ立体に使っていないスケッチ(閉じた形があるか・道すじがあるか)
+    const usedIds = new Set(
+      s.doc.features.flatMap((g) => (g.type === "extrude" || g.type === "revolve" ? [g.sketchId] : g.type === "loft" ? g.sketchIds : g.type === "sweep" ? [g.pathId, g.profileId] : [])),
     );
-    if (regions === 1 && sk.plane.kind === "offset" && unusedOther) startLoft();
+    const others = s.doc.features.filter((f): f is SketchFeature => f.type === "sketch" && f.id !== sk.id && !usedIds.has(f.id)).map((f) => findProfiles(f));
+    const otherShape = others.some((p) => p.regions.length > 0);
+    const otherPath = others.some((p) => p.paths.length > 0 && p.regions.length === 0);
+    const paths = findProfiles(sk).paths.length;
+    if (regions === 1 && sk.plane.kind === "offset" && otherShape) startLoft();
+    // 道すじをかいたあとに断面をかいたら「なぞる」
+    else if (regions === 1 && otherPath) startSweep();
     else if (regions > 0 && hasAxis) startRevolve(sk.id);
     else if (regions > 0 || hasText) startExtrude(sk.id);
-    else toast("閉じた形がないので、まだ立体にはできません");
+    else if (paths > 0) {
+      // 閉じていない線だけのスケッチは、なぞるの道すじに使える
+      if (otherShape) startSweep();
+      else toast("閉じていない線は「なぞる」の道すじに使えます。次に、どこかの面の原点のまわりに断面の形(円など)をかきましょう");
+    } else toast("閉じた形がないので、まだ立体にはできません");
   };
 
   const exportStep = async () => {
@@ -574,6 +585,7 @@ export function App() {
                       ["new-mirror", `🪞 ${term("mirror", pro)}`, "立体を鏡に写して、左右対称などにする", startMirror],
                       ["new-pattern", `⋯ ${term("pattern", pro)}`, "穴などを、まっすぐや円のまわりにならべる", startPattern],
                       ["new-loft", `🔺 ${term("loft", pro)}`, "高さのちがう面にかいた形を、なめらかにつなぐ", startLoft],
+                      ["new-sweep", `➰ ${term("sweep", pro)}`, "断面の形を、線(道すじ)にそって動かす(取っ手・パイプ・リング)", startSweep],
                       ["new-shell", `🥛 ${term("shell", pro)}`, "面を1つ取りのぞいて、中をからにする(ペン立て・コップ)", startShell],
                     ] as const
                   ).map(([id, label, desc, run]) => (

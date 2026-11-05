@@ -31,6 +31,7 @@ export const USE_WORDS: Record<Extract<AssignmentCheck, { kind: "uses" }>["featu
   pattern: "ならべる",
   loft: "つなぐ(ロフト)",
   shell: "くりぬく",
+  sweep: "なぞる(スイープ)",
   text: "文字",
 };
 

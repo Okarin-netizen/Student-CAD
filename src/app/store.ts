@@ -20,7 +20,9 @@ import {
   type Assignment,
   type LoftFeature,
   type ShellFeature,
+  type SweepFeature,
 } from "../doc/types";
+import { findProfiles } from "../sketch/profiles";
 import type { RebuildReply } from "../worker/cad.worker";
 import type { SketchData } from "../sketch/edit";
 import { applyVariables, forgetName, renameInDoc } from "../doc/variables";
@@ -38,10 +40,10 @@ export type Mode =
   | { kind: "replay"; step: number };
 
 /** スケッチ以外の作業 */
-export type OpFeature = ExtrudeFeature | RevolveFeature | FilletFeature | MirrorFeature | PatternFeature | LoftFeature | ShellFeature;
+export type OpFeature = ExtrudeFeature | RevolveFeature | FilletFeature | MirrorFeature | PatternFeature | LoftFeature | ShellFeature | SweepFeature;
 
 /** ミラー・パターンで写せる作業(形を作った作業) */
-export const COPYABLE_TYPES = ["extrude", "revolve", "mirror", "pattern", "loft"] as const;
+export const COPYABLE_TYPES = ["extrude", "revolve", "mirror", "pattern", "loft", "sweep"] as const;
 export const isCopyable = (f: Feature) => (COPYABLE_TYPES as readonly string[]).includes(f.type);
 
 export interface State {
@@ -285,7 +287,24 @@ const names = () => state.doc.features.map((f) => f.name);
 
 /** 立体を作るのにもう使ったスケッチ */
 function usedSketches(): Set<Id> {
-  return new Set(state.doc.features.flatMap((f) => (f.type === "extrude" || f.type === "revolve" ? [f.sketchId] : f.type === "loft" ? f.sketchIds : [])));
+  return new Set(state.doc.features.flatMap((f) => (f.type === "extrude" || f.type === "revolve" ? [f.sketchId] : f.type === "loft" ? f.sketchIds : f.type === "sweep" ? [f.pathId, f.profileId] : [])));
+}
+
+/**
+ * なぞる(スイープ)。道すじ(閉じていない線)のスケッチと、断面(閉じた形)のスケッチを自動でえらぶ。
+ * どちらも、まだ使っていないもののうち新しいものを使う。
+ */
+export function startSweep() {
+  const used = usedSketches();
+  const sketches = [...sketchesOf()].reverse();
+  const free = sketches.filter((s) => !used.has(s.id));
+  const path = free.find((s) => findProfiles(s).paths.length > 0) ?? sketches.find((s) => findProfiles(s).paths.length > 0);
+  const profile = free.find((s) => s.id !== path?.id && findProfiles(s).regions.length > 0) ?? sketches.find((s) => s.id !== path?.id && findProfiles(s).regions.length > 0);
+  if (!path || !profile) {
+    toast("道すじ(閉じていない線)のスケッチと、断面(閉じた形)のスケッチを、べつべつにかいてください", "error");
+    return;
+  }
+  startOp({ id: newId("sw"), type: "sweep", name: nextName("スイープ", names()), pathId: path.id, profileId: profile.id, operation: "add" });
 }
 
 /** つなぐ(ロフト)。まだ使っていないスケッチを、かいた順に全部えらんでおく */
@@ -416,7 +435,7 @@ export function dependents(doc: CadDocument, id: Id): Feature[] {
   const gone = new Set([id]);
   const out: Feature[] = [];
   for (const f of doc.features) {
-    const uses = f.type === "extrude" || f.type === "revolve" ? [f.sketchId] : f.type === "mirror" || f.type === "pattern" ? [f.source] : f.type === "loft" ? f.sketchIds : [];
+    const uses = f.type === "extrude" || f.type === "revolve" ? [f.sketchId] : f.type === "mirror" || f.type === "pattern" ? [f.source] : f.type === "loft" ? f.sketchIds : f.type === "sweep" ? [f.pathId, f.profileId] : [];
     if (uses.some((u) => gone.has(u))) {
       gone.add(f.id);
       out.push(f);

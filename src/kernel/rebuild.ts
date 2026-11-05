@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 技術科　岡田
 
-import { FaceFinder, Plane, draw, drawCircle, drawText, getFont, type Drawing, type Shape3D } from "replicad";
+import { FaceFinder, Plane, draw, genericSweep, drawCircle, drawText, getFont, type Drawing, type Shape3D } from "replicad";
 import type { GcsWrapper } from "@salusoft89/planegcs";
 import type {
   CadDocument,
@@ -18,9 +18,9 @@ import type {
   Vec3,
   WorldAxis,
 } from "../doc/types";
-import { BASE_PLANES, dot3, resolvePlane, scale3, toWorld } from "../doc/planes";
+import { BASE_PLANES, cross3, dot3, normalize3, resolvePlane, scale3, toWorld } from "../doc/planes";
 import { pointPos, solveSketch } from "../sketch/solver";
-import { findProfiles, type Loop, type Region } from "../sketch/profiles";
+import { arcThrough, findProfiles, type Loop, type Region } from "../sketch/profiles";
 
 export type FeatureStatus = { id: Id; ok: true; warning?: string } | { id: Id; ok: false; error: string };
 
@@ -145,6 +145,30 @@ export function rebuild(doc: CadDocument, gcs: GcsWrapper): RebuildOutput {
       } catch (err) {
         console.warn(err);
         statuses.push({ id: f.id, ok: false, error: "この形はつなげませんでした。形の向きや大きさを変えてみてください" });
+      }
+      continue;
+    }
+
+    if (f.type === "sweep") {
+      const r = sweepSketches(solvedSketches.get(f.pathId), solvedSketches.get(f.profileId));
+      if (!r.ok) {
+        statuses.push({ id: f.id, ok: false, error: r.error });
+        continue;
+      }
+      consumed.add(f.pathId);
+      consumed.add(f.profileId);
+      if (f.operation === "cut" && !body) {
+        statuses.push({ id: f.id, ok: false, error: "けずる立体がまだありません" });
+        continue;
+      }
+      try {
+        const tool = r.make();
+        tools.set(f.id, { shape: tool, operation: f.operation });
+        body = combine(body, { shape: tool, operation: f.operation });
+        statuses.push({ id: f.id, ok: true });
+      } catch (err) {
+        console.warn(err);
+        statuses.push({ id: f.id, ok: false, error: "この形はなぞれませんでした。道すじの曲がり方をゆるくするか、断面を小さくしてみてください" });
       }
       continue;
     }
@@ -467,6 +491,50 @@ export function loftSketches(sketches: (SketchFeature | undefined)[]): LoftPrep 
     make: (ruled) => {
       const [first, ...rest] = loops.map(({ loop, plane }) => loopDrawing(loop).sketchOnPlane(new Plane(plane.origin, plane.xDir, plane.normal)));
       return (first as unknown as { loftWith: (o: unknown[], c: object) => Shape3D }).loftWith(rest, { ruled });
+    },
+  };
+}
+
+type SweepPrep = { ok: true; make: () => Shape3D } | { ok: false; error: string };
+
+/**
+ * なぞるの準備。道すじは閉じていない線1本、断面は閉じた形1つ(穴なし)。
+ * 断面は、そのスケッチの原点のまわりにかいた形を、道すじのはじめの点に、道すじと直角になるように置く。
+ * (中学生が「道すじのはじめの点を通る面」を自分で用意しなくてよいように)
+ * 断面のたての向きは、道すじをかいた面の法線(上の面にかいた道すじなら、高さの向き)にそろえる。
+ */
+export function sweepSketches(path: SketchFeature | undefined, profile: SketchFeature | undefined): SweepPrep {
+  if (!path || !profile) return { ok: false, error: "使うスケッチが見つかりません" };
+  if (path.id === profile.id) return { ok: false, error: "道すじと断面は、べつのスケッチにしてください" };
+  const { paths } = findProfiles(path);
+  if (paths.length !== 1) return { ok: false, error: `「${path.name}」には、閉じていない線を1本(枝分かれなし)かいてください` };
+  const { regions } = findProfiles(profile);
+  if (regions.length !== 1 || regions[0].holes.length > 0) return { ok: false, error: `「${profile.name}」には、閉じた形を1つだけ(穴なしで)かいてください` };
+  const pathPlane = resolvePlane(path.plane);
+  const segs = paths[0];
+  const first = segs[0];
+  // はじめの点での道すじの向き(スケッチの座標)
+  let dir2: Vec2 = [first.to[0] - first.from[0], first.to[1] - first.from[1]];
+  if (first.kind === "arc") {
+    const at = arcThrough(first.from, first.mid, first.to);
+    if (at) {
+      const q = at(1e-3);
+      dir2 = [q[0] - first.from[0], q[1] - first.from[1]];
+    }
+  }
+  const start = toWorld(pathPlane, first.from);
+  const tip = toWorld(pathPlane, [first.from[0] + dir2[0], first.from[1] + dir2[1]]);
+  const n = normalize3([tip[0] - start[0], tip[1] - start[1], tip[2] - start[2]]);
+  const x = normalize3(cross3(pathPlane.normal, n));
+  return {
+    ok: true,
+    make: () => {
+      let pen = draw(first.from);
+      for (const sg of segs) pen = sg.kind === "line" ? pen.lineTo(sg.to) : pen.threePointsArcTo(sg.to, sg.mid);
+      const spine = (pen.done() as unknown as { sketchOnPlane: (p: Plane) => { wire: unknown } }).sketchOnPlane(new Plane(pathPlane.origin, pathPlane.xDir, pathPlane.normal)).wire;
+      const wire = (loopDrawing(regions[0].outer).sketchOnPlane(new Plane(start, x, n)) as unknown as { wire: unknown }).wire;
+      type W = Parameters<typeof genericSweep>[0];
+      return genericSweep(wire as W, spine as W, { frenet: true }, false);
     },
   };
 }
