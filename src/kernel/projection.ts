@@ -19,6 +19,10 @@ export interface ProjectedView {
   hidden: Vec2[][];
   /** 真円に見える穴や丸い形(中心線と直径を入れるのに使う)。第三角法の図だけ */
   circles: { c: Vec2; r: number }[];
+  /** 寸法を入れるための形の情報(第三角法の図だけ): まっすぐな辺(見える線もかくれ線も) */
+  segments?: [Vec2, Vec2][];
+  /** 一周していない円弧(角の丸み・取っ手など)。mid は弧のまん中の点、span は開きの角度(ラジアン) */
+  arcs?: { c: Vec2; r: number; mid: Vec2; span: number }[];
 }
 
 interface Camera {
@@ -105,7 +109,12 @@ function project(body: Shape3D, cam: Camera, withHidden: boolean, findCircles = 
     const circles = findCircles ? uniqueCircles([...visible, ...hidden]) : [];
     const shown = visible.map(sampleEdge);
     // 見える線と重なるかくれ線はかかない(製図のきまり。重ねると外形が点線のように見える)
-    const out = { visible: shown, hidden: withHidden ? hidden.map(sampleEdge).filter((l) => !coveredBy(l, shown)) : [], circles };
+    const out = {
+      visible: shown,
+      hidden: withHidden ? hidden.map(sampleEdge).filter((l) => !coveredBy(l, shown)) : [],
+      circles,
+      ...(findCircles ? shapeFacts([...visible, ...hidden], circles) : {}),
+    };
     for (const e of [...visible, ...hidden]) e.delete();
     return out;
   } finally {
@@ -139,6 +148,40 @@ function uniqueCircles(edges: ProjectedEdge[]): { c: Vec2; r: number }[] {
     }
   }
   return groups.filter((g) => Math.abs(g.length - 2 * Math.PI * g.r) < 1e-2 * g.r).map((g) => ({ c: [round(g.c[0]), round(g.c[1])], r: round(g.r) }));
+}
+
+/** 寸法を入れるために、まっすぐな辺と、一周していない円弧を集める */
+function shapeFacts(edges: ProjectedEdge[], circles: { c: Vec2; r: number }[]) {
+  const segments: [Vec2, Vec2][] = [];
+  const arcs: { c: Vec2; r: number; mid: Vec2; span: number }[] = [];
+  for (const e of edges) {
+    const a = e.pointAt(0);
+    const b = e.pointAt(1);
+    if (e.geomType === "LINE") {
+      if (Math.hypot(b.x - a.x, b.y - a.y) > 1e-3) segments.push([[round(a.x), round(a.y)], [round(b.x), round(b.y)]]);
+      continue;
+    }
+    // 横から見た円(コップの底など)は、曲線でも紙の上ではまっすぐ(たてか横)の線になる
+    const pts = Array.from({ length: 17 }, (_, k) => e.pointAt(k / 16));
+    const xs = pts.map((p) => p.x);
+    const ys = pts.map((p) => p.y);
+    const [x0, x1, y0, y1] = [Math.min(...xs), Math.max(...xs), Math.min(...ys), Math.max(...ys)];
+    if (x1 - x0 < 1e-3 && y1 - y0 > 1e-3) {
+      segments.push([[round(x0), round(y0)], [round(x0), round(y1)]]);
+      continue;
+    }
+    if (y1 - y0 < 1e-3 && x1 - x0 > 1e-3) {
+      segments.push([[round(x0), round(y0)], [round(x1), round(y0)]]);
+      continue;
+    }
+    const m = e.pointAt(0.5);
+    const c = circleThrough(a, m, b);
+    if (!c || c.r < 1e-3) continue;
+    // 円として見つけた形(穴など)の一部は、直径で書くので入れない
+    if (circles.some((o) => Math.hypot(o.c[0] - c.c[0], o.c[1] - c.c[1]) < 1e-3 && Math.abs(o.r - c.r) < 1e-3)) continue;
+    arcs.push({ c: [round(c.c[0]), round(c.c[1])], r: round(c.r), mid: [round(m.x), round(m.y)], span: e.length / c.r });
+  }
+  return { segments, arcs };
 }
 
 /** 3つの点を通る円(点が一直線のときや重なるときは null) */
