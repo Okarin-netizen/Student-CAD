@@ -27,7 +27,9 @@ export type Mode =
   | { kind: "pickPlane" }
   | { kind: "sketch"; isNew: boolean }
   /** 押し出し・回転・角を丸める・対称・ならべるの設定中 */
-  | { kind: "op"; isNew: boolean };
+  | { kind: "op"; isNew: boolean }
+  /** 図面を見ている */
+  | { kind: "drawing" };
 
 /** スケッチ以外の作業 */
 export type OpFeature = ExtrudeFeature | RevolveFeature | FilletFeature | MirrorFeature | PatternFeature;
@@ -195,6 +197,14 @@ export function finishSketch(): SketchFeature | null {
   commitDoc({ ...s.doc, features });
   setState({ mode: { kind: "model" }, draftSketch: null, sketchPast: [], sketchFuture: [], selectedFeature: sk.id });
   return sk;
+}
+
+export function startDrawing() {
+  if (!state.result?.mesh) {
+    toast("先に立体を作ってください", "error");
+    return;
+  }
+  setState({ mode: { kind: "drawing" }, selectedFeature: null });
 }
 
 export function cancelMode() {

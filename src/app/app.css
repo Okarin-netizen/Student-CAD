@@ -301,6 +301,8 @@ button.danger {
   display: flex;
   align-items: center;
   gap: 8px;
+  /* ボタンの文字が2行に折れないようにする */
+  white-space: nowrap;
 }
 
 .step-num {
@@ -1004,4 +1006,144 @@ button.danger {
   border-radius: 10px;
   padding: 8px 10px;
   font-size: 0.9rem;
+}
+
+/* ---- フェーズ2その3: 図面 ---- */
+
+.drawing-view {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: var(--bg);
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.drawing-toolbar,
+.drawing-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+.drawing-actions {
+  justify-content: flex-end;
+}
+
+.drawing-actions .muted {
+  margin-right: auto;
+}
+
+.drawing-kinds {
+  grid-template-columns: repeat(3, auto);
+}
+
+.drawing-author {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  margin-left: auto;
+}
+
+.drawing-author input {
+  min-height: var(--touch);
+  padding: 6px 10px;
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  font-size: 1rem;
+  width: 12em;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.drawing-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.drawing-paper {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: grid;
+  place-items: center;
+  background: #cfd6df;
+  border-radius: 12px;
+}
+
+/* 紙は灰色の場所いっぱいに、縦横の比をたもって表示する */
+.sheet-print {
+  position: absolute;
+  inset: 12px;
+}
+
+.sheet-print svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* 印刷(PDF にする)ときは、図面の紙だけを A4 横いっぱいに出す */
+@page {
+  size: A4 landscape;
+  margin: 0;
+}
+
+@media print {
+  body * {
+    visibility: hidden;
+  }
+  .sheet-print,
+  .sheet-print * {
+    visibility: visible;
+  }
+  .sheet-print {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: 297mm;
+    height: 210mm;
+  }
+  .sheet-print svg {
+    width: 297mm;
+    height: 210mm;
+  }
+}
+
+/* 書き出しのえらぶ画面(手順バーの上に出る) */
+.export-wrap {
+  position: relative;
+}
+
+.export-menu {
+  position: absolute;
+  right: 0;
+  bottom: calc(100% + 8px);
+  width: 320px;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  padding: 8px;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  box-shadow: 0 8px 24px #0003;
+  z-index: 20;
+}
+
+.export-menu button {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  gap: 2px;
+}
+
+.export-menu small {
+  color: var(--muted);
+  font-weight: 400;
 }

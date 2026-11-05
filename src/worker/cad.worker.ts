@@ -11,6 +11,8 @@ import { make_gcs_wrapper, type GcsWrapper } from "@salusoft89/planegcs";
 import gcsWasmUrl from "@salusoft89/planegcs/dist/planegcs_dist/planegcs.wasm?url";
 import { TEXT_FONT, meshBody, rebuild, usesText, type BodyMesh, type FeatureStatus, type SketchDisplay } from "../kernel/rebuild";
 import type { CadDocument } from "../doc/types";
+import { projectViews, type DrawingKind, type ProjectedView } from "../kernel/projection";
+import { make3MF } from "../export/threemf";
 
 export interface RebuildReply {
   statuses: FeatureStatus[];
@@ -64,6 +66,21 @@ const api = {
   async exportSTEP(): Promise<ArrayBuffer | null> {
     if (!body) return null;
     const buf = await body.blobSTEP().arrayBuffer();
+    return Comlink.transfer(buf, [buf]);
+  },
+
+  /** 図面の線(見える線・かくれ線)。立体がなければ null */
+  async drawing(kind: DrawingKind, withHidden: boolean): Promise<ProjectedView[] | null> {
+    if (!body) return null;
+    return projectViews(body, kind, withHidden);
+  },
+
+  async export3MF(title: string): Promise<ArrayBuffer | null> {
+    if (!body) return null;
+    // 書き出しは画面の表示より細かく分ける(STL と同じ細かさ)
+    const m = body.mesh({ tolerance: 0.02, angularTolerance: 8 });
+    const bytes = make3MF({ vertices: m.vertices, triangles: m.triangles }, title);
+    const buf = bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength) as ArrayBuffer;
     return Comlink.transfer(buf, [buf]);
   },
 
