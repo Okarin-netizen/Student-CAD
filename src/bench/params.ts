@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 // 技術検証用の「穴あきプレート」(キーホルダーの土台)の寸法。単位はすべて mm。
 export interface PlateParams {
   width: number;

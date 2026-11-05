@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 // 画面の言葉。ふだんはやさしい言葉、設定で Onshape/SolidWorks と同じ専門用語に切り替えられる。
 const TERMS = {
   sketch: ["スケッチ", "スケッチ"],

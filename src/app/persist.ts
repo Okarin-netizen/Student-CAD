@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 import type { CadDocument } from "../doc/types";
 
 // 作品は端末の中(IndexedDB)だけに自動保存する。アカウントもサーバーも使わない。

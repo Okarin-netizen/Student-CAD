@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 import { beforeAll, describe, expect, it } from "vitest";
 import { make_gcs_wrapper, type GcsWrapper } from "@salusoft89/planegcs";
 import { DEFAULT_PARAMS } from "../../src/bench/params";

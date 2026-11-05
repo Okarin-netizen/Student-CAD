@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import type { GcsWrapper } from "@salusoft89/planegcs";
 import { newId } from "../../doc/ids";

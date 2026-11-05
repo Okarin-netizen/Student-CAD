@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 /// <reference lib="webworker" />
 // 作業のれきしからの形の計算(拘束計算 + OpenCascade)は、すべてこの Web Worker で行う。
 import * as Comlink from "comlink";

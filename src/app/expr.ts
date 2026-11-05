@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 /**
  * 寸法の入力欄で使う、かんたんな計算式(+ - × ÷ とかっこ)。
  * 例: "25/2" → 12.5。eval は使わない。

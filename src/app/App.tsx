@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 import { useEffect, useMemo, useRef, useState } from "react";
 import { make_gcs_wrapper, type GcsWrapper } from "@salusoft89/planegcs";
 import gcsWasmUrl from "@salusoft89/planegcs/dist/planegcs_dist/planegcs.wasm?url";

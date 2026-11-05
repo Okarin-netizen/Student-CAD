@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 // スケッチを編集する操作。どれも元のスケッチを変えずに、新しいスケッチを返す。
 import type { GcsWrapper } from "@salusoft89/planegcs";
 import { newId } from "../doc/ids";

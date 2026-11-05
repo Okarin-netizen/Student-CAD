@@ -51,4 +51,6 @@ npm run build
 
 `main` に入ると GitHub Actions で GitHub Pages に公開されます(初回のみ、Settings → Pages の Source を「GitHub Actions」にしてください)。
 
-使用している OSS とライセンスは [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) を見てください。
+変更履歴は [CHANGELOG.md](CHANGELOG.md) にあります。
+
+

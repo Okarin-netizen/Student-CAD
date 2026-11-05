@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 import { useSyncExternalStore } from "react";
 import { newId, nextName } from "../doc/ids";
 import {

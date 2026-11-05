@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 import { Plane, draw, drawCircle, type Drawing, type Shape3D } from "replicad";
 import type { GcsWrapper } from "@salusoft89/planegcs";
 import type { CadDocument, FilletFeature, Id, Plane3, RevolveAxis, SketchFeature, Vec2, Vec3 } from "../doc/types";

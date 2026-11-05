@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 import type { InitReport, Timings } from "./types";
 
 /** 実機で計測した結果。この JSON をコピーして共有してもらう。 */

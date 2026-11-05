@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 // 設計図(作業のれきし)のデータ構造。
 // これだけを保存すれば、形はいつでも頭から計算し直せる(Onshape と同じく「履歴が正」)。
 

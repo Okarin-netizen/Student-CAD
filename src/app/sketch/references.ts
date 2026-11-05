@@ -1,3 +1,6 @@
+// SPDX-License-Identifier: MIT
+// Copyright (c) 2026 技術科　岡田
+
 import { dot3, planeYDir } from "../../doc/planes";
 import type { Plane3, Vec2, Vec3 } from "../../doc/types";
 
