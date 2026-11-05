@@ -90,6 +90,7 @@ const FEATURE_WORDS: Record<Feature["type"], string> = {
   pattern: "ならべる",
   loft: "つなぐ",
   shell: "くりぬく",
+  sweep: "なぞる",
 };
 
 function featureDetail(f: Feature): string {
@@ -110,6 +111,8 @@ function featureDetail(f: Feature): string {
       return `${f.operation === "cut" ? "けずる" : "くっつける"} スケッチ ${f.sketchIds.length} こ`;
     case "shell":
       return `あつさ ${f.thickness}mm ・ 面 ${f.faces.length} こ`;
+    case "sweep":
+      return f.operation === "cut" ? "けずる" : "くっつける";
   }
 }
 

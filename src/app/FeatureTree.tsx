@@ -70,6 +70,12 @@ export function FeatureTree({ doc, statuses, selected, pro, disabled, onSelect, 
                     </small>
                   )}
                   {f.type === "mirror" && <small> {f.source === "body" ? "立体ぜんぶ" : nameOf(f.source)} ・ {BASE_PLANE_LABELS[f.plane]}</small>}
+                  {f.type === "sweep" && (
+                    <small>
+                      {" "}
+                      {nameOf(f.profileId)} を {nameOf(f.pathId)} にそって
+                    </small>
+                  )}
                   {f.type === "loft" && <small> {f.sketchIds.map(nameOf).join(" → ")}</small>}
                   {f.type === "shell" && (
                     <small>
@@ -152,6 +158,8 @@ function icon(f: Feature): string {
       return f.kind === "linear" ? "⋯" : "⟳";
     case "shell":
       return "🥛";
+    case "sweep":
+      return f.operation === "cut" ? "🕳️" : "➰";
     case "loft":
       return f.operation === "cut" ? "🕳️" : "🔺";
     default:

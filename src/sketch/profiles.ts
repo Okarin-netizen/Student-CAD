@@ -23,6 +23,8 @@ export interface ProfileResult {
   regions: Region[];
   /** 閉じていない線や枝分かれがある(押し出しには使われない) */
   openChains: number;
+  /** 枝分かれのない、閉じていない線のつながり(なぞるの道すじに使う)。はしの点から順にならべる */
+  paths: LoopSegment[][];
 }
 
 const ARC_STEPS = 32;
@@ -86,6 +88,7 @@ export function findProfiles(sketch: Pick<SketchFeature, "entities" | "constrain
 
   const used = new Set<number>();
   let openChains = 0;
+  const paths: LoopSegment[][] = [];
   for (let i = 0; i < edges.length; i++) {
     if (used.has(i)) continue;
     // この辺を含むつながり全体を集める
@@ -105,6 +108,24 @@ export function findProfiles(sketch: Pick<SketchFeature, "entities" | "constrain
     const closed = [...verts].every((v) => (adj.get(v) ?? []).length === 2);
     if (!closed) {
       openChains++;
+      // 枝分かれがなければ、はしの点からたどって1本の道すじにする
+      const ends = [...verts].filter((v) => (adj.get(v) ?? []).length === 1);
+      if (ends.length === 2 && [...verts].every((v) => (adj.get(v) ?? []).length <= 2)) {
+        const path: LoopSegment[] = [];
+        let at = ends[0];
+        let prev = -1;
+        for (;;) {
+          const k = (adj.get(at) ?? []).find((n) => n !== prev);
+          if (k === undefined) break;
+          const ed = edges[k];
+          const fromA = ed.a === at;
+          path.push(ed.seg(fromA));
+          at = fromA ? ed.b : ed.a;
+          prev = k;
+          if (at === ends[1]) break;
+        }
+        paths.push(path);
+      }
       continue;
     }
     // つながりをたどって輪にする
@@ -126,7 +147,7 @@ export function findProfiles(sketch: Pick<SketchFeature, "entities" | "constrain
     loops.push({ kind: "chain", segments, polygon, area: Math.abs(signedArea(polygon)) });
   }
 
-  return { regions: nestRegions(loops), openChains };
+  return { regions: nestRegions(loops), openChains, paths };
 }
 
 function nestRegions(loops: Loop[]): Region[] {

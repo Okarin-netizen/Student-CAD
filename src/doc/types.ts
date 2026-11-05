@@ -240,6 +240,21 @@ export interface LoftFeature {
   exprs?: NumberExprs;
 }
 
+/**
+ * なぞる(スイープ)。断面のスケッチの形を、道すじのスケッチの線にそって動かした立体を作る。
+ * 道すじは閉じていない線(線・円弧をつないだもの)1本。断面は閉じた形1つ(穴なし)。
+ * 断面は、道すじのはじめの点を通る面にかく(例: 道すじを上の面、断面を右の面に)。
+ */
+export interface SweepFeature {
+  id: Id;
+  type: "sweep";
+  name: string;
+  pathId: Id;
+  profileId: Id;
+  operation: ExtrudeOperation;
+  exprs?: NumberExprs;
+}
+
 /** 立体の平らな面の目印。えらんだときにタップした、面の上の点と、面の向き */
 export interface FaceRef {
   point: Vec3;
@@ -262,7 +277,7 @@ export interface ShellFeature {
 /** スケッチを使って立体を作る作業 */
 export type ProfileFeature = ExtrudeFeature | RevolveFeature;
 
-export type Feature = SketchFeature | ExtrudeFeature | RevolveFeature | FilletFeature | MirrorFeature | PatternFeature | LoftFeature | ShellFeature;
+export type Feature = SketchFeature | ExtrudeFeature | RevolveFeature | FilletFeature | MirrorFeature | PatternFeature | LoftFeature | ShellFeature | SweepFeature;
 
 /**
  * 変数(名前のついた数)。寸法やあつさに名前で使える。
