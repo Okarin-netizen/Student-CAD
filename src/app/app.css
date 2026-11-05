@@ -315,7 +315,8 @@ button.danger {
 .panel {
   position: absolute;
   top: 12px;
-  right: 124px;
+  /* 左上に置いて、まん中の立体とビューキューブをかくさない */
+  left: 12px;
   width: min(340px, calc(100% - 24px));
   background: var(--surface);
   border: 1px solid var(--border);
@@ -825,4 +826,43 @@ button.danger {
 .op-row button.active {
   background: var(--accent-soft);
   border-color: var(--accent);
+}
+
+/* ---- 目もり ---- */
+.sk-grid-label {
+  font-size: 11px;
+  fill: #8a94a3;
+  pointer-events: none;
+}
+
+.sk-scale {
+  background: #ffffffe6;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  padding: 8px 12px;
+  font-size: 0.85rem;
+  color: var(--muted);
+}
+
+.sk-glyph {
+  opacity: 0.7;
+}
+
+.sk-glyph text {
+  font-size: 11px;
+}
+
+.howto {
+  position: absolute;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  background: #1b2430d9;
+  color: #fff;
+  padding: 10px 16px;
+  border-radius: 14px;
+  font-size: 0.95rem;
+  pointer-events: none;
+  z-index: 3;
+  white-space: nowrap;
 }

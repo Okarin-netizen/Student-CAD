@@ -25,7 +25,6 @@ test("長方形をかいて寸法を入れ、押し出して STL を書き出せ
   // 下の辺に長さ 50mm
   await page.getByTestId("tool-dimension").click();
   await tapCanvas(page, 0.5, 0.65);
-  await page.getByTestId("dim-length").click();
   await page.getByTestId("numpad-input").fill("100/2");
   await page.getByTestId("numpad-ok").click();
   await expect(page.getByTestId("dim-length")).toContainText("50");
@@ -145,4 +144,31 @@ test("立体の上の面をタップして、その面にスケッチをかけ�
   await page.getByTestId("op-ok").click();
   await expect(page.getByTestId("feature-tree").locator("li")).toHaveCount(4);
   await expect(page.getByTestId("feature-tree").locator("li.bad")).toHaveCount(0);
+});
+
+test("線をタップするとすぐ長さを入れられ、かいた絵は確認してから捨てる", async ({ page }) => {
+  await page.goto("/");
+  await page.getByTestId("new-sketch").click();
+  await page.getByTestId("plane-top").click();
+  await expect(page.getByTestId("sketch-scale")).toContainText("mm");
+  await page.getByTestId("tool-rect").click();
+  await tapCanvas(page, 0.3, 0.3);
+  await expect(page.getByTestId("sketch-hint")).toContainText("反対の角");
+  await tapCanvas(page, 0.7, 0.7);
+  await expect(page.getByTestId("sketch-dof")).toContainText("このままでも立体にできます");
+
+  await page.getByTestId("tool-dimension").click();
+  await tapCanvas(page, 0.5, 0.7);
+  await expect(page.getByTestId("numpad-input")).toBeVisible();
+  await page.getByTestId("numpad-input").fill("40");
+  await page.getByTestId("numpad-ok").click();
+  await expect(page.locator("g[data-testid=dim-length]")).toContainText("40");
+
+  // やめる → 確認が出る → かきつづける
+  await page.getByTestId("sketch-cancel").click();
+  await page.getByTestId("discard-keep").click();
+  await expect(page.getByTestId("sketch-canvas")).toBeVisible();
+  await page.getByTestId("sketch-cancel").click();
+  await page.getByTestId("discard-ok").click();
+  await expect(page.getByTestId("feature-tree").locator("li")).toHaveCount(0);
 });

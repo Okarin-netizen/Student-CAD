@@ -1,11 +1,11 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
 import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
 import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
 import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import type { BodyMesh, SketchDisplay } from "../kernel/rebuild";
-import { BASE_PLANES } from "../doc/planes";
+import { BASE_PLANE_LABELS, BASE_PLANES } from "../doc/planes";
 import type { BasePlaneName, Vec3 } from "../doc/types";
 
 export type PickResult = { kind: "base"; name: BasePlaneName } | { kind: "face"; origin: Vec3; normal: Vec3 };
@@ -54,10 +54,19 @@ const CUBE_DIRS: Vec3[] = [
  * 3Dビュー。Onshape のモバイル版と同じく 1本指で回転、2本指で移動・拡大。
  * 右上のビューキューブの面をタップすると、その向きから見られる。
  */
+const HOWTO_KEY = "student-cad:howto3d";
+
 export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, edgePick, ghost }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const cubeRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Stage | null>(null);
+  const [showHowTo, setShowHowTo] = useState(() => {
+    try {
+      return localStorage.getItem(HOWTO_KEY) !== "1";
+    } catch {
+      return true;
+    }
+  });
   const pickRef = useRef({ picking, onPick, onMessage, edgePick });
   pickRef.current = { picking, onPick, onMessage, edgePick };
 
@@ -157,6 +166,7 @@ export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, edgePick,
       highlightFace(stage, h.face, h.result?.kind === "face");
     };
     const onDown = (e: PointerEvent) => {
+      hideHowTo();
       down = { x: e.clientX, y: e.clientY, t: performance.now() };
       hover(e);
     };
@@ -303,8 +313,22 @@ export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, edgePick,
     stage.render();
   }, [picking, mesh]);
 
+  function hideHowTo() {
+    setShowHowTo(false);
+    try {
+      localStorage.setItem(HOWTO_KEY, "1");
+    } catch {
+      // 保存できなくてもよい
+    }
+  }
+
   return (
     <div className="viewer3d">
+      {showHowTo && (
+        <div className="howto" role="note" data-testid="howto-3d">
+          ☝️ 1本指でまわす ・ ✌️ 2本指で動かす・つまんで大きくする
+        </div>
+      )}
       <div className="viewer3d-canvas" ref={hostRef} data-testid="viewer-3d" />
       <div className="viewcube" ref={cubeRef} aria-label="ビューキューブ(面をタップするとその向きから見る)" />
       <div className="viewer3d-buttons">
@@ -334,7 +358,29 @@ function makePlane(name: BasePlaneName): THREE.Mesh {
   mesh.matrixAutoUpdate = false;
   mesh.matrix.makeBasis(x, y, n);
   mesh.userData.plane = name;
+  // 板の角に名前を出す(何の板か分かるように)
+  const label = textSprite(BASE_PLANE_LABELS[name], colors[name]);
+  label.position.set(PLANE_SIZE - 4, PLANE_SIZE - 4, 0);
+  mesh.add(label);
   return mesh;
+}
+
+function textSprite(text: string, color: number): THREE.Sprite {
+  const c = document.createElement("canvas");
+  c.width = 256;
+  c.height = 64;
+  const g = c.getContext("2d")!;
+  g.font = "bold 40px sans-serif";
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.fillStyle = "#" + color.toString(16).padStart(6, "0");
+  g.fillText(text, 128, 34);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+  sprite.scale.set(16, 4, 1);
+  sprite.renderOrder = 5;
+  return sprite;
 }
 
 function labelMaterial(text: string): THREE.MeshBasicMaterial {

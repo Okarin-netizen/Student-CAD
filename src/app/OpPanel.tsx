@@ -26,6 +26,8 @@ export function OpPanel({ doc, draft, pro, error, busy, preview, onPreview, onCh
   const idx = doc.features.findIndex((f) => f.id === draft.id);
   // 自分より前にあるスケッチだけ使える
   const sketches = doc.features.filter((f, i): f is SketchFeature => f.type === "sketch" && (idx < 0 || i < idx));
+  // まだ立体がないときは「くっつける / けずる」は聞かない(けずるものがないので)
+  const hasBodyBefore = doc.features.slice(0, idx < 0 ? undefined : idx).some((f) => f.type === "extrude" || f.type === "revolve");
   const title =
     draft.type === "extrude" ? term("extrude", pro) : draft.type === "revolve" ? term("revolve", pro) : term(draft.kind, pro);
 
@@ -64,7 +66,7 @@ export function OpPanel({ doc, draft, pro, error, busy, preview, onPreview, onCh
     </div>
   );
 
-  const operation = (op: ExtrudeOperation) => (
+  const operation = (op: ExtrudeOperation) => (!hasBodyBefore && op === "add" ? null : (
     <div className="field">
       <span>どうする?</span>
       <div className="segmented" role="radiogroup">
@@ -84,7 +86,7 @@ export function OpPanel({ doc, draft, pro, error, busy, preview, onPreview, onCh
         ))}
       </div>
     </div>
-  );
+  ));
 
   const flip = (label: string) => (
     <button type="button" className="wide" onClick={() => "flip" in draft && onChange({ flip: !draft.flip })} data-testid="op-flip">
@@ -202,11 +204,22 @@ function AxisSelect({ sketch, axis, pro, onChange }: { sketch?: SketchFeature; a
         <option value="x">横の軸(原点を通る赤の線)</option>
         {sorted.map((l) => (
           <option key={l.id} value={`line:${l.id}`}>
-            {l.construction ? `${term("construction", pro)} ` : "線 "}
-            {lines.indexOf(l) + 1}
+            {describeLine(sketch!, l, l.construction ? term("construction", pro) : "線")}
           </option>
         ))}
       </select>
     </label>
   );
+}
+
+/** 「補助線(たて・20mm)」のように、どの線か分かる名前 */
+function describeLine(sketch: SketchFeature, l: Extract<SketchFeature["entities"][number], { type: "line" }>, kind: string): string {
+  const pos = new Map(sketch.entities.flatMap((e) => (e.type === "point" ? [[e.id, [e.x, e.y] as const]] : [])));
+  const a = l.p1 === "origin" ? ([0, 0] as const) : pos.get(l.p1);
+  const b = l.p2 === "origin" ? ([0, 0] as const) : pos.get(l.p2);
+  if (!a || !b) return kind;
+  const dx = b[0] - a[0];
+  const dy = b[1] - a[1];
+  const dir = Math.abs(dx) < 1e-6 ? "たて" : Math.abs(dy) < 1e-6 ? "よこ" : "ななめ";
+  return `${kind}(${dir}・${Math.round(Math.hypot(dx, dy) * 10) / 10}mm)`;
 }

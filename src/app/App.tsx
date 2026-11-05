@@ -188,6 +188,13 @@ export function App() {
   };
 
   const sketchFeature = s.draftSketch;
+  const [confirmDiscard, setConfirmDiscard] = useState(false);
+  // かいたものがあれば、捨てる前に確認する(「かけた!」のとなりなので押しまちがえやすい)
+  const cancelSketch = () => {
+    const changed = s.sketchPast.length > 0 || (s.mode.kind === "sketch" && s.mode.isNew && (sketchFeature?.entities.length ?? 0) > 0);
+    if (changed) setConfirmDiscard(true);
+    else cancelMode();
+  };
   // スケッチ平面の上にある立体の輪郭(下がき)。面にかくとき、どこにかけばよいか分かるように
   const mesh = s.result?.mesh ?? null;
   const plane = sketchFeature?.plane;
@@ -208,7 +215,7 @@ export function App() {
               </button>
             </div>
             <div className="topbar-group end">
-              <button type="button" onClick={cancelMode} data-testid="sketch-cancel">
+              <button type="button" onClick={cancelSketch} data-testid="sketch-cancel">
                 やめる
               </button>
               <button type="button" className="primary" onClick={onFinishSketch} data-testid="sketch-done">
@@ -291,7 +298,7 @@ export function App() {
               sketches={s.result?.sketches ?? []}
               picking={mode === "pickPlane"}
               onPick={onPick}
-              onMessage={(t) => toast(t, "error")}
+              onMessage={(t) => toast(t)}
               ghost={mode === "op" && s.draftOp?.type !== "fillet"}
               edgePick={filletPicking && s.draftOp?.type === "fillet" ? { selected: s.draftOp.edges.map((e) => e.mid), onToggle: toggleEdge } : null}
             />
@@ -365,7 +372,7 @@ export function App() {
             <button type="button" className="step" onClick={() => startRevolve()} data-testid="new-revolve">
               🔄 {term("revolveName", pro)}
             </button>
-            <button type="button" className="step" onClick={() => startFillet()} disabled={!hasBody} data-testid="new-fillet">
+            <button type="button" className="step" onClick={() => startFillet()} data-testid="new-fillet">
               ◜ {term("fillet", pro)}
             </button>
           </div>
@@ -382,6 +389,31 @@ export function App() {
             </button>
           </div>
         </nav>
+      )}
+
+      {confirmDiscard && (
+        <div className="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && setConfirmDiscard(false)}>
+          <div className="dialog" role="dialog" aria-label="かいた絵を捨てる確認">
+            <h3>かいた絵を捨てますか?</h3>
+            <p className="muted">捨てると、このスケッチでかいたものは元にもどせません。</p>
+            <div className="dialog-actions">
+              <button type="button" onClick={() => setConfirmDiscard(false)} data-testid="discard-keep">
+                かきつづける
+              </button>
+              <button
+                type="button"
+                className="danger"
+                data-testid="discard-ok"
+                onClick={() => {
+                  setConfirmDiscard(false);
+                  cancelMode();
+                }}
+              >
+                捨てる
+              </button>
+            </div>
+          </div>
+        </div>
       )}
 
       {s.toast && (
