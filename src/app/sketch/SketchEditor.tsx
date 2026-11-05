@@ -250,10 +250,9 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
       const d = distToSegment(w, a, b) * vp.scale;
       if (d < HIT_PX / 2 && (!onRef || d < onRef.d)) onRef = { p: closestOnSegment(w, a, b), d };
     }
-    if (onRef) return { spec: { xy: onRef.p }, xy: onRef.p, snapped: false };
     // 3. マス目に吸い付ける。線の途中なら、水平・垂直にもそろえる
     const step = gridStep(vp.scale) / 2;
-    let [x, y] = toWorld(vp, screen);
+    let [x, y] = w;
     x = Math.round(x / step) * step;
     y = Math.round(y / step) * step;
     if (from) {
@@ -261,6 +260,10 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
       if (Math.abs(fs[1] - screen[1]) < 10) y = from.xy[1];
       else if (Math.abs(fs[0] - screen[0]) < 10) x = from.xy[0];
     }
+    // 輪郭の線とマス目の点の、タップした所に近いほうを使う。
+    // (輪郭の線を先にすると、壁の厚みの中など、線のすぐそばのマス目に点を置けなかった)
+    const gs = toScreen(vp, [x, y]);
+    if (onRef && onRef.d < Math.hypot(gs[0] - screen[0], gs[1] - screen[1])) return { spec: { xy: onRef.p }, xy: onRef.p, snapped: false };
     return { spec: { xy: [x, y] }, xy: [x, y], snapped: false };
   };
 

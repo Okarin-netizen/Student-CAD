@@ -111,11 +111,14 @@ export function buildSheet(views: ProjectedView[], opts: SheetOptions): Sheet {
     const map = (p: Vec2): Vec2 => [at[0] + (p[0] - b.min[0]) * s, at[1] + (p[1] - b.min[1]) * s];
     for (const l of v.hidden) lines.push({ style: "hidden", points: l.map(map) });
     for (const l of v.visible) lines.push({ style: "visible", points: l.map(map) });
-    for (const c of v.circles) {
-      const [cx, cy] = map(c.c);
-      const r = c.r * s + 2;
+    // 同じ中心の円(マグカップの外側と内側など)は、中心線を1回だけ引き、直径の引き出し線の向きを変えて文字が重ならないようにする
+    for (const group of concentric(v.circles)) {
+      const [cx, cy] = map(group[0].c);
+      const r = group[0].r * s + 2;
       lines.push({ style: "center", points: [[cx - r, cy], [cx + r, cy]] }, { style: "center", points: [[cx, cy - r], [cx, cy + r]] });
-      if (diameters) diameter(lines, texts, [cx, cy], c.r * s, c.r * 2);
+      // 直径は一番外と一番内だけ書く(角を丸めた所にできる円まで書くと、数字が多すぎて読めない)
+      const labeled = group.length > 2 ? [group[0], group[group.length - 1]] : group;
+      if (diameters) labeled.forEach((c, i) => diameter(lines, texts, [cx, cy], c.r * s, c.r * 2, LEADER_DIRS[i]));
     }
   };
 
@@ -185,16 +188,34 @@ function dimension(lines: SheetLine[], texts: SheetText[], a: Vec2, b: Vec2, off
   }
 }
 
-/** 円の直径(「⌀8」)を、右上に引き出してかく */
-function diameter(lines: SheetLine[], texts: SheetText[], c: Vec2, rPaper: number, value: number) {
+/** 直径の引き出し線の向き(外の円は右上、内の円は左上) */
+const LEADER_DIRS: Vec2[] = [
+  [1, 1],
+  [-1, 1],
+];
+
+/** 中心が同じ円をまとめる。大きい円を先にする */
+function concentric(circles: ProjectedView["circles"]): ProjectedView["circles"][] {
+  const groups: ProjectedView["circles"][] = [];
+  for (const c of [...circles].sort((a, b) => b.r - a.r)) {
+    const g = groups.find((g) => Math.hypot(g[0].c[0] - c.c[0], g[0].c[1] - c.c[1]) < 1e-3 * Math.max(1, g[0].r));
+    if (!g) groups.push([c]);
+    else if (!g.some((o) => Math.abs(o.r - c.r) < 1e-3 * Math.max(1, c.r))) g.push(c);
+  }
+  return groups;
+}
+
+/** 円の直径(「⌀8」)を、dir の向き(斜め45°)に引き出してかく */
+function diameter(lines: SheetLine[], texts: SheetText[], c: Vec2, rPaper: number, value: number, dir: Vec2 = [1, 1]) {
+  const [sx, sy] = dir;
   const d = Math.SQRT1_2;
-  const edge: Vec2 = [c[0] + rPaper * d, c[1] + rPaper * d];
-  const elbow: Vec2 = [edge[0] + 5, edge[1] + 5];
+  const edge: Vec2 = [c[0] + sx * rPaper * d, c[1] + sy * rPaper * d];
+  const elbow: Vec2 = [edge[0] + sx * 5, edge[1] + sy * 5];
   const text = `⌀${formatMm(value)}`;
-  const end: Vec2 = [elbow[0] + text.length * 2.2 + 1, elbow[1]];
+  const end: Vec2 = [elbow[0] + sx * (text.length * 2.2 + 1), elbow[1]];
   lines.push({ style: "dim", points: [edge, elbow, end] });
-  lines.push({ style: "dim", points: [[edge[0] + 2.2, edge[1] + 0.8], edge, [edge[0] + 0.8, edge[1] + 2.2]] });
-  texts.push({ at: [elbow[0] + 0.5, elbow[1] + 1], text, size: 3.2, anchor: "start" });
+  lines.push({ style: "dim", points: [[edge[0] + sx * 2.2, edge[1] + sy * 0.8], edge, [edge[0] + sx * 0.8, edge[1] + sy * 2.2]] });
+  texts.push({ at: [elbow[0] + sx * 0.5, elbow[1] + 1], text, size: 3.2, anchor: sx > 0 ? "start" : "end" });
 }
 
 /** わくと表題欄 */

@@ -43,6 +43,15 @@ describe("図をかく(投影)", () => {
     expect(projectViews(holed, "thirdAngle", false)[0].hidden).toHaveLength(0);
   });
 
+  it("同じ中心の円(コップの外と内)は、直径の文字を別の向きに書いて重ねない", () => {
+    const cup = makeCylinder(40, 95, [0, 0, 0], [0, 0, 1]).cut(makeCylinder(35, 90, [0, 0, 5], [0, 0, 1]));
+    const sheet = buildSheet(projectViews(cup, "thirdAngle", false), { kind: "thirdAngle", title: "", author: "", dimensions: true });
+    const labels = sheet.texts.filter((t) => t.text.startsWith("⌀"));
+    expect(labels.map((t) => t.text).sort()).toEqual(["⌀70", "⌀80"]);
+    const [a, b] = labels;
+    expect(Math.hypot(a.at[0] - b.at[0], a.at[1] - b.at[1])).toBeGreaterThan(20);
+  });
+
   it("穴には中心線を入れ、平面図に直径を書く", () => {
     const holed = box().cut(makeCylinder(4, 10, [20, 10, 0], [0, 0, 1]));
     const views = projectViews(holed, "thirdAngle", false);
