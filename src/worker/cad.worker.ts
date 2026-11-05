@@ -44,6 +44,12 @@ const api = {
     return Comlink.transfer(reply, transfers);
   },
 
+  async exportSTEP(): Promise<ArrayBuffer | null> {
+    if (!body) return null;
+    const buf = await body.blobSTEP().arrayBuffer();
+    return Comlink.transfer(buf, [buf]);
+  },
+
   async exportSTL(): Promise<ArrayBuffer | null> {
     if (!body) return null;
     const buf = await body.blobSTL({ binary: true, tolerance: 0.02, angularTolerance: 8 }).arrayBuffer();

@@ -48,6 +48,10 @@ export class CadClient {
     return this.api.exportSTL();
   }
 
+  exportSTEP() {
+    return this.api.exportSTEP();
+  }
+
   terminate() {
     this.worker.terminate();
   }

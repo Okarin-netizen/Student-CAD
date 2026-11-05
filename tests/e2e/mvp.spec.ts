@@ -25,7 +25,6 @@ test("長方形をかいて寸法を入れ、押し出して STL を書き出せ
   // 下の辺に長さ 50mm
   await page.getByTestId("tool-dimension").click();
   await tapCanvas(page, 0.5, 0.65);
-  await page.getByTestId("dim-length").click();
   await page.getByTestId("numpad-input").fill("100/2");
   await page.getByTestId("numpad-ok").click();
   await expect(page.getByTestId("dim-length")).toContainText("50");
@@ -38,12 +37,12 @@ test("長方形をかいて寸法を入れ、押し出して STL を書き出せ
 
   // 2. スケッチを終えると、押し出しのパネルが開く
   await page.getByTestId("sketch-done").click();
-  await expect(page.getByTestId("extrude-distance")).toHaveText("10 mm");
-  await page.getByTestId("extrude-distance").click();
+  await expect(page.getByTestId("op-distance")).toHaveText("10 mm");
+  await page.getByTestId("op-distance").click();
   await page.getByTestId("numpad-input").fill("8");
   await page.getByTestId("numpad-ok").click();
-  await expect(page.getByTestId("extrude-ok")).toBeEnabled();
-  await page.getByTestId("extrude-ok").click();
+  await expect(page.getByTestId("op-ok")).toBeEnabled();
+  await page.getByTestId("op-ok").click();
 
   const tree = page.getByTestId("feature-tree");
   await expect(tree.locator("li")).toHaveCount(2);
@@ -72,7 +71,7 @@ test("円をかいて、直径を入れて、平らな面にけずる穴をあ�
   await tapCanvas(page, 0.3, 0.3);
   await tapCanvas(page, 0.7, 0.7);
   await page.getByTestId("sketch-done").click();
-  await page.getByTestId("extrude-ok").click();
+  await page.getByTestId("op-ok").click();
   await expect(page.getByTestId("feature-tree").locator("li")).toHaveCount(2);
 
   // 2つ目のスケッチに円をかいて、けずる
@@ -87,9 +86,9 @@ test("円をかいて、直径を入れて、平らな面にけずる穴をあ�
   await page.getByTestId("numpad-ok").click();
   await expect(page.locator("g[data-testid=dim-diameter]")).toContainText("6");
   await page.getByTestId("sketch-done").click();
-  await page.getByTestId("extrude-cut").click();
-  await expect(page.getByTestId("extrude-ok")).toBeEnabled();
-  await page.getByTestId("extrude-ok").click();
+  await page.getByTestId("op-cut").click();
+  await expect(page.getByTestId("op-ok")).toBeEnabled();
+  await page.getByTestId("op-ok").click();
   await expect(page.getByTestId("feature-tree").locator("li")).toHaveCount(4);
   await expect(page.getByTestId("feature-tree").locator("li.bad")).toHaveCount(0);
 
@@ -113,7 +112,7 @@ test("指のタップでも長方形をかける", async ({ page }, info) => {
   await page.touchscreen.tap(box.x + box.width * 0.6, box.y + box.height * 0.6);
   await expect(page.locator(".sk-region")).toHaveCount(1);
   await page.getByTestId("sketch-done").tap();
-  await expect(page.getByTestId("extrude-ok")).toBeEnabled();
+  await expect(page.getByTestId("op-ok")).toBeEnabled();
 });
 
 test("立体の上の面をタップして、その面にスケッチをかける", async ({ page }) => {
@@ -124,7 +123,7 @@ test("立体の上の面をタップして、その面にスケッチをかけ�
   await tapCanvas(page, 0.3, 0.3);
   await tapCanvas(page, 0.7, 0.7);
   await page.getByTestId("sketch-done").click();
-  await page.getByTestId("extrude-ok").click();
+  await page.getByTestId("op-ok").click();
   await expect(page.getByTestId("feature-tree").locator("li")).toHaveCount(2);
 
   // 3D の上の面(画面のまん中あたり)をタップ
@@ -142,7 +141,34 @@ test("立体の上の面をタップして、その面にスケッチをかけ�
   await page.mouse.click(ref.x + ref.width / 2, ref.y + ref.height / 2);
   await expect(page.locator(".sk-region")).toHaveCount(1);
   await page.getByTestId("sketch-done").click();
-  await page.getByTestId("extrude-ok").click();
+  await page.getByTestId("op-ok").click();
   await expect(page.getByTestId("feature-tree").locator("li")).toHaveCount(4);
   await expect(page.getByTestId("feature-tree").locator("li.bad")).toHaveCount(0);
+});
+
+test("線をタップするとすぐ長さを入れられ、かいた絵は確認してから捨てる", async ({ page }) => {
+  await page.goto("/");
+  await page.getByTestId("new-sketch").click();
+  await page.getByTestId("plane-top").click();
+  await expect(page.getByTestId("sketch-scale")).toContainText("mm");
+  await page.getByTestId("tool-rect").click();
+  await tapCanvas(page, 0.3, 0.3);
+  await expect(page.getByTestId("sketch-hint")).toContainText("反対の角");
+  await tapCanvas(page, 0.7, 0.7);
+  await expect(page.getByTestId("sketch-dof")).toContainText("このままでも立体にできます");
+
+  await page.getByTestId("tool-dimension").click();
+  await tapCanvas(page, 0.5, 0.7);
+  await expect(page.getByTestId("numpad-input")).toBeVisible();
+  await page.getByTestId("numpad-input").fill("40");
+  await page.getByTestId("numpad-ok").click();
+  await expect(page.locator("g[data-testid=dim-length]")).toContainText("40");
+
+  // やめる → 確認が出る → かきつづける
+  await page.getByTestId("sketch-cancel").click();
+  await page.getByTestId("discard-keep").click();
+  await expect(page.getByTestId("sketch-canvas")).toBeVisible();
+  await page.getByTestId("sketch-cancel").click();
+  await page.getByTestId("discard-ok").click();
+  await expect(page.getByTestId("feature-tree").locator("li")).toHaveCount(0);
 });

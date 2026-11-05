@@ -86,13 +86,23 @@ const MOVE_PX = 6;
 
 const TOOLS: { tool: Tool; label: string; icon: string; hint: string }[] = [
   { tool: "select", label: "えらぶ", icon: "👆", hint: "点や線をタップしてえらびます。点はドラッグで動かせます。何もないところをドラッグすると画面が動きます" },
-  { tool: "line", label: "線", icon: "╱", hint: "始点と終点をタップ(またはドラッグ)。続けてタップすると線がつながります。始めの点をタップすると終わります" },
-  { tool: "rect", label: "長方形", icon: "▭", hint: "2つの角をタップ(またはドラッグ)します" },
-  { tool: "circle", label: "円", icon: "◯", hint: "中心をタップしてから、円の上の点をタップします" },
-  { tool: "arc", label: "円弧", icon: "◠", hint: "中心 → 始点 → 終点の順にタップします(反時計回りにかけます)" },
+  { tool: "line", label: "線", icon: "╱", hint: "点をタップしてつなげていきます。始めの点をタップすると形が閉じます" },
+  { tool: "rect", label: "長方形", icon: "▭", hint: "角をタップしてから、反対の角をタップします" },
+  { tool: "circle", label: "円", icon: "◯", hint: "中心をタップしてから、大きさを決める点をタップします" },
+  { tool: "arc", label: "円弧", icon: "◠", hint: "中心 → 始まり → 終わりの順にタップします(左回りにかけます)" },
   { tool: "polygon", label: "多角形", icon: "⬡", hint: "中心をタップしてから、角の1つをタップします" },
-  { tool: "dimension", label: "寸法", icon: "↔", hint: "線(長さ)、円(直径)、2つの点(距離)、2本の線(角度)をタップして数字を入れます" },
+  { tool: "dimension", label: "寸法", icon: "↔", hint: "線をタップすると長さ、円をタップすると直径を入れられます。点を2つタップすると距離です" },
 ];
+
+/** 1つ目の点を置いたあとの案内 */
+function nextStepHint(tool: Tool, placed: number): string | null {
+  const slide = "(指を置いたまま動かすと、大きさを見ながら決められます)";
+  if (tool === "line") return `次の点をタップ${slide}`;
+  if (tool === "rect") return `反対の角をタップ${slide}`;
+  if (tool === "circle" || tool === "polygon") return `大きさを決める点をタップ${slide}`;
+  if (tool === "arc") return placed === 1 ? "円弧の始まりの点をタップ" : "円弧の終わりの点をタップ";
+  return null;
+}
 
 export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, onMessage }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
@@ -103,6 +113,9 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
   const [cursor, setCursor] = useState<Snap | null>(null);
   const [sides, setSides] = useState(6);
   const [dimPick, setDimPick] = useState<Hit[]>([]);
+  /** 道具の案内のかわりに出す、いまの操作の案内 */
+  const [guide, setGuide] = useState<string | null>(null);
+  const lastPointer = useRef<string>("mouse");
   const [numpad, setNumpad] = useState<{ title: string; unit: string; initial: number; allowZero?: boolean; submit: (v: number) => void } | null>(null);
   const pressRef = useRef<Press | null>(null);
   const pointers = useRef(new Map<number, Vec2>());
@@ -141,6 +154,7 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
   useEffect(() => {
     setPending([]);
     setDimPick([]);
+    setGuide(null);
     if (tool !== "select") setSelection([]);
   }, [tool]);
 
@@ -151,6 +165,17 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
     refFitted.current = true;
     fit();
   }, [refs, vp.width]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // 指で1つ目の点を置いたら、仮の大きさで見本を出す(指を離すとカーソルがないので)
+  useEffect(() => {
+    if (lastPointer.current === "mouse" || pending.length === 0) return;
+    const last = pending.at(-1)!.xy;
+    // 画面で 150px くらい、マス目にそろえた大きさ
+    const g = gridStep(vp.scale);
+    const d = Math.max(g, Math.round(150 / vp.scale / g) * g);
+    const ghost: Vec2 = tool === "rect" ? [last[0] + d, last[1] - Math.max(g, Math.round((d * 0.6) / g) * g)] : tool === "arc" && pending.length === 2 ? rotate(pending[0].xy, pending[1].xy, Math.PI / 2) : [last[0] + d, last[1]];
+    setCursor({ spec: { xy: ghost }, xy: ghost, snapped: false });
+  }, [pending]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fit = () => {
     const b = bounds(sketch.entities);
@@ -333,19 +358,20 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
       askDimension({ type: "diameter", circle: hit.id }, e.r * 2, "直径を入れる");
       return;
     }
+    if (hit.kind === "curve" && e?.type === "line") {
+      setDimPick([hit]);
+      askDimension({ type: "length", line: e.id }, measureLength(sketch.entities, e), "長さを入れる");
+      return;
+    }
     if (picks.length === 1) {
       setDimPick(picks);
-      if (hit.kind === "curve") onMessage("このまま長さを入れるなら「長さを入れる」、角度にするなら、もう1本の線をタップ");
-      else onMessage("もう1つの点をタップすると、2点の距離を入れられます");
+      setGuide("もう1つの点をタップすると、2つの点の距離を入れられます");
       return;
     }
     const [a, b] = picks;
-    const ea = ents.get(a.id);
-    const eb = ents.get(b.id);
+    setGuide(null);
     if (a.kind === "point" && b.kind === "point" && a.id !== b.id) {
-      askDimension({ type: "distance", a: a.id, b: b.id }, dist(pos.get(a.id)!, pos.get(b.id)!), "2点の距離を入れる");
-    } else if (ea?.type === "line" && eb?.type === "line" && a.id !== b.id) {
-      askDimension({ type: "angle", a: a.id, b: b.id }, measureAngle(sketch.entities, ea, eb), "角度を入れる", "°");
+      askDimension({ type: "distance", a: a.id, b: b.id }, dist(pos.get(a.id)!, pos.get(b.id)!), "2つの点の距離を入れる");
     } else {
       setDimPick([hit]);
     }
@@ -354,6 +380,7 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
   // ---- 指・マウスの操作 ----
 
   const onPointerDown = (e: React.PointerEvent) => {
+    lastPointer.current = e.pointerType;
     (e.target as Element).setPointerCapture?.(e.pointerId);
     const p = local(e);
     pointers.current.set(e.pointerId, p);
@@ -522,17 +549,35 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
     },
   ];
 
+  const dimensionButtons: { key: string; label: string; enabled: boolean; run: () => void }[] = [
+    {
+      key: "angle",
+      label: "角度",
+      enabled: selLines.length === 2 && selEnts.length === 2,
+      run: () => {
+        const [la, lb] = selLines as LineEntity[];
+        setSelection([]);
+        askDimension({ type: "angle", a: la.id, b: lb.id }, measureAngle(sketch.entities, la, lb), "角度を入れる", "°");
+      },
+    },
+    {
+      key: "distance",
+      label: "距離",
+      enabled: selPoints.length === 2 && selEnts.length === 2,
+      run: () => {
+        const [pa, pb] = selPoints;
+        setSelection([]);
+        askDimension({ type: "distance", a: pa.id, b: pb.id }, dist(pos.get(pa.id)!, pos.get(pb.id)!), "2つの点の距離を入れる");
+      },
+    },
+  ];
+
   const deleteSelection = () => {
     if (selection.length === 0) return;
     commit(deleteItems(data, selection), false);
     setSelection([]);
   };
 
-  const lengthOfFirstPick = () => {
-    const first = dimPick[0];
-    const e = first && ents.get(first.id);
-    if (e?.type === "line") askDimension({ type: "length", line: e.id }, measureLength(sketch.entities, e), "長さを入れる");
-  };
 
   // ---- 描画 ----
 
@@ -559,6 +604,21 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
     gridLines.push({ x1: 0, y1: sy, x2: vp.width, y2: sy, major: Math.abs(y / (step * 5) - Math.round(y / (step * 5))) < 1e-6 });
   }
   const origin = S([0, 0]);
+  const major = step * 5;
+  const gridLabels: { x: number; y: number; text: string; anchor: "start" | "middle" | "end" }[] = [];
+  {
+    // 原点の線が画面の外なら、画面のふちに出す
+    const ly = Math.min(Math.max(origin[1] + 16, 16), vp.height - 60);
+    const lx = Math.min(Math.max(origin[0] - 6, 40), vp.width - 8);
+    for (let x = Math.ceil(tl[0] / major) * major; x <= br[0]; x += major) {
+      if (Math.abs(x) < 1e-9) continue;
+      gridLabels.push({ x: S([x, 0])[0], y: ly, text: fmt(x), anchor: "middle" });
+    }
+    for (let y = Math.ceil(br[1] / major) * major; y <= tl[1]; y += major) {
+      if (Math.abs(y) < 1e-9) continue;
+      gridLabels.push({ x: lx, y: S([0, y])[1] + 4, text: fmt(y), anchor: "end" });
+    }
+  }
 
   const dimLabel = (c: SketchConstraint): { at: Vec2; text: string; line?: [Vec2, Vec2] } | null => {
     switch (c.type) {
@@ -677,9 +737,9 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
       ? "まだ何もかいていません"
       : status.dof === 0
         ? `🔒 ${term("fullyDefined", pro)}`
-        : `あと ${status.dof} つ寸法か${term("constraint", pro)}を入れると、形がすべて決まります`;
+        : `このままでも立体にできます(あと ${status.dof} つ寸法か${term("constraint", pro)}を入れると、形が動かなくなります)`;
 
-  const hint = TOOLS.find((t) => t.tool === tool)!.hint;
+  const hint = guide ?? (pending.length > 0 ? nextStepHint(tool, pending.length) : null) ?? TOOLS.find((t) => t.tool === tool)!.hint;
 
   return (
     <div className="sketch-editor">
@@ -725,7 +785,7 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
             pressRef.current = null;
             gesture.current = null;
           }}
-          onPointerLeave={() => !pressRef.current && setCursor(null)}
+          onPointerLeave={(e) => e.pointerType === "mouse" && !pressRef.current && setCursor(null)}
           onWheel={(e) => {
             const p = local(e);
             const anchor = toWorld(vp, p);
@@ -740,6 +800,12 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
           ))}
           <line x1={0} x2={vp.width} y1={origin[1]} y2={origin[1]} className="sk-axis-x" />
           <line x1={origin[0]} x2={origin[0]} y1={0} y2={vp.height} className="sk-axis-y" />
+          {/* 目もり: 太いマス目ごとに mm の数字 */}
+          {gridLabels.map((g, i) => (
+            <text key={`gl${i}`} x={g.x} y={g.y} className="sk-grid-label" textAnchor={g.anchor}>
+              {g.text}
+            </text>
+          ))}
 
           {/* 押し出せる面をうすく塗る */}
           {profiles.regions.map((r, i) => (
@@ -783,11 +849,11 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
           {sketch.constraints.flatMap((c) =>
             glyph(c).map((g, i) => {
               const sel = selection.includes(c.id);
-              labels.push({ id: c.id, x: g.at[0], y: g.at[1], w: 18, h: 18 });
+              labels.push({ id: c.id, x: g.at[0], y: g.at[1], w: 16, h: 16 });
               return (
                 <g key={`${c.id}-${i}`} className={sel ? "sk-glyph selected" : "sk-glyph"}>
-                  <rect x={g.at[0] - 9} y={g.at[1] - 9} width={18} height={18} rx={4} />
-                  <text x={g.at[0]} y={g.at[1] + 5} textAnchor="middle">
+                  <rect x={g.at[0] - 7} y={g.at[1] - 7} width={14} height={14} rx={3} />
+                  <text x={g.at[0]} y={g.at[1] + 4} textAnchor="middle">
                     {g.text}
                   </text>
                 </g>
@@ -836,15 +902,12 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
         </svg>
 
         <div className="sk-overlay-top">
-          <p className="sk-hint">{hint}</p>
-          {tool === "dimension" && dimPick.length === 1 && ents.get(dimPick[0].id)?.type === "line" && (
-            <button type="button" className="primary" data-testid="dim-length" onClick={lengthOfFirstPick}>
-              長さを入れる
-            </button>
-          )}
+          <p className="sk-hint" data-testid="sketch-hint">
+            {hint}
+          </p>
           {pending.length > 0 && (
-            <button type="button" onClick={() => setPending([])}>
-              ここで終わる
+            <button type="button" onClick={() => setPending([])} data-testid="sketch-pending-stop">
+              {tool === "line" ? "線をここで終わる" : "やりなおす"}
             </button>
           )}
         </div>
@@ -853,6 +916,9 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
             {dofText}
           </span>
           {profiles.openChains > 0 && <span className="sk-warn">閉じていない線があります</span>}
+          <span className="sk-scale" data-testid="sketch-scale">
+            1マス = {fmt(step)} mm
+          </span>
           <button type="button" onClick={fit}>
             全体を表示
           </button>
@@ -864,6 +930,11 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
           <span className="sk-actions-title">{term("constraint", pro)}:</span>
           {constraintButtons.map((b) => (
             <button key={b.key} type="button" disabled={!b.enabled} onClick={b.run} data-testid={`con-${b.key}`}>
+              {b.label}
+            </button>
+          ))}
+          {dimensionButtons.map((b) => (
+            <button key={b.key} type="button" disabled={!b.enabled} onClick={b.run} data-testid={`dim-btn-${b.key}`}>
               {b.label}
             </button>
           ))}
@@ -882,6 +953,11 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
 }
 
 const NO_REFS = new Float32Array(0);
+/** 点 p を中心 c のまわりに a だけ回した点 */
+const rotate = (c: Vec2, p: Vec2, a: number): Vec2 => [
+  c[0] + (p[0] - c[0]) * Math.cos(a) - (p[1] - c[1]) * Math.sin(a),
+  c[1] + (p[0] - c[0]) * Math.sin(a) + (p[1] - c[1]) * Math.cos(a),
+];
 const dist = (a: Vec2, b: Vec2) => Math.hypot(a[0] - b[0], a[1] - b[1]);
 const mid = (a: Vec2, b: Vec2): Vec2 => [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2];
 const sub = (a: Vec2, b: Vec2): Vec2 => [a[0] - b[0], a[1] - b[1]];

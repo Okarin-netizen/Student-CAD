@@ -1,8 +1,11 @@
-import { useEffect, useRef } from "react";
+import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { OrbitControls } from "three/examples/jsm/controls/OrbitControls.js";
+import { LineSegments2 } from "three/examples/jsm/lines/LineSegments2.js";
+import { LineSegmentsGeometry } from "three/examples/jsm/lines/LineSegmentsGeometry.js";
+import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import type { BodyMesh, SketchDisplay } from "../kernel/rebuild";
-import { BASE_PLANES } from "../doc/planes";
+import { BASE_PLANE_LABELS, BASE_PLANES } from "../doc/planes";
 import type { BasePlaneName, Vec3 } from "../doc/types";
 
 export type PickResult = { kind: "base"; name: BasePlaneName } | { kind: "face"; origin: Vec3; normal: Vec3 };
@@ -14,6 +17,8 @@ interface Props {
   picking: boolean;
   onPick: (p: PickResult) => void;
   onMessage?: (text: string) => void;
+  /** 辺をえらぶ状態(角を丸めるとき)。selected はえらんだ辺の真ん中の点 */
+  edgePick?: { selected: Vec3[]; onToggle: (mid: Vec3) => void } | null;
   /** 押し出しの作業中など、半透明で見せたいとき */
   ghost?: boolean;
 }
@@ -27,6 +32,7 @@ interface Stage {
   sketchGroup: THREE.Group;
   planes: THREE.Group;
   highlight: THREE.Group;
+  edgeMarks: THREE.Group;
   cube: { renderer: THREE.WebGLRenderer; scene: THREE.Scene; camera: THREE.OrthographicCamera; mesh: THREE.Mesh };
   render: () => void;
   fitted: boolean;
@@ -48,12 +54,21 @@ const CUBE_DIRS: Vec3[] = [
  * 3Dビュー。Onshape のモバイル版と同じく 1本指で回転、2本指で移動・拡大。
  * 右上のビューキューブの面をタップすると、その向きから見られる。
  */
-export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, ghost }: Props) {
+const HOWTO_KEY = "student-cad:howto3d";
+
+export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, edgePick, ghost }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const cubeRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Stage | null>(null);
-  const pickRef = useRef({ picking, onPick, onMessage });
-  pickRef.current = { picking, onPick, onMessage };
+  const [showHowTo, setShowHowTo] = useState(() => {
+    try {
+      return localStorage.getItem(HOWTO_KEY) !== "1";
+    } catch {
+      return true;
+    }
+  });
+  const pickRef = useRef({ picking, onPick, onMessage, edgePick });
+  pickRef.current = { picking, onPick, onMessage, edgePick };
 
   useEffect(() => {
     const host = hostRef.current!;
@@ -82,7 +97,8 @@ export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, ghost }: 
     const part = new THREE.Group();
     const sketchGroup = new THREE.Group();
     const highlight = new THREE.Group();
-    scene.add(part, sketchGroup, highlight);
+    const edgeMarks = new THREE.Group();
+    scene.add(part, sketchGroup, highlight, edgeMarks);
 
     const controls = new OrbitControls(camera, renderer.domElement);
     controls.touches = { ONE: THREE.TOUCH.ROTATE, TWO: THREE.TOUCH.DOLLY_PAN };
@@ -132,6 +148,7 @@ export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, ghost }: 
       sketchGroup,
       planes,
       highlight,
+      edgeMarks,
       cube: { renderer: cubeRenderer, scene: cubeScene, camera: cubeCamera, mesh: cubeMesh },
       render,
       fitted: false,
@@ -149,6 +166,7 @@ export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, ghost }: 
       highlightFace(stage, h.face, h.result?.kind === "face");
     };
     const onDown = (e: PointerEvent) => {
+      hideHowTo();
       down = { x: e.clientX, y: e.clientY, t: performance.now() };
       hover(e);
     };
@@ -157,6 +175,16 @@ export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, ghost }: 
       if (e.pointerType === "mouse" && e.buttons === 0) hover(e);
     };
     const onUp = (e: PointerEvent) => {
+      const ep = pickRef.current.edgePick;
+      if (down && ep) {
+        const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
+        down = null;
+        if (moved > 8) return;
+        const mid = pickEdgeAt(stage, e.clientX, e.clientY);
+        if (mid) ep.onToggle(mid);
+        else pickRef.current.onMessage?.("辺(線)の近くをタップしてください");
+        return;
+      }
       if (!down || !pickRef.current.picking) return;
       const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
       down = null;
@@ -232,6 +260,32 @@ export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, ghost }: 
     stage.render();
   }, [mesh, ghost]);
 
+  // えらんだ辺を太く見せる
+  const selectedKey = JSON.stringify(edgePick?.selected ?? []);
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    clear(stage.edgeMarks);
+    const sel = edgePick?.selected ?? [];
+    if (mesh && sel.length) {
+      const pts: number[] = [];
+      for (const m of sel) {
+        const g = nearestEdgeGroup(mesh, m);
+        if (!g) continue;
+        for (let i = g.start; i < g.start + g.count; i++) pts.push(...mesh.edges.slice(i * 6, i * 6 + 6));
+      }
+      if (pts.length) {
+        const geom = new LineSegmentsGeometry().setPositions(pts);
+        const mat = new LineMaterial({ color: 0xf08c00, linewidth: 6, depthTest: false });
+        mat.resolution.set(stage.renderer.domElement.width, stage.renderer.domElement.height);
+        const line = new LineSegments2(geom, mat);
+        line.renderOrder = 10;
+        stage.edgeMarks.add(line);
+      }
+    }
+    stage.render();
+  }, [mesh, selectedKey]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // スケッチの線
   useEffect(() => {
     const stage = stageRef.current;
@@ -259,8 +313,22 @@ export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, ghost }: 
     stage.render();
   }, [picking, mesh]);
 
+  function hideHowTo() {
+    setShowHowTo(false);
+    try {
+      localStorage.setItem(HOWTO_KEY, "1");
+    } catch {
+      // 保存できなくてもよい
+    }
+  }
+
   return (
     <div className="viewer3d">
+      {showHowTo && (
+        <div className="howto" role="note" data-testid="howto-3d">
+          ☝️ 1本指でまわす ・ ✌️ 2本指で動かす・つまんで大きくする
+        </div>
+      )}
       <div className="viewer3d-canvas" ref={hostRef} data-testid="viewer-3d" />
       <div className="viewcube" ref={cubeRef} aria-label="ビューキューブ(面をタップするとその向きから見る)" />
       <div className="viewer3d-buttons">
@@ -290,7 +358,29 @@ function makePlane(name: BasePlaneName): THREE.Mesh {
   mesh.matrixAutoUpdate = false;
   mesh.matrix.makeBasis(x, y, n);
   mesh.userData.plane = name;
+  // 板の角に名前を出す(何の板か分かるように)
+  const label = textSprite(BASE_PLANE_LABELS[name], colors[name]);
+  label.position.set(PLANE_SIZE - 4, PLANE_SIZE - 4, 0);
+  mesh.add(label);
   return mesh;
+}
+
+function textSprite(text: string, color: number): THREE.Sprite {
+  const c = document.createElement("canvas");
+  c.width = 256;
+  c.height = 64;
+  const g = c.getContext("2d")!;
+  g.font = "bold 40px sans-serif";
+  g.textAlign = "center";
+  g.textBaseline = "middle";
+  g.fillStyle = "#" + color.toString(16).padStart(6, "0");
+  g.fillText(text, 128, 34);
+  const tex = new THREE.CanvasTexture(c);
+  tex.colorSpace = THREE.SRGBColorSpace;
+  const sprite = new THREE.Sprite(new THREE.SpriteMaterial({ map: tex, depthTest: false, transparent: true }));
+  sprite.scale.set(16, 4, 1);
+  sprite.renderOrder = 5;
+  return sprite;
 }
 
 function labelMaterial(text: string): THREE.MeshBasicMaterial {
@@ -351,6 +441,53 @@ function pickAt(stage: Stage, clientX: number, clientY: number): PickHit {
   const planeHit = ray.intersectObjects(stage.planes.children.filter((p) => p.visible), false)[0];
   if (planeHit) return { result: { kind: "base", name: planeHit.object.userData.plane as BasePlaneName }, face: null };
   return { result: null, face: null };
+}
+
+/** タップした場所に一番近い、見えている辺の真ん中の点 */
+function pickEdgeAt(stage: Stage, clientX: number, clientY: number): Vec3 | null {
+  const mesh = stage.mesh;
+  if (!mesh) return null;
+  const rect = stage.renderer.domElement.getBoundingClientRect();
+  const tap = new THREE.Vector2(clientX - rect.left, clientY - rect.top);
+  const toScreen = (v: THREE.Vector3) => {
+    const p = v.clone().project(stage.camera);
+    return new THREE.Vector2(((p.x + 1) / 2) * rect.width, ((1 - p.y) / 2) * rect.height);
+  };
+  // 指の下の立体までの距離。それより奥の辺(裏側の辺)はえらばない
+  const ndc = new THREE.Vector2((tap.x / rect.width) * 2 - 1, -(tap.y / rect.height) * 2 + 1);
+  const ray = new THREE.Raycaster();
+  ray.setFromCamera(ndc, stage.camera);
+  const body = stage.part.children.find((c) => c.name === "body");
+  const hit = body ? ray.intersectObject(body, false)[0] : undefined;
+  const limit = hit ? hit.distance + Math.max(1, hit.distance * 0.02) : Infinity;
+  let best: { mid: Vec3; d: number } | null = null;
+  const a = new THREE.Vector3();
+  const b = new THREE.Vector3();
+  for (const g of mesh.edgeGroups) {
+    for (let i = g.start; i < g.start + g.count; i++) {
+      a.fromArray(mesh.edges, i * 6);
+      b.fromArray(mesh.edges, i * 6 + 3);
+      const sa = toScreen(a);
+      const sb = toScreen(b);
+      const ab = sb.clone().sub(sa);
+      const t = Math.max(0, Math.min(1, tap.clone().sub(sa).dot(ab) / (ab.lengthSq() || 1)));
+      const d = sa.clone().addScaledVector(ab, t).distanceTo(tap);
+      if (d > 18 || (best && d >= best.d)) continue;
+      const p3 = a.clone().lerp(b, t);
+      if (p3.distanceTo(stage.camera.position) > limit) continue;
+      best = { mid: g.mid, d };
+    }
+  }
+  return best?.mid ?? null;
+}
+
+function nearestEdgeGroup(mesh: BodyMesh, mid: Vec3) {
+  let best: { g: BodyMesh["edgeGroups"][number]; d: number } | null = null;
+  for (const g of mesh.edgeGroups) {
+    const d = Math.hypot(g.mid[0] - mid[0], g.mid[1] - mid[1], g.mid[2] - mid[2]);
+    if (d < 1.5 && (!best || d < best.d)) best = { g, d };
+  }
+  return best?.g ?? null;
 }
 
 /** 選べそうな面を明るく塗る */
