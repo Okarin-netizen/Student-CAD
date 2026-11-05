@@ -74,6 +74,29 @@ describe("図をかく(投影)", () => {
     expect(rt.filter((x) => x === "R3")).toHaveLength(1);
   });
 
+  it("寸法の手直し: 自動の寸法を名前で消し、手で足した寸法を図の外にかく", () => {
+    const views = projectViews(box(), "thirdAngle", false);
+    const base = buildSheet(views, { kind: "thirdAngle", title: "", author: "", dimensions: true });
+    const width = base.dims.find((d) => d.id.startsWith("x1:"))!;
+    expect(width).toBeDefined();
+    expect(base.snaps.filter((s) => s.view === 0).length).toBeGreaterThanOrEqual(4);
+
+    const edited = buildSheet(views, {
+      kind: "thirdAngle",
+      title: "",
+      author: "",
+      dimensions: true,
+      notes: { hidden: [width.id], added: [{ id: "dim1", view: 0, a: [0, 0], b: [0, 10], dir: "v" }] },
+    });
+    expect(edited.dims.map((d) => d.id)).not.toContain(width.id);
+    const added = edited.dims.find((d) => d.id === "dim1")!;
+    expect(added.manual).toBe(true);
+    // 正面図の右に書く
+    const front = base.snaps.filter((s) => s.view === 0).map((s) => s.at[0]);
+    expect(added.box.min[0]).toBeGreaterThan(Math.max(...front));
+    expect(edited.texts.map((t) => t.text).filter((t) => t === "10").length).toBe(base.texts.filter((t) => t.text === "10").length + 1);
+  });
+
   it("穴には中心線を入れ、平面図に直径を書く", () => {
     const holed = box().cut(makeCylinder(4, 10, [20, 10, 0], [0, 0, 1]));
     const views = projectViews(holed, "thirdAngle", false);

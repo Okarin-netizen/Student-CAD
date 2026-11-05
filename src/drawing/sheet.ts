@@ -4,7 +4,7 @@
 // 図面(A4 横の用紙)を組み立てて、SVG と DXF にする。
 // 座標は用紙の mm で、左下が (0, 0)、上が +y(DXF と同じ)。SVG にするときだけ上下を入れかえる。
 
-import type { Vec2 } from "../doc/types";
+import type { DrawingNotes, Vec2 } from "../doc/types";
 import type { DrawingKind, ProjectedView } from "../kernel/projection";
 
 export const PAPER = { width: 297, height: 210 } as const;
@@ -33,6 +33,26 @@ export interface Sheet {
   scaleLabel: string;
   lines: SheetLine[];
   texts: SheetText[];
+  /** 寸法ごとの名前と、数字のある所(図面の画面で、タップして消すのに使う) */
+  dims: SheetDim[];
+  /** 寸法を足すときに吸い付く点(線のはしと円の中心)。第三角法の図だけ */
+  snaps: SheetSnap[];
+}
+
+export interface SheetDim {
+  id: string;
+  /** 手で足した寸法か */
+  manual: boolean;
+  box: Box;
+}
+
+export interface SheetSnap {
+  /** どの図か(0 正面図・1 平面図・2 右側面図) */
+  view: 0 | 1 | 2;
+  /** 図の上の座標(実物の mm) */
+  p: Vec2;
+  /** 用紙の上の座標 */
+  at: Vec2;
 }
 
 export interface SheetOptions {
@@ -47,6 +67,8 @@ export interface SheetOptions {
   material?: string;
   /** 日付(表題欄に書く。例 "2026/11/05") */
   date?: string;
+  /** 寸法の手直し(消した自動の寸法と、手で足した寸法) */
+  notes?: DrawingNotes;
 }
 
 export const KIND_LABELS: Record<DrawingKind, string> = {
@@ -81,7 +103,7 @@ const DIM_ROOM = 21;
 /** 1段目・2段目の寸法線の、図からの距離 */
 const DIM_ROW = [-9, -16];
 
-interface Box {
+export interface Box {
   min: Vec2;
   max: Vec2;
 }
@@ -112,14 +134,51 @@ export function buildSheet(views: ProjectedView[], opts: SheetOptions): Sheet {
   const lines: SheetLine[] = [];
   const texts: SheetText[] = [];
   let scaleLabel = "1:1";
+  const dims: SheetDim[] = [];
+  const snaps: SheetSnap[] = [];
+  const hidden = new Set(opts.notes?.hidden ?? []);
+
+  /** 寸法を1つかき、名前をつけて覚える。消すことになっている自動の寸法は、かいたものを取り消す */
+  const tag: Tagger = (id, manual, draw) => {
+    const [l0, t0] = [lines.length, texts.length];
+    draw();
+    if (!manual && hidden.has(id)) {
+      lines.length = l0;
+      texts.length = t0;
+      return;
+    }
+    const boxes = texts.slice(t0).map(textBox);
+    if (boxes.length) dims.push({ id, manual, box: boxes.reduce(unionBox) });
+  };
 
   /** すでに書いた半径(同じ R を何度も書かない) */
   const radii = new Set<string>();
   /** 半径の文字を置いた所(重ならないようにずらすのに使う) */
   const taken: Box[] = [];
-  /** view の左下を at に置き、尺度 s でかく。円には中心線を入れ、dims なら直径と半径も書く */
-  const place = (v: ProjectedView, b: Box, at: Vec2, s: number, diameters = false) => {
+  /** 三面図の、図の座標 → 用紙の座標 */
+  const maps: ((p: Vec2) => Vec2)[] = [];
+  /** 三面図の、用紙の上での四角 */
+  const frames: Box[] = [];
+  /** view の左下を at に置き、尺度 s でかく。円には中心線を入れ、diameters なら直径と半径も書く。index は三面図の何番目か */
+  const place = (v: ProjectedView, b: Box, at: Vec2, s: number, diameters = false, index?: 0 | 1 | 2) => {
     const map = (p: Vec2): Vec2 => [at[0] + (p[0] - b.min[0]) * s, at[1] + (p[1] - b.min[1]) * s];
+    if (index !== undefined) {
+      maps[index] = map;
+      frames[index] = { min: map(b.min), max: map(b.max) };
+      // 寸法を足すときに吸い付く点: 線のはしと、円の中心
+      const seen = new Set<string>();
+      const add = (p: Vec2) => {
+        const key = `${Math.round(p[0] * 100)},${Math.round(p[1] * 100)}`;
+        if (seen.has(key)) return;
+        seen.add(key);
+        snaps.push({ view: index, p, at: map(p) });
+      };
+      for (const l of [...v.visible, ...v.hidden]) {
+        add(l[0]);
+        add(l[l.length - 1]);
+      }
+      for (const c of v.circles) add(c.c);
+    }
     for (const l of v.hidden) lines.push({ style: "hidden", points: l.map(map) });
     for (const l of v.visible) lines.push({ style: "visible", points: l.map(map) });
     // 同じ中心の円(マグカップの外側と内側など)は、中心線を1回だけ引き、直径の引き出し線の向きを変えて文字が重ならないようにする
@@ -129,7 +188,7 @@ export function buildSheet(views: ProjectedView[], opts: SheetOptions): Sheet {
       lines.push({ style: "center", points: [[cx - r, cy], [cx + r, cy]] }, { style: "center", points: [[cx, cy - r], [cx, cy + r]] });
       // 直径は一番外と一番内だけ書く(角を丸めた所にできる円まで書くと、数字が多すぎて読めない)
       const labeled = group.length > 2 ? [group[0], group[group.length - 1]] : group;
-      if (diameters) labeled.forEach((c, i) => diameter(lines, texts, [cx, cy], c.r * s, c.r * 2, LEADER_DIRS[i]));
+      if (diameters) labeled.forEach((c, i) => tag(`d${index}:${formatMm(c.c[0])},${formatMm(c.c[1])}:${formatMm(c.r * 2)}`, false, () => diameter(lines, texts, [cx, cy], c.r * s, c.r * 2, LEADER_DIRS[i])));
     }
     // 角の丸み・取っ手などの円弧は、半径(「R2」)を書く。同じ半径は図面の中で1回だけ
     if (diameters) {
@@ -137,7 +196,7 @@ export function buildSheet(views: ProjectedView[], opts: SheetOptions): Sheet {
         const label = `R${formatMm(arc.r)}`;
         if (radii.has(label) || arc.span < 0.3) continue;
         radii.add(label);
-        radius(lines, texts, map(arc.c), map(arc.mid), label, taken);
+        tag(`r:${label}`, false, () => radius(lines, texts, map(arc.c), map(arc.mid), label, taken));
       }
     }
   };
@@ -159,9 +218,9 @@ export function buildSheet(views: ProjectedView[], opts: SheetOptions): Sheet {
     // 等角図もそえるときは、三面図を左に寄せて、右のあいた所に等角図を置く
     const ox = iso ? AREA.x0 + dimRoom + 4 : (AREA.x0 + AREA.x1 - groupW) / 2 + dimRoom / 2;
     const oy = (AREA.y0 + AREA.y1 - groupH) / 2 + dimRoom / 2;
-    place(views[0], fb, [ox, oy], s, opts.dimensions);
-    place(views[1], tb, [ox, oy + H * s + GAP], s, opts.dimensions);
-    place(views[2], rb, [ox + W * s + GAP, oy], s, opts.dimensions);
+    place(views[0], fb, [ox, oy], s, opts.dimensions, 0);
+    place(views[1], tb, [ox, oy + H * s + GAP], s, opts.dimensions, 1);
+    place(views[2], rb, [ox + W * s + GAP, oy], s, opts.dimensions, 2);
     labelView(texts, "正面図", [ox + (W * s) / 2, oy - (opts.dimensions ? DIM_ROOM + 5 : 6)]);
     labelView(texts, "平面図", [ox + (W * s) / 2, oy + H * s + GAP + D * s + 3]);
     labelView(texts, "右側面図", [ox + W * s + GAP + (D * s) / 2, oy - (opts.dimensions ? DIM_ROOM + 5 : 6)]);
@@ -170,9 +229,29 @@ export function buildSheet(views: ProjectedView[], opts: SheetOptions): Sheet {
       // 1段目に段・穴・厚さなどの位置を順に(直列寸法)、2段目に全体の大きさを書く
       const lv = featureLevels(views, [fb, tb, rb]);
       const rx = ox + W * s + GAP;
-      chainDims(lines, texts, lv[0], (x) => [ox + (x - fb.min[0]) * s, oy], "below");
-      chainDims(lines, texts, lv[2], (z) => [ox, oy + (z - fb.min[1]) * s], "left");
-      chainDims(lines, texts, lv[1], (y) => [rx + (y - rb.min[0]) * s, oy], "below");
+      chainDims(lines, texts, tag, "x", lv[0], (x) => [ox + (x - fb.min[0]) * s, oy], "below");
+      chainDims(lines, texts, tag, "z", lv[2], (z) => [ox, oy + (z - fb.min[1]) * s], "left");
+      chainDims(lines, texts, tag, "y", lv[1], (y) => [rx + (y - rb.min[0]) * s, oy], "below");
+      // 手で足した寸法: 横の長さは図の上(平面図だけは図の下)、たての長さは図の右に、1つずつ 7mm はなしてならべる
+      const count = new Map<string, number>();
+      for (const d of opts.notes?.added ?? []) {
+        const map = maps[d.view];
+        const f = frames[d.view];
+        if (!map || !f) continue;
+        const [pa, pb] = [map(d.a), map(d.b)];
+        const value = Math.abs(d.dir === "h" ? d.a[0] - d.b[0] : d.a[1] - d.b[1]);
+        if (value < 1e-3) continue;
+        const key = `${d.view}${d.dir}`;
+        const n = count.get(key) ?? 0;
+        count.set(key, n + 1);
+        const away = 8 + n * 7;
+        if (d.dir === "h") {
+          const y = d.view === 1 ? f.min[1] - away : f.max[1] + away;
+          tag(d.id, true, () => dimension(lines, texts, pa, pb, y - pa[1], value, "below"));
+        } else {
+          tag(d.id, true, () => dimension(lines, texts, pa, pb, f.max[0] + away - pa[0], value, "left"));
+        }
+      }
     }
     if (iso) {
       // あいている所: 右側面図の上(平面図の右)と、右側面図の右
@@ -205,8 +284,22 @@ export function buildSheet(views: ProjectedView[], opts: SheetOptions): Sheet {
   }
 
   frameAndTitle(lines, texts, opts, scaleLabel);
-  return { kind: opts.kind, scaleLabel, lines, texts };
+  return { kind: opts.kind, scaleLabel, lines, texts, dims, snaps };
 }
+
+/** 寸法を1つかく関数 draw を、名前 id をつけて呼ぶ */
+type Tagger = (id: string, manual: boolean, draw: () => void) => void;
+
+/** 文字のしめる四角(だいたい) */
+function textBox(t: SheetText): Box {
+  const w = t.text.length * t.size * 0.55 + 1;
+  const [x, y] = t.at;
+  if (t.rotate) return { min: [x - t.size, y - w / 2], max: [x + 0.5, y + w / 2] };
+  const x0 = t.anchor === "start" ? x : t.anchor === "end" ? x - w : x - w / 2;
+  return { min: [x0, y - 0.5], max: [x0 + w, y + t.size] };
+}
+
+const unionBox = (a: Box, b: Box): Box => ({ min: [Math.min(a.min[0], b.min[0]), Math.min(a.min[1], b.min[1])], max: [Math.max(a.max[0], b.max[0]), Math.max(a.max[1], b.max[1])] });
 
 function labelView(texts: SheetText[], text: string, at: Vec2) {
   texts.push({ at, text, size: 3.5, anchor: "middle" });
@@ -222,12 +315,15 @@ function dimension(lines: SheetLine[], texts: SheetText[], a: Vec2, b: Vec2, off
   const horiz = side === "below";
   const P = (t: number, o: number): Vec2 => (horiz ? [t, o] : [o, t]);
   const dir = (d: number): Vec2 => (horiz ? [d, 0] : [0, d]);
-  const base = horiz ? a[1] : a[0];
-  const o = base + offset;
-  const lo = Math.min(horiz ? a[0] : a[1], horiz ? b[0] : b[1]);
-  const hi = Math.max(horiz ? a[0] : a[1], horiz ? b[0] : b[1]);
-  // 寸法補助線は、寸法線より 2mm 先まで出す(JIS)
-  lines.push({ style: "dim", points: [P(lo, base - 1), P(lo, o - 2)] }, { style: "dim", points: [P(hi, base - 1), P(hi, o - 2)] });
+  // 寸法補助線は、それぞれの点から引く(手で足した寸法は、2つの点の高さがちがうことがある)
+  const ends = [a, b].map((p) => (horiz ? { t: p[0], base: p[1] } : { t: p[1], base: p[0] })).sort((p, q) => p.t - q.t);
+  const o = ends.find((e) => e.t === (horiz ? a[0] : a[1]))!.base + offset;
+  const [lo, hi] = [ends[0].t, ends[1].t];
+  // 寸法補助線は、図から 1mm はなして始め、寸法線より 2mm 先まで出す(JIS)
+  for (const e of ends) {
+    const sg = Math.sign(o - e.base) || -1;
+    lines.push({ style: "dim", points: [P(e.t, e.base + sg), P(e.t, o + sg * 2)] });
+  }
   const len = hi - lo;
   if (len >= 7) {
     lines.push({ style: "dim", points: [P(lo, o), P(hi, o)] });
@@ -320,7 +416,8 @@ export function featureLevels(views: ProjectedView[], boxes: Box[]): number[][] 
  * 寸法を順につないでかく(直列寸法)。1段目に区切りごとの寸法、2段目に全体の寸法。
  * 区切りが1つだけ(全体だけ)なら1段目に全体を書く。区切りが多すぎるときは全体だけにする。
  */
-function chainDims(lines: SheetLine[], texts: SheetText[], levels: number[], at: (v: number) => Vec2, side: "below" | "left") {
+function chainDims(lines: SheetLine[], texts: SheetText[], tag: Tagger, axis: string, levels: number[], at: (v: number) => Vec2, side: "below" | "left") {
+  const id = (row: number, a: number, b: number) => `${axis}${row}:${formatMm(a)}~${formatMm(b)}`;
   const first = levels[0];
   const last = levels[levels.length - 1];
   const parts = levels.length - 1;
@@ -351,10 +448,10 @@ function chainDims(lines: SheetLine[], texts: SheetText[], levels: number[], at:
       pos[i] = cands.find((c) => clear(c, w)) ?? (sp.lo + sp.hi) / 2;
       placed.push([pos[i] - w / 2, pos[i] + w / 2]);
     });
-    for (let i = 0; i < parts; i++) dimension(lines, texts, at(levels[i]), at(levels[i + 1]), DIM_ROW[0], levels[i + 1] - levels[i], side, pos[i]);
-    dimension(lines, texts, at(first), at(last), DIM_ROW[1], last - first, side);
+    for (let i = 0; i < parts; i++) tag(id(1, levels[i], levels[i + 1]), false, () => dimension(lines, texts, at(levels[i]), at(levels[i + 1]), DIM_ROW[0], levels[i + 1] - levels[i], side, pos[i]));
+    tag(id(2, first, last), false, () => dimension(lines, texts, at(first), at(last), DIM_ROW[1], last - first, side));
   } else {
-    dimension(lines, texts, at(first), at(last), DIM_ROW[0], last - first, side);
+    tag(id(1, first, last), false, () => dimension(lines, texts, at(first), at(last), DIM_ROW[0], last - first, side));
   }
 }
 

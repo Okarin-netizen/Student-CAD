@@ -3,10 +3,11 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { DrawingKind, ProjectedView } from "../kernel/projection";
-import { KIND_LABELS, buildSheet, laserDXF, sheetToDXF, sheetToSVG } from "../drawing/sheet";
+import { KIND_LABELS, PAPER, buildSheet, formatMm, laserDXF, sheetToDXF, sheetToSVG, type SheetSnap } from "../drawing/sheet";
+import { newId } from "../doc/ids";
 import type { CadClient } from "./cadClient";
 import { downloadFile } from "./persist";
-import { toast } from "./store";
+import { setDrawingNotes, toast, useStore } from "./store";
 import { Icon } from "./Icon";
 
 interface Props {
@@ -59,6 +60,10 @@ export function DrawingView({ client, title, version, onClose }: Props) {
   const [material, setMaterial] = useState(() => readSaved(MATERIAL_KEY));
   const [views, setViews] = useState<ProjectedView[] | null>(null);
   const [loading, setLoading] = useState(true);
+  const notes = useStore((s) => s.drawing);
+  /** 寸法を手で直すモード: add = 2つの点をタップして足す、erase = 数字をタップして消す */
+  const [edit, setEdit] = useState<"none" | "add" | "erase">("none");
+  const [pending, setPending] = useState<SheetSnap | null>(null);
 
   // 等角図・キャビネット図は、ふつう かくれ線をかかない
   const withHidden = kind === "thirdAngle" && hidden;
@@ -86,13 +91,25 @@ export function DrawingView({ client, title, version, onClose }: Props) {
             material,
             date: today(),
             dimensions: kind === "thirdAngle" && dims,
+            notes,
           })
         : null,
-    [views, kind, title, author, material, dims, withIso],
+    [views, kind, title, author, material, dims, withIso, notes],
   );
   const svg = useMemo(() => (sheet ? sheetToSVG(sheet) : ""), [sheet]);
-  // 画面では枠いっぱいに縮めて見せる(保存・印刷は実際の mm の大きさ)
-  const displaySvg = useMemo(() => svg.replace('width="297mm" height="210mm"', 'width="100%" height="100%" preserveAspectRatio="xMidYMid meet"'), [svg]);
+  const canEdit = kind === "thirdAngle" && dims && !!sheet;
+  const editing = canEdit ? edit : "none";
+  // 画面では枠いっぱいに縮めて見せる(保存・印刷は実際の mm の大きさ)。
+  // 寸法を足すときは、吸い付く点(●)と、1つ目にえらんだ点を重ねて見せる(印刷・保存には入らない)
+  const displaySvg = useMemo(() => {
+    let out = svg.replace('width="297mm" height="210mm"', 'width="100%" height="100%" preserveAspectRatio="xMidYMid meet"');
+    if (editing === "add" && sheet) {
+      const dot = (p: [number, number], r: number, cls: string) => `<circle class="${cls}" cx="${p[0].toFixed(2)}" cy="${(PAPER.height - p[1]).toFixed(2)}" r="${r}"/>`;
+      const marks = sheet.snaps.map((sn) => dot(sn.at, 1.1, "snap-dot")).join("") + (pending ? dot(pending.at, 2.2, "snap-picked") : "");
+      out = out.replace("</svg>", `<g class="edit-only">${marks}</g></svg>`);
+    }
+    return out;
+  }, [svg, editing, sheet, pending]);
   const fileBase = `${title || "作品"}_${KINDS.find((k) => k.kind === kind)!.label}`;
 
   const saveAuthor = (v: string) => {
@@ -102,6 +119,56 @@ export function DrawingView({ client, title, version, onClose }: Props) {
   const saveMaterial = (v: string) => {
     setMaterial(v);
     saveLocal(MATERIAL_KEY, v);
+  };
+
+  /** タップした所を用紙の座標(mm)にする。tol はタップの ずれをゆるす長さ(mm) */
+  const paperPoint = (e: React.PointerEvent<HTMLDivElement>) => {
+    const svgEl = e.currentTarget.querySelector("svg");
+    const ctm = svgEl?.getScreenCTM();
+    if (!svgEl || !ctm) return null;
+    const pt = new DOMPoint(e.clientX, e.clientY).matrixTransform(ctm.inverse());
+    return { at: [pt.x, PAPER.height - pt.y] as [number, number], tol: 22 / ctm.a };
+  };
+
+  const onPaperTap = (e: React.PointerEvent<HTMLDivElement>) => {
+    if (editing === "none" || !sheet) return;
+    const hit = paperPoint(e);
+    if (!hit) return;
+    const [x, y] = hit.at;
+    if (editing === "erase") {
+      const pad = hit.tol / 2;
+      const found = sheet.dims
+        .filter((d) => x >= d.box.min[0] - pad && x <= d.box.max[0] + pad && y >= d.box.min[1] - pad && y <= d.box.max[1] + pad)
+        .sort((p, q) => (p.box.max[0] - p.box.min[0]) * (p.box.max[1] - p.box.min[1]) - (q.box.max[0] - q.box.min[0]) * (q.box.max[1] - q.box.min[1]))[0];
+      if (!found) return toast("消したい寸法の数字をタップしてください");
+      setDrawingNotes(found.manual ? { ...notes, added: notes.added.filter((d) => d.id !== found.id) } : { ...notes, hidden: [...notes.hidden, found.id] });
+      return toast("寸法を消しました");
+    }
+    // 足すとき: いちばん近い点に吸い付く
+    let best: SheetSnap | null = null;
+    let bestD = hit.tol;
+    for (const sn of sheet.snaps) {
+      const d = Math.hypot(sn.at[0] - x, sn.at[1] - y);
+      if (d < bestD) [best, bestD] = [sn, d];
+    }
+    if (!best) return toast("図の点(●)の近くをタップしてください");
+    if (!pending || pending.view !== best.view) {
+      if (pending) toast("同じ図の中で、2つの点をえらんでください");
+      return setPending(best);
+    }
+    const dx = Math.abs(best.at[0] - pending.at[0]);
+    const dy = Math.abs(best.at[1] - pending.at[1]);
+    if (dx < 0.3 && dy < 0.3) return;
+    const dir = dx >= dy ? "h" : "v";
+    const value = Math.abs(dir === "h" ? best.p[0] - pending.p[0] : best.p[1] - pending.p[1]);
+    setDrawingNotes({ ...notes, added: [...notes.added, { id: newId("dim"), view: pending.view, a: pending.p, b: best.p, dir }] });
+    setPending(null);
+    toast(`寸法 ${formatMm(value)} を足しました`);
+  };
+
+  const toggleEdit = (m: "add" | "erase") => {
+    setPending(null);
+    setEdit(editing === m ? "none" : m);
   };
 
   const exportLaser = async () => {
@@ -150,9 +217,33 @@ export function DrawingView({ client, title, version, onClose }: Props) {
         </label>
       </div>
 
-      <p className="drawing-hint">{KINDS.find((k) => k.kind === kind)!.hint}</p>
+      {canEdit && (
+        <div className="drawing-edit" role="group" aria-label="寸法を直す">
+          <button type="button" className={editing === "add" ? "active" : ""} aria-pressed={editing === "add"} onClick={() => toggleEdit("add")} data-testid="dim-add">
+            <Icon name="dimension" /> 寸法を足す
+          </button>
+          <button type="button" className={editing === "erase" ? "active" : ""} aria-pressed={editing === "erase"} onClick={() => toggleEdit("erase")} data-testid="dim-erase">
+            <Icon name="cut" /> 寸法を消す
+          </button>
+          {(notes.added.length > 0 || notes.hidden.length > 0) && (
+            <button type="button" onClick={() => setDrawingNotes({ hidden: [], added: [] })} data-testid="dim-reset">
+              <Icon name="replay" /> 寸法をもとにもどす
+            </button>
+          )}
+        </div>
+      )}
 
-      <div className="drawing-paper" data-testid="drawing-sheet">
+      <p className="drawing-hint">
+        {editing === "add"
+          ? pending
+            ? "2つ目の点をタップしてください。横にはなれていれば横の長さ、たてにはなれていれば たての長さが入ります"
+            : "図の点(●)を2つタップすると、その間の寸法が入ります"
+          : editing === "erase"
+            ? "消したい寸法の数字をタップしてください。消した寸法は「寸法をもとにもどす」で戻せます"
+            : KINDS.find((k) => k.kind === kind)!.hint}
+      </p>
+
+      <div className={`drawing-paper ${editing !== "none" ? "editing" : ""}`} data-testid="drawing-sheet" onPointerUp={onPaperTap}>
         {loading && !sheet && <p className="loading">図をかいています…</p>}
         {!loading && !views && <p className="loading">先に立体を作ってください</p>}
         {sheet && <div className="sheet-print" dangerouslySetInnerHTML={{ __html: displaySvg }} />}
