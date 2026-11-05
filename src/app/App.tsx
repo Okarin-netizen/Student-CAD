@@ -30,6 +30,7 @@ import {
   setState,
   setOpPreview,
   startExtrude,
+  startDrawing,
   startFillet,
   startMirror,
   startPattern,
@@ -44,6 +45,7 @@ import {
 import { term } from "./terms";
 import { Viewer3D, type PickResult } from "./Viewer3D";
 import { VariablesPanel } from "./VariablesPanel";
+import { DrawingView } from "./DrawingView";
 import type { PadVariable } from "./NumberPad";
 import "./app.css";
 
@@ -58,6 +60,8 @@ export function App() {
   const [savedDoc, setSavedDoc] = useState<CadDocument | null>(null);
   const clientRef = useRef<CadClient | null>(null);
   const [showVariables, setShowVariables] = useState(false);
+  /** 書き出しのえらぶ画面(STL / 3MF / STEP) */
+  const [showExport, setShowExport] = useState(false);
   const fileRef = useRef<HTMLInputElement>(null);
   const pro = s.proTerms;
 
@@ -178,6 +182,13 @@ export function App() {
     updateOp({ edges: op.edges.some(near) ? op.edges.filter((e) => !near(e)) : [...op.edges, { mid }] });
   };
   const filletPicking = mode === "op" && s.draftOp?.type === "fillet" && !s.opPreview;
+
+  const export3mf = async () => {
+    const buf = await clientRef.current?.export3MF(s.doc.name || "作品");
+    if (!buf) return toast("書き出す立体がありません", "error");
+    downloadFile(buf, `${s.doc.name || "作品"}.3mf`, "model/3mf");
+    toast("3MF を書き出しました。新しい3Dプリンターのソフト(Bambu Studio・PrusaSlicer など)で開けます");
+  };
 
   const exportStl = async () => {
     const buf = await clientRef.current?.exportSTL();
@@ -412,14 +423,45 @@ export function App() {
           </span>
           <div className="step-group">
             <span className="step-num">3</span>
-            <button type="button" className="step" onClick={exportStl} disabled={!hasBody || s.busy} data-testid="export-stl">
-              🖨️ STL
-            </button>
-            <button type="button" className="step" onClick={exportStep} disabled={!hasBody || s.busy} data-testid="export-step">
-              📐 STEP
+            <div className="export-wrap">
+              <button type="button" className="step" onClick={() => setShowExport((v) => !v)} disabled={!hasBody || s.busy} aria-expanded={showExport} data-testid="open-export">
+                💾 書き出す
+              </button>
+              {showExport && (
+                <div className="export-menu" role="menu" aria-label="書き出す">
+                  {(
+                    [
+                      ["export-stl", "🖨️ STL", "3Dプリンターのソフトで開く(いちばん多く使われる形式)", exportStl],
+                      ["export-3mf", "🧩 3MF", "新しい3Dプリンターのソフト(Bambu Studio・PrusaSlicer など)で開く", export3mf],
+                      ["export-step", "📐 STEP", "Onshape・SolidWorks・Fusion などの CAD で開く", exportStep],
+                    ] as const
+                  ).map(([id, label, desc, run]) => (
+                    <button
+                      key={id}
+                      type="button"
+                      role="menuitem"
+                      data-testid={id}
+                      onClick={() => {
+                        setShowExport(false);
+                        void run();
+                      }}
+                    >
+                      <strong>{label}</strong>
+                      <small>{desc}</small>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            <button type="button" className="step" onClick={startDrawing} disabled={!hasBody || s.busy} data-testid="open-drawing">
+              📄 図面
             </button>
           </div>
         </nav>
+      )}
+
+      {mode === "drawing" && clientRef.current && (
+        <DrawingView client={clientRef.current} title={s.doc.name} version={s.result} onClose={cancelMode} />
       )}
 
       {showVariables && <VariablesPanel doc={s.doc} pro={pro} onClose={() => setShowVariables(false)} />}

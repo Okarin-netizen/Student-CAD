@@ -52,7 +52,8 @@ test("長方形をかいて寸法を入れ、押し出して STL を書き出せ
   await expect(tree).toContainText("8mm");
 
   // 3. STL を書き出す
-  await expect(page.getByTestId("export-stl")).toBeEnabled();
+  await expect(page.getByTestId("open-export")).toBeEnabled();
+  await page.getByTestId("open-export").click();
   const download = page.waitForEvent("download");
   await page.getByTestId("export-stl").click();
   const file = await download;

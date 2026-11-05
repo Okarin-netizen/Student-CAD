@@ -46,7 +46,7 @@ test("補助線を軸にして回すと、回転の立体ができる", async ({
   await expect(tree.locator("li")).toHaveCount(2);
   await expect(tree).toContainText("360°");
   await expect(tree.locator("li.bad")).toHaveCount(0);
-  await expect(page.getByTestId("export-step")).toBeEnabled();
+  await expect(page.getByTestId("open-export")).toBeEnabled();
 });
 
 test("辺をタップして角を丸め、STEP で書き出せる", async ({ page }) => {
@@ -71,6 +71,7 @@ test("辺をタップして角を丸め、STEP で書き出せる", async ({ pag
   await expect(tree.locator("li.bad")).toHaveCount(0);
 
   const download = page.waitForEvent("download");
+  await page.getByTestId("open-export").click();
   await page.getByTestId("export-step").click();
   expect((await download).suggestedFilename()).toMatch(/\.step$/);
 });

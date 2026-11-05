@@ -4,6 +4,7 @@
 import * as Comlink from "comlink";
 import type { CadWorkerApi, RebuildReply } from "../worker/cad.worker";
 import type { CadDocument } from "../doc/types";
+import type { DrawingKind } from "../kernel/projection";
 
 /**
  * Worker への窓口。設計図が続けて変わったときは、待っている分を捨てて最新だけ計算する。
@@ -53,6 +54,14 @@ export class CadClient {
 
   exportSTEP() {
     return this.api.exportSTEP();
+  }
+
+  export3MF(title: string) {
+    return this.api.export3MF(title);
+  }
+
+  drawing(kind: DrawingKind, withHidden: boolean) {
+    return this.api.drawing(kind, withHidden);
   }
 
   terminate() {
