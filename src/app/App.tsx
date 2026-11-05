@@ -7,7 +7,8 @@ import gcsWasmUrl from "@salusoft89/planegcs/dist/planegcs_dist/planegcs.wasm?ur
 import { BASE_PLANE_LABELS, planeFromFace, resolvePlane } from "../doc/planes";
 import { edgesOnPlane } from "./sketch/references";
 import type { BasePlaneName, CadDocument, EdgeRef, Vec3 } from "../doc/types";
-import { emptyDocument } from "../doc/types";
+import { evaluateChecks } from "../doc/assignment";
+import type { Template } from "../doc/templates";
 import { findProfiles } from "../sketch/profiles";
 import { CadClient } from "./cadClient";
 import { OpPanel } from "./OpPanel";
@@ -17,6 +18,10 @@ import { SketchEditor } from "./sketch/SketchEditor";
 import {
   cancelMode,
   deleteFeature,
+  docForSave,
+  setAssignment,
+  setReplayStep,
+  startReplay,
   editFeature,
   editSketch,
   finishOp,
@@ -28,6 +33,7 @@ import {
   replaceDoc,
   setProTerms,
   setState,
+  getState,
   setOpPreview,
   startExtrude,
   startDrawing,
@@ -46,6 +52,10 @@ import { term } from "./terms";
 import { Viewer3D, type PickResult } from "./Viewer3D";
 import { VariablesPanel } from "./VariablesPanel";
 import { DrawingView } from "./DrawingView";
+import { AssignmentCard, AssignmentEditor } from "./AssignmentPanel";
+import { SubmitDialog } from "./SubmitDialog";
+import { ReplayBar } from "./ReplayBar";
+import { NewDialog } from "./NewDialog";
 import type { PadVariable } from "./NumberPad";
 import "./app.css";
 
@@ -62,6 +72,9 @@ export function App() {
   const [showVariables, setShowVariables] = useState(false);
   /** 書き出しのえらぶ画面(STL / 3MF / STEP) */
   const [showExport, setShowExport] = useState(false);
+  /** ファイルのメニュー(新しく・ひらく・保存・課題を作る) */
+  const [showFileMenu, setShowFileMenu] = useState(false);
+  const [dialog, setDialog] = useState<"new" | "assignment" | "submit" | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const pro = s.proTerms;
 
@@ -98,7 +111,7 @@ export function App() {
   useEffect(() => {
     if (!loaded) return;
     const doc = s.doc;
-    const save = () => saveDoc(doc).then((ok) => ok && setSavedDoc(doc));
+    const save = () => saveDoc(docForSave(getState())).then((ok) => ok && setSavedDoc(doc));
     const t = setTimeout(save, 300);
     // タブを閉じる・アプリを切り替えるときは、待たずに保存する
     const now = () => document.visibilityState === "hidden" && save();
@@ -198,24 +211,58 @@ export function App() {
   };
 
   const saveFile = () => {
-    downloadFile(JSON.stringify(s.doc, null, 1), `${s.doc.name || "作品"}.scad.json`, "application/json");
+    downloadFile(JSON.stringify(docForSave(s), null, 1), `${s.doc.name || "作品"}.scad.json`, "application/json");
   };
+
+  /** 課題ファイル: 作品の記録(作業時間など)は入れず、生徒が開いたときに新しく数え始める */
+  const exportAssignment = (a: NonNullable<CadDocument["assignment"]>) => {
+    const doc: CadDocument = { ...s.doc, assignment: a };
+    downloadFile(JSON.stringify(doc, null, 1), `課題_${a.title}.scad.json`, "application/json");
+    toast("課題ファイルを保存しました。生徒はこのファイルを「ひらく」で開きます");
+  };
+
+  // 課題の条件(形が計算し直されるたびに確かめ直す)
+  const checks = useMemo(() => evaluateChecks(s.doc, s.result?.measure ?? null), [s.doc, s.result]);
 
   const openFile = async (file: File) => {
     try {
       const doc = JSON.parse(await file.text()) as unknown;
       if (!isDoc(doc)) throw new Error();
       replaceDoc(doc as CadDocument);
-      toast(`「${(doc as CadDocument).name}」を開きました`);
+      const a = (doc as CadDocument).assignment;
+      toast(a ? `課題「${a.title}」を開きました。右上の課題カードを見ながら作りましょう` : `「${(doc as CadDocument).name}」を開きました`);
     } catch {
       toast("このファイルは開けませんでした", "error");
     }
   };
 
-  const newDoc = () => {
-    if (s.doc.features.length > 0 && !window.confirm("いまの作品を閉じて、新しく始めますか?(元の作品は「もどす」ではもどせません。先に保存しておくと安心です)")) return;
-    replaceDoc(emptyDocument());
+  const startFrom = (t: Template) => {
+    replaceDoc(t.make());
+    setDialog(null);
+    if (t.id !== "blank") toast(`課題「${t.label}」を始めました。右上の課題カードを見ながら作りましょう`);
   };
+
+  const fileMenu = (
+    [
+      ["file-new", "✨ 新しく", () => setDialog("new")],
+      ["file-open", "📂 ひらく", () => fileRef.current?.click()],
+      ["save-file", "💾 ファイルに保存", saveFile],
+      ["file-assignment", s.doc.assignment ? "📋 課題をなおす(先生用)" : "📋 課題を作る(先生用)", () => setDialog("assignment")],
+    ] as const
+  ).map(([id, label, run]) => (
+    <button
+      key={id}
+      type="button"
+      role="menuitem"
+      data-testid={id}
+      onClick={() => {
+        setShowFileMenu(false);
+        run();
+      }}
+    >
+      {label}
+    </button>
+  ));
 
   const sketchFeature = s.draftSketch;
   const [confirmDiscard, setConfirmDiscard] = useState(false);
@@ -281,15 +328,16 @@ export function App() {
               <button type="button" onClick={() => setShowVariables(true)} disabled={mode !== "model"} data-testid="open-variables">
                 📏 {term("variables", pro)}
               </button>
-              <button type="button" onClick={newDoc} disabled={mode !== "model"}>
-                新しく
-              </button>
-              <button type="button" onClick={() => fileRef.current?.click()} disabled={mode !== "model"}>
-                ひらく
-              </button>
-              <button type="button" onClick={saveFile} disabled={mode !== "model"} data-testid="save-file">
-                ファイルに保存
-              </button>
+              <div className="export-wrap">
+                <button type="button" onClick={() => setShowFileMenu((v) => !v)} disabled={mode !== "model"} aria-expanded={showFileMenu} data-testid="open-file-menu">
+                  📁 ファイル
+                </button>
+                {showFileMenu && (
+                  <div className="export-menu file-menu" role="menu" aria-label="ファイル">
+                    {fileMenu}
+                  </div>
+                )}
+              </div>
               <label className="toggle" title="専門用語(Onshape/SolidWorks と同じ言葉)で表示する">
                 <input type="checkbox" checked={pro} onChange={(e) => setProTerms(e.target.checked)} data-testid="pro-terms" />
                 専門用語
@@ -321,6 +369,8 @@ export function App() {
             onSelect={(id) => setState({ selectedFeature: id })}
             onEdit={editFeature}
             onDelete={deleteFeature}
+            replayStep={s.mode.kind === "replay" ? s.mode.step : null}
+            onReplay={startReplay}
           />
         )}
 
@@ -351,6 +401,8 @@ export function App() {
             />
           )}
           {mode === "sketch" && !gcs && <p className="loading">準備しています…</p>}
+
+          {s.doc.assignment && mode === "model" && <AssignmentCard assignment={s.doc.assignment} results={checks} />}
 
           {mode === "pickPlane" && (
             <div className="panel plane-panel" role="dialog" aria-label="かく面をえらぶ">
@@ -456,8 +508,23 @@ export function App() {
             <button type="button" className="step" onClick={startDrawing} disabled={!hasBody || s.busy} data-testid="open-drawing">
               📄 図面
             </button>
+            <button type="button" className="step" onClick={() => setDialog("submit")} disabled={!hasBody || s.busy} data-testid="open-submit">
+              📮 提出
+            </button>
           </div>
         </nav>
+      )}
+
+      {s.mode.kind === "replay" && (
+        <ReplayBar features={s.doc.features} step={s.mode.step} busy={s.busy} onStep={setReplayStep} onClose={cancelMode} />
+      )}
+
+      {dialog === "new" && <NewDialog hasWork={s.doc.features.length > 0} onPick={startFrom} onClose={() => setDialog(null)} />}
+      {dialog === "assignment" && (
+        <AssignmentEditor initial={s.doc.assignment} onSave={setAssignment} onExport={exportAssignment} onClose={() => setDialog(null)} />
+      )}
+      {dialog === "submit" && clientRef.current && (
+        <SubmitDialog client={clientRef.current} doc={docForSave(s)} checks={checks} measure={s.result?.measure ?? null} onClose={() => setDialog(null)} />
       )}
 
       {mode === "drawing" && clientRef.current && (

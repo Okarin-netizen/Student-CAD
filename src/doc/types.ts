@@ -238,6 +238,35 @@ export interface Variable {
   value: number;
 }
 
+/**
+ * 課題で自動で確かめる条件(フェーズ3)。
+ * - size: 立体の はば(x)・奥行き(y)・高さ(z) が min〜max mm に入っているか
+ * - volume: 体積が min〜max cm³ に入っているか(材料の量の目安)
+ * - uses: その作業(または文字)を使ったか
+ */
+export type AssignmentCheck =
+  | { id: Id; kind: "size"; axis: WorldAxis; min?: number; max?: number }
+  | { id: Id; kind: "volume"; min?: number; max?: number }
+  | { id: Id; kind: "uses"; feature: Exclude<Feature["type"], "sketch"> | "text" };
+
+/** 先生が作る課題。課題ファイルは、課題つきの作品ファイル(.scad.json)と同じ形 */
+export interface Assignment {
+  title: string;
+  /** 生徒に見せる説明(改行してよい) */
+  instructions: string;
+  checks: AssignmentCheck[];
+}
+
+/** 作品の記録(提出のときに先生が見る) */
+export interface DocMeta {
+  /** 作り始めた時刻(ISO 8601) */
+  createdAt: string;
+  /** 最後に変えた時刻(ISO 8601) */
+  updatedAt: string;
+  /** 作業していた時間の合計(秒)。5分以上 手が止まっていた間は数えない */
+  activeSeconds: number;
+}
+
 export interface CadDocument {
   format: "student-cad";
   version: 1;
@@ -245,6 +274,10 @@ export interface CadDocument {
   features: Feature[];
   /** 変数(フェーズ2で追加。古いファイルにはない) */
   variables?: Variable[];
+  /** 課題(フェーズ3で追加。課題ファイルから始めたときだけある) */
+  assignment?: Assignment;
+  /** 作品の記録(フェーズ3で追加) */
+  meta?: DocMeta;
 }
 
 export function emptyDocument(name = "新しい作品"): CadDocument {

@@ -59,6 +59,12 @@ const CUBE_DIRS: Vec3[] = [
  */
 const HOWTO_KEY = "student-cad:howto3d";
 
+/** いま見えている 3D の絵を PNG(data URL)にする。提出カードに入れる */
+let takeSnapshot: (() => string) | null = null;
+export function snapshot3D(): string | null {
+  return takeSnapshot?.() ?? null;
+}
+
 export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, edgePick, ghost }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const cubeRef = useRef<HTMLDivElement>(null);
@@ -160,6 +166,16 @@ export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, edgePick,
       mesh: null,
     };
     stageRef.current = stage;
+    takeSnapshot = () => {
+      // 基準の平面は写さない。描いた直後でないと絵が消えているので、ここで描き直す
+      const shown = planes.visible;
+      planes.visible = false;
+      renderer.render(scene, camera);
+      const url = renderer.domElement.toDataURL("image/png");
+      planes.visible = shown;
+      render();
+      return url;
+    };
     setView(stage, [1, -1.4, 1.1]);
     resize();
 
@@ -226,6 +242,7 @@ export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, edgePick,
       host.removeChild(renderer.domElement);
       cubeHost.removeChild(cubeRenderer.domElement);
       stageRef.current = null;
+      takeSnapshot = null;
     };
   }, []);
 

@@ -1147,3 +1147,306 @@ button.danger {
   color: var(--muted);
   font-weight: 400;
 }
+
+/* ---- フェーズ3: 課題・提出・作り方の再生 ---- */
+
+.file-menu {
+  top: calc(100% + 8px);
+  bottom: auto;
+  width: 240px;
+  z-index: 30;
+}
+
+.file-menu button {
+  flex-direction: row;
+}
+
+/* 課題カード(3D の右上) */
+.assignment-card {
+  position: absolute;
+  top: 12px;
+  right: 124px;
+  width: min(340px, calc(100% - 140px));
+  max-height: calc(100% - 24px);
+  overflow: auto;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: 0 4px 16px #0f172a1f;
+  z-index: 5;
+}
+
+.assignment-head {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  border: 0;
+  background: transparent;
+  font-weight: 700;
+  text-align: left;
+}
+
+.assignment-head span:first-child {
+  flex: 1;
+}
+
+.assignment-count {
+  font-size: 0.85rem;
+  padding: 2px 8px;
+  border-radius: 999px;
+  background: var(--accent-soft);
+  color: var(--accent);
+}
+
+.assignment-count.ok {
+  background: #dcf5e3;
+  color: var(--ok);
+}
+
+.assignment-body {
+  padding: 0 14px 12px;
+}
+
+.assignment-text {
+  white-space: pre-wrap;
+  margin: 0 0 10px;
+  font-size: 0.92rem;
+  line-height: 1.6;
+}
+
+.assignment-checks {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.assignment-checks li {
+  display: flex;
+  gap: 8px;
+  align-items: flex-start;
+  font-size: 0.92rem;
+}
+
+.assignment-checks .mark {
+  width: 22px;
+  height: 22px;
+  flex: none;
+  display: grid;
+  place-items: center;
+  border-radius: 50%;
+  border: 2px solid var(--border);
+  color: var(--muted);
+  font-weight: 700;
+}
+
+.assignment-checks li.ok .mark {
+  border-color: var(--ok);
+  background: var(--ok);
+  color: #fff;
+}
+
+.assignment-checks small {
+  display: block;
+  color: var(--muted);
+}
+
+/* 課題を作る(先生用) */
+.assignment-editor {
+  width: min(620px, calc(100vw - 32px));
+  max-height: calc(100vh - 48px);
+  overflow: auto;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  margin: 8px 0;
+  font-weight: 600;
+  font-size: 0.92rem;
+}
+
+.field input,
+.field textarea {
+  font: inherit;
+  font-weight: 400;
+  padding: 10px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  min-height: var(--touch);
+}
+
+.check-editor {
+  list-style: none;
+  margin: 0 0 8px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.check-editor li {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  flex-wrap: wrap;
+}
+
+.check-editor input {
+  width: 92px;
+  min-height: 40px;
+  padding: 6px 8px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  font: inherit;
+}
+
+.check-editor select {
+  min-height: 40px;
+  font: inherit;
+}
+
+.check-editor li > button {
+  margin-left: auto;
+}
+
+.check-add {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+/* 提出 */
+.submit-dialog {
+  width: min(520px, calc(100vw - 32px));
+}
+
+.submit-fields {
+  display: flex;
+  gap: 8px;
+}
+
+.submit-fields .field {
+  width: 90px;
+}
+
+.submit-fields .field.grow {
+  flex: 1;
+}
+
+/* 新しく始める(ひな形) */
+.new-dialog {
+  width: min(640px, calc(100vw - 32px));
+}
+
+.template-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  gap: 10px;
+  margin: 10px 0;
+}
+
+.template {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 4px;
+  text-align: left;
+  padding: 12px;
+  min-height: 112px;
+}
+
+.template-icon {
+  font-size: 1.6rem;
+}
+
+.template small {
+  color: var(--muted);
+  font-weight: 400;
+  line-height: 1.4;
+}
+
+/* 作り方の再生 */
+.tree-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 6px;
+}
+
+.tree-replay {
+  font-size: 0.82rem;
+  min-height: 36px;
+  padding: 4px 10px;
+}
+
+.tree li.replay-current {
+  outline: 2px solid var(--accent);
+  border-radius: 8px;
+  background: var(--accent-soft);
+}
+
+.tree li.replay-future {
+  opacity: 0.4;
+}
+
+.replaybar {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px calc(10px + env(safe-area-inset-bottom));
+  background: var(--surface);
+  border-top: 1px solid var(--border);
+}
+
+.replay-buttons {
+  display: flex;
+  gap: 6px;
+}
+
+.replay-buttons button {
+  min-width: var(--touch);
+}
+
+.replay-slider {
+  flex: 1;
+  min-width: 120px;
+  accent-color: var(--accent);
+}
+
+.replay-label {
+  white-space: nowrap;
+  font-weight: 600;
+  min-width: 10em;
+}
+
+/* 手順のボタンがつぶれないようにする(文字や番号の丸が欠けて見えていた) */
+.step,
+.step-num {
+  flex: none;
+}
+
+@media (max-width: 1320px) {
+  .stepbar {
+    gap: 6px;
+  }
+
+  .step-arrow {
+    display: none;
+  }
+
+  .step-group {
+    gap: 6px;
+  }
+
+  .step {
+    padding-left: 10px;
+    padding-right: 10px;
+    font-size: 0.98rem;
+    gap: 6px;
+  }
+}
