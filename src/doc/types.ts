@@ -310,6 +310,17 @@ export interface Assignment {
 }
 
 /** 作品の記録(提出のときに先生が見る) */
+/** 作った人 */
+export interface Author {
+  /** 学籍番号(4桁。例 "2312")。図面の表題欄とファイル名に使う */
+  studentId: string;
+  /** 組(例 "2-3")。提出用ファイルに使う */
+  klass: string;
+  /** 出席番号 */
+  number: string;
+  name: string;
+}
+
 export interface DocMeta {
   /** 作り始めた時刻(ISO 8601) */
   createdAt: string;
@@ -317,6 +328,8 @@ export interface DocMeta {
   updatedAt: string;
   /** 作業していた時間の合計(秒)。5分以上 手が止まっていた間は数えない */
   activeSeconds: number;
+  /** 作った人(図面の表題欄・提出に使う。古いファイルにはない) */
+  author?: Author;
 }
 
 /** 図面で手で足した寸法。点は その図の上の座標(実物の mm) */

@@ -3,36 +3,14 @@
 
 import { useState } from "react";
 import type { CheckResult, Measure } from "../doc/assignment";
-import type { CadDocument } from "../doc/types";
+import type { Author, CadDocument } from "../doc/types";
 import { buildSheet, sheetToSVG } from "../drawing/sheet";
-import { makeSubmission, submissionName, type Student } from "../export/submission";
+import { makeSubmission, submissionName, } from "../export/submission";
 import type { CadClient } from "./cadClient";
 import { downloadFile } from "./persist";
-import { toast } from "./store";
+import { setAuthor, toast, useStore } from "./store";
+import { authorLabel, readDeviceAuthor } from "./author";
 import { snapshot3D } from "./Viewer3D";
-
-const STUDENT_KEY = "student-cad:student";
-const AUTHOR_KEY = "student-cad:author";
-
-function readStudent(): Student {
-  try {
-    const s = JSON.parse(localStorage.getItem(STUDENT_KEY) ?? "null") as Student | null;
-    if (s) return s;
-    return { klass: "", number: "", name: localStorage.getItem(AUTHOR_KEY) ?? "" };
-  } catch {
-    return { klass: "", number: "", name: "" };
-  }
-}
-
-function saveStudent(s: Student) {
-  try {
-    localStorage.setItem(STUDENT_KEY, JSON.stringify(s));
-    // 図面の表題欄の名前にも使う
-    localStorage.setItem(AUTHOR_KEY, s.name);
-  } catch {
-    // 保存できなくても、その場では使える
-  }
-}
 
 interface Props {
   client: CadClient;
@@ -42,21 +20,22 @@ interface Props {
   onClose: () => void;
 }
 
-/** 提出用ファイル(ZIP)を作る画面。組・番号・名前は端末に覚えておく */
+/** 提出用ファイル(ZIP)を作る画面。組・番号・名前は作品に保存し、端末にも覚えておく */
 export function SubmitDialog({ client, doc, checks, measure, onClose }: Props) {
-  const [student, setStudent] = useState(readStudent);
+  const saved = useStore((s) => s.meta.author);
+  const [student, setStudent] = useState<Author>(() => (saved && saved.name ? saved : readDeviceAuthor()));
   const [working, setWorking] = useState(false);
   const missing = !student.klass.trim() || !student.number.trim() || !student.name.trim();
   const notYet = checks.filter((c) => !c.ok);
 
-  const set = (p: Partial<Student>) => setStudent((s) => ({ ...s, ...p }));
+  const set = (p: Partial<Author>) => setStudent((s) => ({ ...s, ...p }));
 
   const submit = async () => {
     setWorking(true);
-    saveStudent(student);
+    setAuthor(student);
     try {
       const [stl, views] = await Promise.all([client.exportSTL(), client.drawing("thirdAngle", true)]);
-      const drawingSvg = views ? sheetToSVG(buildSheet(views, { kind: "thirdAngle", title: doc.name, author: student.name, dimensions: true })) : null;
+      const drawingSvg = views ? sheetToSVG(buildSheet(views, { kind: "thirdAngle", title: doc.name, author: authorLabel(student), dimensions: true })) : null;
       const bytes = makeSubmission({ doc, student, stl, drawingSvg, image: snapshot3D(), checks, measure });
       downloadFile(bytes as BlobPart, submissionName(student, doc.name), "application/zip");
       toast("提出用ファイルを作りました。先生の言う場所(Classroom など)に出してください");
