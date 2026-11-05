@@ -5,6 +5,8 @@ import {
   type CadDocument,
   type ExtrudeFeature,
   type Feature,
+  type FilletFeature,
+  type RevolveFeature,
   type Id,
   type PlaneRef,
   type SketchFeature,
@@ -17,7 +19,11 @@ export type Mode =
   /** スケッチを描く平面を選んでいるところ */
   | { kind: "pickPlane" }
   | { kind: "sketch"; isNew: boolean }
-  | { kind: "extrude"; isNew: boolean };
+  /** 押し出し・回転・角を丸めるの設定中 */
+  | { kind: "op"; isNew: boolean };
+
+/** スケッチ以外の作業 */
+export type OpFeature = ExtrudeFeature | RevolveFeature | FilletFeature;
 
 export interface State {
   doc: CadDocument;
@@ -28,7 +34,9 @@ export interface State {
   draftSketch: SketchFeature | null;
   sketchPast: SketchData[];
   sketchFuture: SketchData[];
-  draftExtrude: ExtrudeFeature | null;
+  draftOp: OpFeature | null;
+  /** 角を丸めるとき、できあがりを見せるか(見せない間は、丸める前の立体で辺をえらぶ) */
+  opPreview: boolean;
   selectedFeature: Id | null;
   result: RebuildReply | null;
   busy: boolean;
@@ -54,7 +62,8 @@ let state: State = {
   draftSketch: null,
   sketchPast: [],
   sketchFuture: [],
-  draftExtrude: null,
+  draftOp: null,
+  opPreview: false,
   selectedFeature: null,
   result: null,
   busy: false,
@@ -92,7 +101,7 @@ export function commitDoc(next: CadDocument) {
 }
 
 export function replaceDoc(next: CadDocument) {
-  setState({ doc: next, past: [], future: [], mode: { kind: "model" }, draftSketch: null, draftExtrude: null, selectedFeature: null });
+  setState({ doc: next, past: [], future: [], mode: { kind: "model" }, draftSketch: null, draftOp: null, selectedFeature: null });
 }
 
 export function undo() {
@@ -178,45 +187,78 @@ export function finishSketch(): SketchFeature | null {
 }
 
 export function cancelMode() {
-  setState({ mode: { kind: "model" }, draftSketch: null, draftExtrude: null, sketchPast: [], sketchFuture: [] });
+  setState({ mode: { kind: "model" }, draftSketch: null, draftOp: null, sketchPast: [], sketchFuture: [] });
 }
 
-// ---- 押し出し ----
+// ---- 押し出し・回転・角を丸める ----
 
-export function startExtrude(sketchId?: Id) {
-  const sketches = state.doc.features.filter((f): f is SketchFeature => f.type === "sketch");
+const sketchesOf = () => state.doc.features.filter((f): f is SketchFeature => f.type === "sketch");
+
+/** まだ使っていないスケッチ(なければ最後のスケッチ) */
+function pickSketch(sketchId?: Id): Id | null {
+  const sketches = sketchesOf();
   if (sketches.length === 0) {
     toast("先にスケッチ(絵)をかいてください", "error");
-    return;
+    return null;
   }
-  const used = new Set(state.doc.features.flatMap((f) => (f.type === "extrude" ? [f.sketchId] : [])));
-  const target = sketchId ?? [...sketches].reverse().find((s) => !used.has(s.id))?.id ?? sketches.at(-1)!.id;
-  const hasBody = state.doc.features.some((f) => f.type === "extrude");
-  const ex: ExtrudeFeature = {
-    id: newId("ex"),
-    type: "extrude",
-    name: nextName("押し出し", state.doc.features.map((f) => f.name)),
+  const used = new Set(state.doc.features.flatMap((f) => (f.type === "extrude" || f.type === "revolve" ? [f.sketchId] : [])));
+  return sketchId ?? [...sketches].reverse().find((s) => !used.has(s.id))?.id ?? sketches.at(-1)!.id;
+}
+
+const names = () => state.doc.features.map((f) => f.name);
+
+function startOp(op: OpFeature) {
+  setState({ mode: { kind: "op", isNew: true }, draftOp: op, opPreview: op.type !== "fillet", selectedFeature: null });
+}
+
+export function startExtrude(sketchId?: Id) {
+  const target = pickSketch(sketchId);
+  if (!target) return;
+  startOp({ id: newId("ex"), type: "extrude", name: nextName("押し出し", names()), sketchId: target, distance: 10, operation: "add", flip: false });
+}
+
+export function startRevolve(sketchId?: Id) {
+  const target = pickSketch(sketchId);
+  if (!target) return;
+  const sk = sketchesOf().find((s) => s.id === target)!;
+  // 補助線があれば、それを軸にする(コマやコップをかくときの決まった手順)
+  const axisLine = sk.entities.find((e) => e.type === "line" && e.construction);
+  startOp({
+    id: newId("rv"),
+    type: "revolve",
+    name: nextName("回転", names()),
     sketchId: target,
-    distance: 10,
+    axis: axisLine ? { kind: "line", line: axisLine.id } : { kind: "y" },
+    angle: 360,
     operation: "add",
     flip: false,
-  };
-  setState({ mode: { kind: "extrude", isNew: true }, draftExtrude: ex, selectedFeature: null });
-  if (!hasBody) ex.operation = "add";
+  });
 }
 
-export function updateExtrude(patch: Partial<ExtrudeFeature>) {
-  if (!state.draftExtrude) return;
-  setState({ draftExtrude: { ...state.draftExtrude, ...patch } });
+export function startFillet(kind: FilletFeature["kind"] = "fillet") {
+  if (!state.result?.mesh) {
+    toast("先に立体を作ってください", "error");
+    return;
+  }
+  startOp({ id: newId("fl"), type: "fillet", name: nextName(kind === "fillet" ? "丸め" : "面取り", names()), kind, radius: 2, edges: [] });
 }
 
-export function finishExtrude() {
+export function updateOp(patch: Partial<OpFeature>) {
+  if (!state.draftOp) return;
+  setState({ draftOp: { ...state.draftOp, ...patch } as OpFeature });
+}
+
+export function setOpPreview(on: boolean) {
+  setState({ opPreview: on });
+}
+
+export function finishOp() {
   const s = state;
-  if (s.mode.kind !== "extrude" || !s.draftExtrude) return;
-  const ex = s.draftExtrude;
-  const features = s.mode.isNew ? [...s.doc.features, ex] : s.doc.features.map((f) => (f.id === ex.id ? ex : f));
+  if (s.mode.kind !== "op" || !s.draftOp) return;
+  const op = s.draftOp;
+  const features = s.mode.isNew ? [...s.doc.features, op] : s.doc.features.map((f) => (f.id === op.id ? op : f));
   commitDoc({ ...s.doc, features });
-  setState({ mode: { kind: "model" }, draftExtrude: null, selectedFeature: ex.id });
+  setState({ mode: { kind: "model" }, draftOp: null, selectedFeature: op.id });
 }
 
 // ---- 作業のれきし ----
@@ -227,13 +269,13 @@ export function editFeature(id: Id) {
   if (f.type === "sketch") {
     setState({ mode: { kind: "sketch", isNew: false }, draftSketch: f, sketchPast: [], sketchFuture: [], selectedFeature: id });
   } else {
-    setState({ mode: { kind: "extrude", isNew: false }, draftExtrude: f, selectedFeature: id });
+    setState({ mode: { kind: "op", isNew: false }, draftOp: f, opPreview: f.type !== "fillet", selectedFeature: id });
   }
 }
 
 /** 消すと一緒に消える作業(スケッチを使っている押し出しなど) */
 export function dependents(doc: CadDocument, id: Id): Feature[] {
-  return doc.features.filter((f) => f.type === "extrude" && f.sketchId === id);
+  return doc.features.filter((f) => (f.type === "extrude" || f.type === "revolve") && f.sketchId === id);
 }
 
 export function deleteFeature(id: Id) {
@@ -248,10 +290,12 @@ export function renameDoc(name: string) {
 
 /** 画面に出す設計図(編集中の作業を差し込んだもの) */
 export function previewDoc(s: State): CadDocument {
-  const draft: Feature | null = s.mode.kind === "extrude" ? s.draftExtrude : s.mode.kind === "sketch" ? s.draftSketch : null;
+  const draft: Feature | null = s.mode.kind === "op" ? s.draftOp : s.mode.kind === "sketch" ? s.draftSketch : null;
   if (!draft) return s.doc;
-  const exists = s.doc.features.some((f) => f.id === draft.id);
-  const features = exists ? s.doc.features.map((f) => (f.id === draft.id ? draft : f)) : [...s.doc.features, draft];
+  const idx = s.doc.features.findIndex((f) => f.id === draft.id);
+  // 角を丸める辺をえらんでいる間は、その作業より前の形を見せる(丸めた辺はえらべないので)
+  if (s.mode.kind === "op" && !s.opPreview) return { ...s.doc, features: idx >= 0 ? s.doc.features.slice(0, idx) : s.doc.features };
+  const features = idx >= 0 ? s.doc.features.map((f) => (f.id === draft.id ? draft : f)) : [...s.doc.features, draft];
   return { ...s.doc, features };
 }
 

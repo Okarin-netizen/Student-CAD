@@ -800,3 +800,29 @@ button.danger {
   padding: 8px 10px;
   font-weight: 600;
 }
+
+/* ---- 手順バーの、同じ手順の中のボタンのまとまり ---- */
+.step-group {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.op-edges {
+  margin: 0;
+  font-weight: 600;
+}
+
+.op-row {
+  display: flex;
+  gap: 6px;
+}
+
+.op-row button {
+  flex: 1;
+}
+
+.op-row button.active {
+  background: var(--accent-soft);
+  border-color: var(--accent);
+}

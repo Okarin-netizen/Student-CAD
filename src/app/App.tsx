@@ -3,11 +3,11 @@ import { make_gcs_wrapper, type GcsWrapper } from "@salusoft89/planegcs";
 import gcsWasmUrl from "@salusoft89/planegcs/dist/planegcs_dist/planegcs.wasm?url";
 import { BASE_PLANE_LABELS, planeFromFace, resolvePlane } from "../doc/planes";
 import { edgesOnPlane } from "./sketch/references";
-import type { BasePlaneName, CadDocument } from "../doc/types";
+import type { BasePlaneName, CadDocument, EdgeRef, Vec3 } from "../doc/types";
 import { emptyDocument } from "../doc/types";
 import { findProfiles } from "../sketch/profiles";
 import { CadClient } from "./cadClient";
-import { ExtrudePanel } from "./ExtrudePanel";
+import { OpPanel } from "./OpPanel";
 import { FeatureTree } from "./FeatureTree";
 import { downloadFile, isDoc, loadDoc, saveDoc } from "./persist";
 import { SketchEditor } from "./sketch/SketchEditor";
@@ -16,7 +16,7 @@ import {
   deleteFeature,
   editFeature,
   editSketch,
-  finishExtrude,
+  finishOp,
   finishSketch,
   previewDoc,
   previewSketch,
@@ -25,12 +25,15 @@ import {
   replaceDoc,
   setProTerms,
   setState,
+  setOpPreview,
   startExtrude,
+  startFillet,
+  startRevolve,
   startPickPlane,
   startSketch,
   toast,
   undo,
-  updateExtrude,
+  updateOp,
   useStore,
 } from "./store";
 import { term } from "./terms";
@@ -74,7 +77,7 @@ export function App() {
   }, []);
 
   // ---- 形の計算: 設計図(編集中のものを含む)が変わるたびに Worker へ ----
-  const preview = useMemo(() => previewDoc(s), [s.doc, s.mode, s.draftSketch, s.draftExtrude]); // eslint-disable-line react-hooks/exhaustive-deps
+  const preview = useMemo(() => previewDoc(s), [s.doc, s.mode, s.draftSketch, s.draftOp, s.opPreview]); // eslint-disable-line react-hooks/exhaustive-deps
   useEffect(() => {
     clientRef.current?.request(preview);
   }, [preview]);
@@ -117,9 +120,9 @@ export function App() {
   const canUndo = mode === "sketch" ? s.sketchPast.length > 0 : mode === "model" && s.past.length > 0;
   const canRedo = mode === "sketch" ? s.sketchFuture.length > 0 : mode === "model" && s.future.length > 0;
   const hasBody = !!s.result?.mesh;
-  const extrudeError = (() => {
-    if (!s.draftExtrude) return undefined;
-    const st = statuses.find((x) => x.id === s.draftExtrude!.id);
+  const opError = (() => {
+    if (!s.draftOp) return undefined;
+    const st = statuses.find((x) => x.id === s.draftOp!.id);
     return st && !st.ok ? st.error : undefined;
   })();
 
@@ -127,7 +130,7 @@ export function App() {
 
   const onPick = (p: PickResult) => {
     if (p.kind === "base") return startSketch({ kind: "base", name: p.name });
-    const owner = [...s.doc.features].reverse().find((f) => f.type === "extrude");
+    const owner = [...s.doc.features].reverse().find((f) => f.type !== "sketch");
     startSketch({ kind: "face", featureId: owner?.id ?? "", plane: planeFromFace(p.origin, p.normal) });
   };
 
@@ -135,10 +138,27 @@ export function App() {
     const sk = finishSketch();
     if (!sk) return;
     const regions = findProfiles(sk).regions.length;
-    const used = s.doc.features.some((f) => f.type === "extrude" && f.sketchId === sk.id);
-    if (regions > 0 && !used) startExtrude(sk.id);
+    const used = s.doc.features.some((f) => (f.type === "extrude" || f.type === "revolve") && f.sketchId === sk.id);
+    // 補助線(軸)をかいたスケッチは回転、それ以外は押し出しをすすめる
+    const hasAxis = sk.entities.some((e) => e.type === "line" && e.construction);
+    if (regions > 0 && !used) (hasAxis ? startRevolve : startExtrude)(sk.id);
     else if (regions === 0) toast("閉じた形がないので、まだ立体にはできません");
   };
+
+  const exportStep = async () => {
+    const buf = await clientRef.current?.exportSTEP();
+    if (!buf) return toast("書き出す立体がありません", "error");
+    downloadFile(buf, `${s.doc.name || "作品"}.step`, "application/step");
+    toast("STEP を書き出しました。Onshape や SolidWorks、Fusion で開けます");
+  };
+
+  const toggleEdge = (mid: Vec3) => {
+    const op = s.draftOp;
+    if (op?.type !== "fillet") return;
+    const near = (e: EdgeRef) => Math.hypot(e.mid[0] - mid[0], e.mid[1] - mid[1], e.mid[2] - mid[2]) < 1e-3;
+    updateOp({ edges: op.edges.some(near) ? op.edges.filter((e) => !near(e)) : [...op.edges, { mid }] });
+  };
+  const filletPicking = mode === "op" && s.draftOp?.type === "fillet" && !s.opPreview;
 
   const exportStl = async () => {
     const buf = await clientRef.current?.exportSTL();
@@ -272,7 +292,8 @@ export function App() {
               picking={mode === "pickPlane"}
               onPick={onPick}
               onMessage={(t) => toast(t, "error")}
-              ghost={mode === "extrude"}
+              ghost={mode === "op" && s.draftOp?.type !== "fillet"}
+              edgePick={filletPicking && s.draftOp?.type === "fillet" ? { selected: s.draftOp.edges.map((e) => e.mid), onToggle: toggleEdge } : null}
             />
           </div>
 
@@ -311,15 +332,17 @@ export function App() {
             </div>
           )}
 
-          {mode === "extrude" && s.draftExtrude && (
-            <ExtrudePanel
+          {mode === "op" && s.draftOp && (
+            <OpPanel
               doc={s.doc}
-              draft={s.draftExtrude}
+              draft={s.draftOp}
               pro={pro}
-              error={extrudeError}
+              error={opError}
               busy={s.busy}
-              onChange={updateExtrude}
-              onOk={finishExtrude}
+              preview={s.opPreview}
+              onPreview={setOpPreview}
+              onChange={updateOp}
+              onOk={finishOp}
               onCancel={cancelMode}
             />
           )}
@@ -334,15 +357,30 @@ export function App() {
           <span className="step-arrow" aria-hidden>
             ▶
           </span>
-          <button type="button" className="step" onClick={() => startExtrude()} data-testid="new-extrude">
-            <span className="step-num">2</span>🧊 {term("extrude", pro)}
-          </button>
+          <div className="step-group">
+            <span className="step-num">2</span>
+            <button type="button" className="step" onClick={() => startExtrude()} data-testid="new-extrude">
+              🧊 {term("extrude", pro)}
+            </button>
+            <button type="button" className="step" onClick={() => startRevolve()} data-testid="new-revolve">
+              🔄 {term("revolveName", pro)}
+            </button>
+            <button type="button" className="step" onClick={() => startFillet()} disabled={!hasBody} data-testid="new-fillet">
+              ◜ {term("fillet", pro)}
+            </button>
+          </div>
           <span className="step-arrow" aria-hidden>
             ▶
           </span>
-          <button type="button" className="step" onClick={exportStl} disabled={!hasBody || s.busy} data-testid="export-stl">
-            <span className="step-num">3</span>🖨️ STL で書き出す
-          </button>
+          <div className="step-group">
+            <span className="step-num">3</span>
+            <button type="button" className="step" onClick={exportStl} disabled={!hasBody || s.busy} data-testid="export-stl">
+              🖨️ STL
+            </button>
+            <button type="button" className="step" onClick={exportStep} disabled={!hasBody || s.busy} data-testid="export-step">
+              📐 STEP
+            </button>
+          </div>
         </nav>
       )}
 

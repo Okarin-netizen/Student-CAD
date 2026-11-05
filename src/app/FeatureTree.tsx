@@ -34,11 +34,19 @@ export function FeatureTree({ doc, statuses, selected, pro, disabled, onSelect, 
               <button type="button" className="tree-item" disabled={disabled} onClick={() => onSelect(selected === f.id ? null : f.id)} onDoubleClick={() => onEdit(f.id)}>
                 <span className="tree-num">{i + 1}</span>
                 <span className="tree-icon" aria-hidden>
-                  {f.type === "sketch" ? "✏️" : f.operation === "cut" ? "🕳️" : "🧊"}
+                  {icon(f)}
                 </span>
                 <span className="tree-name">
                   {f.name}
                   {f.type === "extrude" && <small> {nameOf(f.sketchId)} ・ {f.distance}mm</small>}
+                  {f.type === "revolve" && <small> {nameOf(f.sketchId)} ・ {f.angle}°</small>}
+                  {f.type === "fillet" && (
+                    <small>
+                      {" "}
+                      {f.kind === "fillet" ? "R" : "C"}
+                      {f.radius} ・ 辺 {f.edges.length} 本
+                    </small>
+                  )}
                 </span>
                 {bad && (
                   <span className="tree-error" role="img" aria-label="エラー">
@@ -93,4 +101,11 @@ export function FeatureTree({ doc, statuses, selected, pro, disabled, onSelect, 
       )}
     </aside>
   );
+}
+
+function icon(f: Feature): string {
+  if (f.type === "sketch") return "✏️";
+  if (f.type === "fillet") return f.kind === "fillet" ? "◜" : "◸";
+  if (f.operation === "cut") return "🕳️";
+  return f.type === "revolve" ? "🔄" : "🧊";
 }
