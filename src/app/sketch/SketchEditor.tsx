@@ -22,22 +22,26 @@ import {
   addLine,
   addPolygon,
   addRectangle,
+  addText,
   deleteItems,
+  isCurve,
   drag,
   setDimension,
   settle,
   toggleConstruction,
+  updateText,
   type PointSpec,
   type SketchData,
 } from "../../sketch/edit";
 import { measureAngle, measureLength, solveSketch } from "../../sketch/solver";
 import { findProfiles } from "../../sketch/profiles";
 import { term } from "../terms";
-import { NumberPad } from "../NumberPad";
+import { NumberPad, type PadVariable } from "../NumberPad";
 import { referenceCorners } from "./references";
-import { arcPath, bounds, distToArc, distToSegment, fmt, gridStep, positions, toScreen, toWorld, type Viewport } from "./geometry";
+import { arcPath, bounds, distToArc, distToSegment, fmt, gridStep, positions, textBox, toScreen, toWorld, type Viewport } from "./geometry";
+import { TextDialog } from "./TextDialog";
 
-export type Tool = "select" | "line" | "rect" | "circle" | "arc" | "polygon" | "dimension";
+export type Tool = "select" | "line" | "rect" | "circle" | "arc" | "polygon" | "text" | "dimension";
 
 interface Props {
   sketch: SketchFeature;
@@ -48,6 +52,8 @@ interface Props {
   onEdit: (next: SketchData, recordFrom?: SketchData) => void;
   onPreview: (next: SketchData) => void;
   onMessage: (text: string, kind?: "info" | "error") => void;
+  /** 寸法に使える変数 */
+  variables?: PadVariable[];
 }
 
 type Hit =
@@ -94,6 +100,7 @@ const TOOLS: { tool: Tool; label: string; icon: string; hint: string }[] = [
   { tool: "circle", label: "円", icon: "◯", hint: "中心をタップしてから、大きさを決める点をタップします" },
   { tool: "arc", label: "円弧", icon: "◠", hint: "中心 → 始まり → 終わりの順にタップします(左回りにかけます)" },
   { tool: "polygon", label: "多角形", icon: "⬡", hint: "中心をタップしてから、角の1つをタップします" },
+  { tool: "text", label: "文字", icon: "あ", hint: "文字を置きたいところ(文字の左下)をタップします。名札は、板の上の面にかいてから押し出します" },
   { tool: "dimension", label: "寸法", icon: "↔", hint: "線をタップすると長さ、円をタップすると直径を入れられます。点を2つタップすると距離です" },
 ];
 
@@ -107,7 +114,7 @@ function nextStepHint(tool: Tool, placed: number): string | null {
   return null;
 }
 
-export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, onMessage }: Props) {
+export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, onMessage, variables = [] }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [vp, setVp] = useState<Viewport>({ cx: 30, cy: 20, scale: 6, width: 800, height: 600 });
   const [tool, setTool] = useState<Tool>("line");
@@ -119,7 +126,9 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
   /** 道具の案内のかわりに出す、いまの操作の案内 */
   const [guide, setGuide] = useState<string | null>(null);
   const lastPointer = useRef<string>("mouse");
-  const [numpad, setNumpad] = useState<{ title: string; unit: string; initial: number; allowZero?: boolean; submit: (v: number) => void } | null>(null);
+  const [numpad, setNumpad] = useState<{ title: string; unit: string; initial: number; initialExpr?: string; allowZero?: boolean; submit: (v: number, expr?: string) => void } | null>(null);
+  /** 文字を入れる・なおすダイアログ */
+  const [textDialog, setTextDialog] = useState<{ title: string; text: string; size: number; submit: (text: string, size: number) => void } | null>(null);
   const pressRef = useRef<Press | null>(null);
   const pointers = useRef(new Map<number, Vec2>());
   const gesture = useRef<{ dist: number; mid: Vec2; vp: Viewport } | null>(null);
@@ -133,6 +142,17 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
   const profiles = useMemo(() => findProfiles(data), [sketch.entities, sketch.constraints]); // eslint-disable-line react-hooks/exhaustive-deps
   const refs = references ?? NO_REFS;
   const refCorners = useMemo(() => referenceCorners(refs), [refs]);
+  /** 下がき(かいている面)の範囲。文字が面からはみ出していないかを見るのに使う */
+  const refBox = useMemo(() => {
+    if (refs.length < 4) return null;
+    let min: Vec2 = [Infinity, Infinity];
+    let max: Vec2 = [-Infinity, -Infinity];
+    for (let i = 0; i + 1 < refs.length; i += 2) {
+      min = [Math.min(min[0], refs[i]), Math.min(min[1], refs[i + 1])];
+      max = [Math.max(max[0], refs[i]), Math.max(max[1], refs[i + 1])];
+    }
+    return { min, max };
+  }, [refs]);
   const defined = status.ok && status.dof === 0 && sketch.entities.length > 0;
 
   // 画面の大きさに合わせる
@@ -259,6 +279,12 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
     if (best) return (best as { hit: Hit }).hit;
     const w = toWorld(vp, screen);
     const tol = HIT_PX / vp.scale;
+    // 文字は、文字のある四角の中をタップしたら当たり
+    for (const e of sketch.entities) {
+      if (e.type !== "text" || !pos.has(e.p)) continue;
+      const b = textBox(e, pos.get(e.p)!);
+      if (w[0] >= b.min[0] - tol / 2 && w[0] <= b.max[0] + tol / 2 && w[1] >= b.min[1] - tol / 2 && w[1] <= b.max[1] + tol / 2) return { kind: "curve", id: e.id };
+    }
     for (const e of sketch.entities) {
       if (e.type === "line") consider({ kind: "curve", id: e.id }, distToSegment(w, pos.get(e.p1)!, pos.get(e.p2)!), tol);
       if (e.type === "circle") consider({ kind: "curve", id: e.id }, Math.abs(Math.hypot(w[0] - pos.get(e.c)![0], w[1] - pos.get(e.c)![1]) - e.r), tol);
@@ -313,6 +339,52 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
     }
   };
 
+  // ---- 文字 ----
+
+  const askText = (title: string, text: string, size: number, submit: (text: string, size: number) => void) => {
+    setTextDialog({
+      title,
+      text,
+      size,
+      submit: (t, sz) => {
+        submit(t, sz);
+        setTextDialog(null);
+      },
+    });
+  };
+
+  /** 文字が下がきの面からはみ出しているか */
+  const overflows = (e: Extract<SketchEntity, { type: "text" }>, entities = sketch.entities) => {
+    if (!refBox) return false;
+    const at = positions(entities).get(e.p);
+    if (!at) return false;
+    const b = textBox(e, at);
+    const eps = 1e-6;
+    return b.min[0] < refBox.min[0] - eps || b.min[1] < refBox.min[1] - eps || b.max[0] > refBox.max[0] + eps || b.max[1] > refBox.max[1] + eps;
+  };
+
+  /**
+   * 文字を面に入る大きさにして、面の真ん中に置く。はみ出していなければ null。
+   * 位置の点はきまりで動かないこともあるので、拘束計算(ドラッグと同じ)で動かす。
+   */
+  const fitTextToFace = (d: SketchData, textId: Id): { sketch: SketchData; size: number } | null => {
+    const e = d.entities.find((x) => x.id === textId);
+    if (!refBox || e?.type !== "text" || !overflows(e, d.entities)) return null;
+    const unit = textBox({ ...e, size: 1 }, [0, 0]);
+    const w = unit.max[0] - unit.min[0];
+    const h = unit.max[1] - unit.min[1];
+    const faceW = refBox.max[0] - refBox.min[0];
+    const faceH = refBox.max[1] - refBox.min[1];
+    const size = Math.max(0.5, Math.floor(Math.min((faceW * 0.85) / w, (faceH * 0.7) / h, e.size) * 2) / 2);
+    const cx = (refBox.min[0] + refBox.max[0]) / 2;
+    const cy = (refBox.min[1] + refBox.max[1]) / 2;
+    const target: Vec2 = [cx - (w * size) / 2, cy - ((unit.max[1] + unit.min[1]) / 2) * size];
+    const resized = updateText(d, textId, { size });
+    if (e.p === ORIGIN_ID) return { sketch: resized, size };
+    const moved = drag(gcs, resized, { points: [{ id: e.p, x: target[0], y: target[1] }] });
+    return { sketch: moved ?? resized, size };
+  };
+
   // ---- 寸法 ----
 
   const askDimension = (c: NewDimension, measured: number, title: string, unit = "mm") => {
@@ -321,9 +393,9 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
       unit,
       initial: Math.abs(measured),
       allowZero: c.type === "angle",
-      submit: (v) => {
+      submit: (v, expr) => {
         const value = c.type === "angle" && measured < 0 ? -v : v;
-        const r = addConstraint(gcs, data, { ...c, id: newId("d"), value } as DimensionConstraint);
+        const r = addConstraint(gcs, data, { ...c, id: newId("d"), value, expr } as DimensionConstraint);
         if (r.ok) onEdit(r.sketch, data);
         else onMessage(r.message!, "error");
         setNumpad(null);
@@ -338,9 +410,10 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
       title: `${titles[c.type]}を変える`,
       unit: c.type === "angle" ? "°" : "mm",
       initial: Math.abs(c.value),
+      initialExpr: c.expr,
       allowZero: c.type === "angle",
-      submit: (v) => {
-        const r = setDimension(gcs, data, c.id, c.type === "angle" && c.value < 0 ? -v : v);
+      submit: (v, expr) => {
+        const r = setDimension(gcs, data, c.id, c.type === "angle" && c.value < 0 ? -v : v, expr);
         if (r.ok) onEdit(r.sketch, data);
         else onMessage(r.message!, "error");
         setNumpad(null);
@@ -427,6 +500,15 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
         const target = toWorld(vp, p);
         const next = drag(gcs, sketch, { points: [{ id: hit.id, x: target[0], y: target[1] }] });
         if (next) onPreview(next);
+      } else if (tool === "select" && hit?.kind === "curve" && ents.get(hit.id)?.type === "text") {
+        // 文字をつかんで動かす = 位置の点を動かす
+        const t = ents.get(hit.id) as Extract<SketchEntity, { type: "text" }>;
+        if (t.p !== ORIGIN_ID) {
+          const d = sub(toWorld(vp, p), toWorld(vp, press.start));
+          const from = positions(press.before.entities).get(t.p)!;
+          const next = drag(gcs, { ...sketch, entities: press.before.entities }, { points: [{ id: t.p, x: from[0] + d[0], y: from[1] + d[1] }] });
+          if (next) onPreview(next);
+        }
       } else if (tool === "select" && hit?.kind === "curve" && ents.get(hit.id)?.type === "line") {
         const line = ents.get(hit.id) as LineEntity;
         const d = sub(toWorld(vp, p), toWorld(vp, press.start));
@@ -473,6 +555,19 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
       if (!press.moved) pickForDimension(press.hit);
       return;
     }
+    if (tool === "text") {
+      const at = snapAt(p);
+      setCursor(at);
+      askText("文字を入れる", "", 10, (text, size) => {
+        const { sketch: next, textId } = addText(data, at.spec, text, size);
+        // 面にかいていて、文字が面からはみ出すなら、入る大きさにする(名札でよくある失敗なので)
+        const fitted = fitTextToFace(next, textId);
+        commit(fitted?.sketch ?? next);
+        if (fitted) onMessage(`面からはみ出さないように、文字の大きさを ${fmt(fitted.size)} mm にして、面の真ん中に置きました`);
+        setTool("select");
+      });
+      return;
+    }
     // 描く道具: 押した点と離した点が離れていればドラッグで描いたとみなす
     const end = snapAt(p, pending.at(-1));
     const startSnap = press.moved ? snapAt(press.start) : null;
@@ -490,7 +585,8 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
   const selLines = selEnts.filter((e) => e.type === "line");
   const selPoints = selEnts.filter((e) => e.type === "point");
   const selRound = selEnts.filter((e) => e.type === "circle" || e.type === "arc");
-  const selCurves = selEnts.filter((e) => e.type !== "point");
+  const selCurves = selEnts.filter(isCurve);
+  const selText = selEnts.length === 1 && selEnts[0].type === "text" ? selEnts[0] : null;
   const selConstraints = selection.filter((id) => sketch.constraints.some((c) => c.id === id));
 
   const apply = (cs: SketchConstraint[]) => {
@@ -523,7 +619,7 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
     {
       key: "coincident",
       label: term("coincident", pro),
-      enabled: selEnts.length === 2 && selPoints.length >= 1,
+      enabled: selEnts.length === 2 && selPoints.length >= 1 && selEnts.every((e) => e.type !== "text"),
       run: () => {
         const [a, b] = selEnts;
         const [pt, other] = a.type === "point" ? [a, b] : [b, a];
@@ -631,18 +727,18 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
         const a = S(pos.get(l.p1)!);
         const b = S(pos.get(l.p2)!);
         const n = normal(a, b);
-        return { at: [(a[0] + b[0]) / 2 + n[0] * 22, (a[1] + b[1]) / 2 + n[1] * 22], text: fmt(c.value) };
+        return { at: [(a[0] + b[0]) / 2 + n[0] * 22, (a[1] + b[1]) / 2 + n[1] * 22], text: withExpr(c, fmt(c.value)) };
       }
       case "distance": {
         const a = S(pos.get(c.a)!);
         const b = S(pos.get(c.b)!);
-        return { at: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - 14], text: fmt(c.value), line: [a, b] };
+        return { at: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - 14], text: withExpr(c, fmt(c.value)), line: [a, b] };
       }
       case "diameter": {
         const e = ents.get(c.circle);
         if (e?.type !== "circle" && e?.type !== "arc") return null;
         const cc = S(pos.get(e.c)!);
-        return { at: [cc[0] + e.r * vp.scale * 0.7, cc[1] - e.r * vp.scale * 0.7 - 12], text: `⌀${fmt(c.value)}` };
+        return { at: [cc[0] + e.r * vp.scale * 0.7, cc[1] - e.r * vp.scale * 0.7 - 12], text: withExpr(c, `⌀${fmt(c.value)}`) };
       }
       case "angle": {
         const la = ents.get(c.a);
@@ -650,7 +746,7 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
         if (la?.type !== "line" || lb?.type !== "line") return null;
         const ma = mid(S(pos.get(la.p1)!), S(pos.get(la.p2)!));
         const mb = mid(S(pos.get(lb.p1)!), S(pos.get(lb.p2)!));
-        return { at: mid(ma, mb), text: `${fmt(Math.abs(c.value))}°` };
+        return { at: mid(ma, mb), text: withExpr(c, `${fmt(Math.abs(c.value))}°`) };
       }
       default:
         return null;
@@ -741,6 +837,8 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
       : status.dof === 0
         ? `🔒 ${term("fullyDefined", pro)}`
         : `このままでも立体にできます(あと ${status.dof} つ寸法か${term("constraint", pro)}を入れると、形が動かなくなります)`;
+
+  const overflowText = sketch.entities.find((e): e is Extract<SketchEntity, { type: "text" }> => e.type === "text" && overflows(e)) ?? null;
 
   const hint = guide ?? (pending.length > 0 ? nextStepHint(tool, pending.length) : null) ?? TOOLS.find((t) => t.tool === tool)!.hint;
 
@@ -846,6 +944,15 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
               return <circle key={e.id} data-id={e.id} cx={c[0]} cy={c[1]} r={e.r * vp.scale} className={cls} stroke={stroke} />;
             }
             if (e.type === "arc") return <path key={e.id} data-id={e.id} d={arcPath(vp, pos.get(e.c)!, e.r, e.a0, e.a1)} className={cls} stroke={stroke} />;
+            if (e.type === "text" && pos.has(e.p)) {
+              // 3D と同じフォントで、左下(ベースライン)を位置の点にそろえて表示する
+              const at = S(pos.get(e.p)!);
+              return (
+                <text key={e.id} data-id={e.id} x={at[0]} y={at[1]} className="sk-text" fill={stroke} fontSize={e.size * vp.scale} data-testid="sketch-text">
+                  {e.text}
+                </text>
+              );
+            }
             return null;
           })}
 
@@ -867,7 +974,7 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
           {sketch.constraints.map((c) => {
             const d = dimLabel(c);
             if (!d) return null;
-            const w = d.text.length * 9 + 16;
+            const w = [...d.text].reduce((n, ch) => n + (ch.charCodeAt(0) < 128 ? 9 : 15), 16);
             labels.push({ id: c.id, x: d.at[0], y: d.at[1], w, h: 26 });
             const sel = selection.includes(c.id);
             return (
@@ -919,6 +1026,21 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
             {dofText}
           </span>
           {profiles.openChains > 0 && <span className="sk-warn">閉じていない線があります</span>}
+          {overflowText && (
+            <span className="sk-warn" data-testid="text-overflow">
+              文字が面からはみ出しています
+              <button
+                type="button"
+                data-testid="text-fit"
+                onClick={() => {
+                  const fitted = fitTextToFace(data, overflowText.id);
+                  if (fitted) onEdit(fitted.sketch, data);
+                }}
+              >
+                面に入れる
+              </button>
+            </span>
+          )}
           <span className="sk-scale" data-testid="sketch-scale">
             1マス = {fmt(step)} mm
           </span>
@@ -941,6 +1063,20 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
               {b.label}
             </button>
           ))}
+          {selText && (
+            <button
+              type="button"
+              data-testid="text-edit"
+              onClick={() =>
+                askText("文字をなおす", selText.text, selText.size, (text, size) => {
+                  onEdit(updateText(data, selText.id, { text, size }), data);
+                  setSelection([]);
+                })
+              }
+            >
+              文字をなおす
+            </button>
+          )}
           <button type="button" disabled={selCurves.length === 0} onClick={() => onEdit(toggleConstruction(data, selection), data)}>
             {term("construction", pro)}
           </button>
@@ -950,12 +1086,15 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
         </div>
       )}
 
-      {numpad && <NumberPad title={numpad.title} unit={numpad.unit} initial={numpad.initial} allowZero={numpad.allowZero} onSubmit={numpad.submit} onCancel={() => { setNumpad(null); setDimPick([]); }} />}
+      {textDialog && <TextDialog title={textDialog.title} initialText={textDialog.text} initialSize={textDialog.size} onSubmit={textDialog.submit} onCancel={() => setTextDialog(null)} />}
+      {numpad && <NumberPad title={numpad.title} unit={numpad.unit} initial={numpad.initial} initialExpr={numpad.initialExpr} variables={variables} allowZero={numpad.allowZero} onSubmit={numpad.submit} onCancel={() => { setNumpad(null); setDimPick([]); }} />}
     </div>
   );
 }
 
 const NO_REFS = new Float32Array(0);
+/** 変数を使っている寸法は「幅=40」のように式も見せる */
+const withExpr = (c: SketchConstraint, text: string) => ("expr" in c && c.expr ? `${c.expr}=${text}` : text);
 /** 点 p を中心 c のまわりに a だけ回した点 */
 const rotate = (c: Vec2, p: Vec2, a: number): Vec2 => [
   c[0] + (p[0] - c[0]) * Math.cos(a) - (p[1] - c[1]) * Math.sin(a),

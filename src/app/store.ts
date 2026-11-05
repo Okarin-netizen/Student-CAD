@@ -9,24 +9,32 @@ import {
   type ExtrudeFeature,
   type Feature,
   type FilletFeature,
+  type MirrorFeature,
+  type PatternFeature,
   type RevolveFeature,
+  type Variable,
   type Id,
   type PlaneRef,
   type SketchFeature,
 } from "../doc/types";
 import type { RebuildReply } from "../worker/cad.worker";
 import type { SketchData } from "../sketch/edit";
+import { applyVariables, forgetName, renameInDoc } from "../doc/variables";
 
 export type Mode =
   | { kind: "model" }
   /** スケッチを描く平面を選んでいるところ */
   | { kind: "pickPlane" }
   | { kind: "sketch"; isNew: boolean }
-  /** 押し出し・回転・角を丸めるの設定中 */
+  /** 押し出し・回転・角を丸める・対称・ならべるの設定中 */
   | { kind: "op"; isNew: boolean };
 
 /** スケッチ以外の作業 */
-export type OpFeature = ExtrudeFeature | RevolveFeature | FilletFeature;
+export type OpFeature = ExtrudeFeature | RevolveFeature | FilletFeature | MirrorFeature | PatternFeature;
+
+/** ミラー・パターンで写せる作業(形を作った作業) */
+export const COPYABLE_TYPES = ["extrude", "revolve", "mirror", "pattern"] as const;
+export const isCopyable = (f: Feature) => (COPYABLE_TYPES as readonly string[]).includes(f.type);
 
 export interface State {
   doc: CadDocument;
@@ -246,6 +254,39 @@ export function startFillet(kind: FilletFeature["kind"] = "fillet") {
   startOp({ id: newId("fl"), type: "fillet", name: nextName(kind === "fillet" ? "丸め" : "面取り", names()), kind, radius: 2, edges: [] });
 }
 
+/** 対称にする。ふつうは立体全体を、右の面(左右の真ん中)で写す */
+export function startMirror() {
+  if (!state.result?.mesh) {
+    toast("先に立体を作ってください", "error");
+    return;
+  }
+  startOp({ id: newId("mi"), type: "mirror", name: nextName("ミラー", names()), source: "body", plane: "right" });
+}
+
+/** ならべる。ふつうは一番最後に形を作った作業(穴など)をならべる */
+export function startPattern() {
+  const last = [...state.doc.features].reverse().find(isCopyable);
+  if (!last) {
+    toast("先に押し出しや回転で形を作ってください", "error");
+    return;
+  }
+  startOp({
+    id: newId("pt"),
+    type: "pattern",
+    name: nextName("パターン", names()),
+    source: last.id,
+    kind: "linear",
+    axis: "x",
+    flip: false,
+    count: 3,
+    spacing: 10,
+    angle: 360,
+    axis2: "y",
+    count2: 1,
+    spacing2: 10,
+  });
+}
+
 export function updateOp(patch: Partial<OpFeature>) {
   if (!state.draftOp) return;
   setState({ draftOp: { ...state.draftOp, ...patch } as OpFeature });
@@ -276,9 +317,18 @@ export function editFeature(id: Id) {
   }
 }
 
-/** 消すと一緒に消える作業(スケッチを使っている押し出しなど) */
+/** 消すと一緒に消える作業(スケッチを使っている押し出し、それをならべたパターンなど) */
 export function dependents(doc: CadDocument, id: Id): Feature[] {
-  return doc.features.filter((f) => (f.type === "extrude" || f.type === "revolve") && f.sketchId === id);
+  const gone = new Set([id]);
+  const out: Feature[] = [];
+  for (const f of doc.features) {
+    const uses = (f.type === "extrude" || f.type === "revolve") ? f.sketchId : f.type === "mirror" || f.type === "pattern" ? f.source : null;
+    if (uses && gone.has(uses)) {
+      gone.add(f.id);
+      out.push(f);
+    }
+  }
+  return out;
 }
 
 export function deleteFeature(id: Id) {
@@ -289,6 +339,36 @@ export function deleteFeature(id: Id) {
 
 export function renameDoc(name: string) {
   commitDoc({ ...state.doc, name });
+}
+
+// ---- 変数 ----
+
+/** 変数を変えたら、それを使っている寸法や作業の数も計算し直す */
+function commitVariables(doc: CadDocument) {
+  commitDoc(applyVariables(doc));
+}
+
+export function addVariable(name: string, expr: string) {
+  const v: Variable = { id: newId("v"), name, expr, value: 0 };
+  commitVariables({ ...state.doc, variables: [...(state.doc.variables ?? []), v] });
+}
+
+export function updateVariable(id: Id, patch: { name?: string; expr?: string }) {
+  const old = state.doc.variables?.find((v) => v.id === id);
+  if (!old) return;
+  let doc = state.doc;
+  // 名前を変えたら、その名前を使っている式も一緒に変える
+  if (patch.name && patch.name !== old.name) doc = renameInDoc(doc, old.name, patch.name);
+  if (patch.expr !== undefined) doc = { ...doc, variables: doc.variables!.map((v) => (v.id === id ? { ...v, expr: patch.expr! } : v)) };
+  commitVariables(doc);
+}
+
+/** 変数を消す。それを使っていた寸法などは、いまの数のまま残す */
+export function deleteVariable(id: Id) {
+  const v = state.doc.variables?.find((x) => x.id === id);
+  if (!v) return;
+  const doc = forgetName({ ...state.doc, variables: state.doc.variables!.filter((x) => x.id !== id) }, v.name);
+  commitVariables(doc);
 }
 
 /** 画面に出す設計図(編集中の作業を差し込んだもの) */

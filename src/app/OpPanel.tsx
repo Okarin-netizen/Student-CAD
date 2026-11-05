@@ -1,10 +1,19 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 技術科　岡田
 
-import { useState } from "react";
-import type { CadDocument, ExtrudeOperation, RevolveAxis, SketchFeature } from "../doc/types";
-import { NumberPad } from "./NumberPad";
-import type { OpFeature } from "./store";
+import { useState, type ReactNode } from "react";
+import type {
+  BasePlaneName,
+  CadDocument,
+  ExtrudeOperation,
+  MirrorFeature,
+  PatternFeature,
+  RevolveAxis,
+  SketchFeature,
+  WorldAxis,
+} from "../doc/types";
+import { NumberPad, type PadVariable } from "./NumberPad";
+import { isCopyable, type OpFeature } from "./store";
 import { term } from "./terms";
 
 interface Props {
@@ -12,27 +21,88 @@ interface Props {
   draft: OpFeature;
   pro: boolean;
   error?: string;
+  /** できたが知らせたいこと */
+  warning?: string;
   busy: boolean;
   /** 角を丸めるとき、できあがりを見せているか */
   preview: boolean;
+  /** 数の欄に使える変数 */
+  variables: PadVariable[];
   onPreview: (on: boolean) => void;
   onChange: (patch: Partial<OpFeature>) => void;
   onOk: () => void;
   onCancel: () => void;
 }
 
-type Pad = { title: string; unit: string; initial: number; allowZero?: boolean; submit: (v: number) => void };
+/** 数の欄の設定。field は作業の中の数の名前(distance など)で、変数の式もこの名前で覚える */
+interface StepperSpec {
+  label: string;
+  field: string;
+  unit: string;
+  step: number;
+  min: number;
+  max: number;
+  testid: string;
+  /** 整数だけ(数など) */
+  integer?: boolean;
+}
 
-/** 押し出し・回転・角を丸めるの設定パネル。変えるとすぐ 3D に反映される */
-export function OpPanel({ doc, draft, pro, error, busy, preview, onPreview, onChange, onOk, onCancel }: Props) {
+type Pad = { spec: StepperSpec; value: number; expr?: string };
+
+const AXIS_LABELS: Record<WorldAxis, string> = {
+  x: "横(X・赤の向き)",
+  y: "奥行き(Y・緑の向き)",
+  z: "高さ(Z・青の向き)",
+};
+
+const MIRROR_PLANES: { plane: BasePlaneName; label: string }[] = [
+  { plane: "right", label: "左右に写す(右の面が鏡)" },
+  { plane: "front", label: "前後に写す(正面が鏡)" },
+  { plane: "top", label: "上下に写す(上の面が鏡)" },
+];
+
+/** 押し出し・回転・角を丸める・対称・ならべるの設定パネル。変えるとすぐ 3D に反映される */
+export function OpPanel({ doc, draft, pro, error, warning, busy, preview, variables, onPreview, onChange, onOk, onCancel }: Props) {
   const [pad, setPad] = useState<Pad | null>(null);
   const idx = doc.features.findIndex((f) => f.id === draft.id);
-  // 自分より前にあるスケッチだけ使える
-  const sketches = doc.features.filter((f, i): f is SketchFeature => f.type === "sketch" && (idx < 0 || i < idx));
+  const before = doc.features.slice(0, idx < 0 ? undefined : idx);
+  // 自分より前にあるスケッチと、形を作った作業だけ使える
+  const sketches = before.filter((f): f is SketchFeature => f.type === "sketch");
+  const copyable = before.filter(isCopyable);
   // まだ立体がないときは「くっつける / けずる」は聞かない(けずるものがないので)
-  const hasBodyBefore = doc.features.slice(0, idx < 0 ? undefined : idx).some((f) => f.type === "extrude" || f.type === "revolve");
-  const title =
-    draft.type === "extrude" ? term("extrude", pro) : draft.type === "revolve" ? term("revolve", pro) : term(draft.kind, pro);
+  const hasBodyBefore = before.some((f) => f.type === "extrude" || f.type === "revolve");
+  const title = panelTitle(draft, pro);
+
+  /** 数を変える。変数の式は、式で入れたときだけ残す(−・＋ボタンで変えたら外す) */
+  const setNumber = (field: string, value: number, expr?: string) => {
+    const exprs = { ...(draft.exprs ?? {}) };
+    if (expr) exprs[field] = expr;
+    else delete exprs[field];
+    onChange({ [field]: value, exprs } as Partial<OpFeature>);
+  };
+
+  const stepper = (spec: StepperSpec): ReactNode => {
+    const value = (draft as unknown as Record<string, number>)[spec.field];
+    const expr = draft.exprs?.[spec.field];
+    const clamp = (v: number) => Math.min(spec.max, Math.max(spec.min, spec.integer ? Math.round(v) : Math.round(v * 100) / 100));
+    return (
+      <div className="field">
+        <span>{spec.label}</span>
+        <div className="stepper">
+          <button type="button" aria-label={`${spec.label}を小さく`} onClick={() => setNumber(spec.field, clamp(value - spec.step))}>
+            −
+          </button>
+          <button type="button" className="stepper-value" data-testid={spec.testid} onClick={() => setPad({ spec, value, expr })}>
+            {expr ? `${expr} = ` : ""}
+            {value} {spec.unit}
+          </button>
+          <button type="button" aria-label={`${spec.label}を大きく`} onClick={() => setNumber(spec.field, clamp(value + spec.step))}>
+            ＋
+          </button>
+        </div>
+      </div>
+    );
+  };
 
   const sketchSelect = (sketchId: string) => (
     <label className="field">
@@ -47,49 +117,15 @@ export function OpPanel({ doc, draft, pro, error, busy, preview, onPreview, onCh
     </label>
   );
 
-  const stepper = (label: string, value: number, unit: string, step: number, min: number, max: number, set: (v: number) => void, testid: string, allowZero = false) => (
-    <div className="field">
-      <span>{label}</span>
-      <div className="stepper">
-        <button type="button" aria-label={`${label}を小さく`} onClick={() => set(Math.max(min, Math.round((value - step) * 100) / 100))}>
-          −
-        </button>
-        <button
-          type="button"
-          className="stepper-value"
-          data-testid={testid}
-          onClick={() => setPad({ title: `${label}を入れる`, unit, initial: value, allowZero, submit: (v) => set(Math.min(max, v)) })}
-        >
-          {value} {unit}
-        </button>
-        <button type="button" aria-label={`${label}を大きく`} onClick={() => set(Math.min(max, Math.round((value + step) * 100) / 100))}>
-          ＋
-        </button>
-      </div>
-    </div>
-  );
-
-  const operation = (op: ExtrudeOperation) => (!hasBodyBefore && op === "add" ? null : (
-    <div className="field">
-      <span>どうする?</span>
-      <div className="segmented" role="radiogroup">
-        {(["add", "cut"] as const).map((o) => (
-          <button
-            key={o}
-            type="button"
-            role="radio"
-            aria-checked={op === o}
-            className={op === o ? "active" : ""}
-            data-testid={`op-${o}`}
-            onClick={() => onChange({ operation: o })}
-          >
-            {o === "add" ? "🧊 " : "🕳️ "}
-            {term(o, pro)}
-          </button>
-        ))}
-      </div>
-    </div>
-  ));
+  const operation = (op: ExtrudeOperation) =>
+    !hasBodyBefore && op === "add" ? null : (
+      <Segmented
+        label="どうする?"
+        value={op}
+        options={(["add", "cut"] as const).map((o) => ({ value: o, label: `${o === "add" ? "🧊" : "🕳️"} ${term(o, pro)}`, testid: `op-${o}` }))}
+        onChange={(o) => onChange({ operation: o })}
+      />
+    );
 
   const flip = (label: string) => (
     <button type="button" className="wide" onClick={() => "flip" in draft && onChange({ flip: !draft.flip })} data-testid="op-flip">
@@ -104,7 +140,7 @@ export function OpPanel({ doc, draft, pro, error, busy, preview, onPreview, onCh
       {draft.type === "extrude" && (
         <>
           {sketchSelect(draft.sketchId)}
-          {stepper("あつさ", draft.distance, "mm", 1, 0.5, 10000, (v) => onChange({ distance: v }), "op-distance")}
+          {stepper({ label: "あつさ", field: "distance", unit: "mm", step: 1, min: 0.5, max: 10000, testid: "op-distance" })}
           {operation(draft.operation)}
           {flip("向きを反対にする")}
         </>
@@ -114,7 +150,7 @@ export function OpPanel({ doc, draft, pro, error, busy, preview, onPreview, onCh
         <>
           {sketchSelect(draft.sketchId)}
           <AxisSelect sketch={sketches.find((s) => s.id === draft.sketchId)} axis={draft.axis} pro={pro} onChange={(axis) => onChange({ axis })} />
-          {stepper("回す角度", draft.angle, "°", 15, 1, 360, (v) => onChange({ angle: v }), "op-angle")}
+          {stepper({ label: "回す角度", field: "angle", unit: "°", step: 15, min: 1, max: 360, testid: "op-angle" })}
           {operation(draft.operation)}
           {draft.angle < 360 && flip("回す向きを反対にする")}
         </>
@@ -122,23 +158,12 @@ export function OpPanel({ doc, draft, pro, error, busy, preview, onPreview, onCh
 
       {draft.type === "fillet" && (
         <>
-          <div className="segmented" role="radiogroup">
-            {(["fillet", "chamfer"] as const).map((k) => (
-              <button
-                key={k}
-                type="button"
-                role="radio"
-                aria-checked={draft.kind === k}
-                className={draft.kind === k ? "active" : ""}
-                data-testid={`op-${k}`}
-                onClick={() => onChange({ kind: k })}
-              >
-                {k === "fillet" ? "◜ " : "◸ "}
-                {term(k, pro)}
-              </button>
-            ))}
-          </div>
-          {stepper(draft.kind === "fillet" ? "丸める大きさ(半径)" : "落とす大きさ", draft.radius, "mm", 0.5, 0.1, 1000, (v) => onChange({ radius: v }), "op-radius")}
+          <Segmented
+            value={draft.kind}
+            options={(["fillet", "chamfer"] as const).map((k) => ({ value: k, label: `${k === "fillet" ? "◜" : "◸"} ${term(k, pro)}`, testid: `op-${k}` }))}
+            onChange={(k) => onChange({ kind: k })}
+          />
+          {stepper({ label: draft.kind === "fillet" ? "丸める大きさ(半径)" : "落とす大きさ", field: "radius", unit: "mm", step: 0.5, min: 0.1, max: 1000, testid: "op-radius" })}
           <p className={draft.edges.length ? "op-edges" : "plane-hint"} data-testid="op-edges">
             {draft.edges.length === 0 ? "👆 3D の辺(線)をタップしてえらびます。もう一度タップするとはずせます" : `えらんだ辺: ${draft.edges.length} 本`}
           </p>
@@ -155,9 +180,39 @@ export function OpPanel({ doc, draft, pro, error, busy, preview, onPreview, onCh
         </>
       )}
 
+      {draft.type === "mirror" && <MirrorFields draft={draft} copyable={copyable} onChange={onChange} />}
+
+      {draft.type === "pattern" && (
+        <>
+          <SourceSelect label="ならべるもの" value={draft.source} options={copyable} onChange={(source) => onChange({ source })} />
+          <Segmented
+            label="ならべ方"
+            value={draft.kind}
+            options={(["linear", "circular"] as const).map((k) => ({ value: k, label: `${k === "linear" ? "⋯" : "⟳"} ${term(k, pro)}`, testid: `op-${k}` }))}
+            onChange={(kind) => onChange({ kind })}
+          />
+          <AxisPick label={draft.kind === "linear" ? "ならべる向き" : "回す軸(原点を通る)"} value={draft.axis} onChange={(axis) => onChange({ axis })} testid="op-axis" />
+          {stepper({ label: "いくつにする?(元のものもふくむ)", field: "count", unit: "こ", step: 1, min: 2, max: 100, testid: "op-count", integer: true })}
+          {draft.kind === "linear" ? (
+            <>
+              {stepper({ label: "となりとの間かく", field: "spacing", unit: "mm", step: 1, min: 0.5, max: 10000, testid: "op-spacing" })}
+              {flip("向きを反対にする")}
+              <LinearSecond draft={draft} onChange={onChange} stepper={stepper} />
+            </>
+          ) : (
+            stepper({ label: "全体の角度(360° なら一周に同じ間かく)", field: "angle", unit: "°", step: 15, min: 1, max: 360, testid: "op-angle" })
+          )}
+        </>
+      )}
+
       {error && (
         <p className="panel-error" data-testid="op-error">
           {error}
+        </p>
+      )}
+      {!error && warning && (
+        <p className="panel-warning" data-testid="op-warning">
+          {warning}
         </p>
       )}
 
@@ -172,12 +227,14 @@ export function OpPanel({ doc, draft, pro, error, busy, preview, onPreview, onCh
 
       {pad && (
         <NumberPad
-          title={pad.title}
-          unit={pad.unit}
-          initial={pad.initial}
-          allowZero={pad.allowZero}
-          onSubmit={(v) => {
-            pad.submit(v);
+          title={`${pad.spec.label}を入れる`}
+          unit={pad.spec.unit}
+          initial={pad.value}
+          initialExpr={pad.expr}
+          variables={variables}
+          onSubmit={(v, expr) => {
+            const value = Math.min(pad.spec.max, pad.spec.integer ? Math.round(v) : v);
+            setNumber(pad.spec.field, value, expr);
             setPad(null);
           }}
           onCancel={() => setPad(null)}
@@ -186,6 +243,150 @@ export function OpPanel({ doc, draft, pro, error, busy, preview, onPreview, onCh
     </div>
   );
 }
+
+function panelTitle(draft: OpFeature, pro: boolean): string {
+  switch (draft.type) {
+    case "extrude":
+      return term("extrude", pro);
+    case "revolve":
+      return term("revolve", pro);
+    case "fillet":
+      return term(draft.kind, pro);
+    case "mirror":
+      return term("mirror", pro);
+    case "pattern":
+      return term("pattern", pro);
+  }
+}
+
+// ---- 小さな部品 ----
+
+interface SegmentedProps<T extends string> {
+  label?: string;
+  value: T;
+  options: { value: T; label: string; testid?: string }[];
+  onChange: (v: T) => void;
+}
+
+/** ボタンをならべて1つをえらぶ */
+function Segmented<T extends string>({ label, value, options, onChange }: SegmentedProps<T>) {
+  const buttons = (
+    <div className="segmented" role="radiogroup" aria-label={label}>
+      {options.map((o) => (
+        <button key={o.value} type="button" role="radio" aria-checked={value === o.value} className={value === o.value ? "active" : ""} data-testid={o.testid} onClick={() => onChange(o.value)}>
+          {o.label}
+        </button>
+      ))}
+    </div>
+  );
+  if (!label) return buttons;
+  return (
+    <div className="field">
+      <span>{label}</span>
+      {buttons}
+    </div>
+  );
+}
+
+interface SourceSelectProps {
+  label: string;
+  value: string;
+  options: CadDocument["features"];
+  onChange: (v: string) => void;
+  /** 「立体ぜんぶ」をえらべるようにする(対称のとき) */
+  includeBody?: boolean;
+}
+
+function SourceSelect({ label, value, options, onChange, includeBody }: SourceSelectProps) {
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <select value={value} onChange={(e) => onChange(e.target.value)} data-testid="op-source">
+        {includeBody && <option value="body">立体ぜんぶ</option>}
+        {options.map((f) => (
+          <option key={f.id} value={f.id}>
+            {f.name}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function AxisPick({ label, value, onChange, testid }: { label: string; value: WorldAxis; onChange: (a: WorldAxis) => void; testid: string }) {
+  return (
+    <label className="field">
+      <span>{label}</span>
+      <select value={value} onChange={(e) => onChange(e.target.value as WorldAxis)} data-testid={testid}>
+        {(Object.keys(AXIS_LABELS) as WorldAxis[]).map((a) => (
+          <option key={a} value={a}>
+            {AXIS_LABELS[a]}
+          </option>
+        ))}
+      </select>
+    </label>
+  );
+}
+
+function MirrorFields({ draft, copyable, onChange }: { draft: MirrorFeature; copyable: CadDocument["features"]; onChange: (p: Partial<MirrorFeature>) => void }) {
+  return (
+    <>
+      <SourceSelect label="何を写す?" value={draft.source} options={copyable} includeBody onChange={(source) => onChange({ source })} />
+      <div className="field">
+        <span>鏡にする面(原点を通る)</span>
+        <div className="segmented vertical" role="radiogroup">
+          {MIRROR_PLANES.map((m) => (
+            <button
+              key={m.plane}
+              type="button"
+              role="radio"
+              aria-checked={draft.plane === m.plane}
+              className={draft.plane === m.plane ? "active" : ""}
+              data-testid={`op-plane-${m.plane}`}
+              onClick={() => onChange({ plane: m.plane })}
+            >
+              {m.label}
+            </button>
+          ))}
+        </div>
+      </div>
+      <p className="plane-hint">💡 形の真ん中を原点にしてかいておくと、きれいに対称になります</p>
+    </>
+  );
+}
+
+interface LinearSecondProps {
+  draft: PatternFeature;
+  onChange: (p: Partial<PatternFeature>) => void;
+  stepper: (s: StepperSpec) => ReactNode;
+}
+
+/** まっすぐならべるときの、2つ目の向き(格子のようにならべる) */
+function LinearSecond({ draft, onChange, stepper }: LinearSecondProps) {
+  const on = draft.count2 > 1;
+  return (
+    <>
+      <label className="check">
+        <input
+          type="checkbox"
+          checked={on}
+          onChange={(e) => onChange({ count2: e.target.checked ? 2 : 1, axis2: draft.axis2 === draft.axis ? nextAxis(draft.axis) : draft.axis2 })}
+          data-testid="op-second"
+        />
+        もう1つの向きにもならべる(格子のように)
+      </label>
+      {on && (
+        <>
+          <AxisPick label="2つ目の向き" value={draft.axis2} onChange={(axis2) => onChange({ axis2 })} testid="op-axis2" />
+          {stepper({ label: "2つ目の向きの数", field: "count2", unit: "こ", step: 1, min: 1, max: 100, testid: "op-count2", integer: true })}
+          {stepper({ label: "2つ目の向きの間かく", field: "spacing2", unit: "mm", step: 1, min: 0.5, max: 10000, testid: "op-spacing2" })}
+        </>
+      )}
+    </>
+  );
+}
+
+const nextAxis = (a: WorldAxis): WorldAxis => (a === "x" ? "y" : a === "y" ? "z" : "x");
 
 function AxisSelect({ sketch, axis, pro, onChange }: { sketch?: SketchFeature; axis: RevolveAxis; pro: boolean; onChange: (a: RevolveAxis) => void }) {
   const lines = (sketch?.entities ?? []).filter((e) => e.type === "line");

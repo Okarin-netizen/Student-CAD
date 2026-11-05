@@ -29,6 +29,16 @@ export function positions(entities: SketchEntity[]): Map<Id, Vec2> {
   return m;
 }
 
+/**
+ * 文字のだいたいの範囲(スケッチの座標)。全角は 1 文字 = 大きさ、半角は その 0.6 倍の幅で見積もる。
+ * 正確な形はフォントで決まるが、タップ判定や全体表示にはこれで足りる。
+ */
+export function textBox(e: Extract<SketchEntity, { type: "text" }>, at: Vec2): { min: Vec2; max: Vec2 } {
+  let w = 0;
+  for (const ch of e.text) w += /[\x20-\x7e]/.test(ch) ? 0.6 : 1;
+  return { min: [at[0], at[1] - e.size * 0.15], max: [at[0] + w * e.size, at[1] + e.size * 0.9] };
+}
+
 export function distToSegment(p: Vec2, a: Vec2, b: Vec2): number {
   const dx = b[0] - a[0];
   const dy = b[1] - a[1];
@@ -72,6 +82,11 @@ export function bounds(entities: SketchEntity[]): { min: Vec2; max: Vec2 } | nul
   };
   for (const e of entities) {
     if (e.type === "point") add([e.x, e.y]);
+    if (e.type === "text" && pos.has(e.p)) {
+      const b = textBox(e, pos.get(e.p)!);
+      add(b.min);
+      add(b.max);
+    }
     if (e.type === "circle" || e.type === "arc") {
       const c = pos.get(e.c)!;
       add([c[0] - e.r, c[1] - e.r]);
