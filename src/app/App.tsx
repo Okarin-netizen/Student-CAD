@@ -60,8 +60,7 @@ import { SubmitDialog } from "./SubmitDialog";
 import { ReplayBar } from "./ReplayBar";
 import { NewDialog } from "./NewDialog";
 import { Icon } from "./Icon";
-import { Tutorial, markTutorialSeen, tutorialSeen } from "./Tutorial";
-import { emptyDocument } from "../doc/types";
+import { TipLayer } from "./TipLayer";
 import { NumberPad, type PadVariable } from "./NumberPad";
 import "./app.css";
 
@@ -81,8 +80,6 @@ export function App() {
   /** ファイルのメニュー(新しく・ひらく・保存・課題を作る) */
   const [showFileMenu, setShowFileMenu] = useState(false);
   const [dialog, setDialog] = useState<"new" | "assignment" | "submit" | null>(null);
-  /** 使い方ガイドの手順(出していないときは null) */
-  const [tutorial, setTutorial] = useState<number | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const pro = s.proTerms;
 
@@ -102,8 +99,6 @@ export function App() {
       if (!alive) return;
       if (doc) replaceDoc(doc);
       setLoaded(true);
-      // はじめて開いたとき(作品がまだないとき)は、ガイドを出す
-      if (!tutorialSeen() && !(doc && doc.features.length > 0)) setTutorial(0);
     });
     return () => {
       alive = false;
@@ -287,25 +282,11 @@ export function App() {
     if (t.id !== "blank") toast(`課題「${t.label}」を始めました。右上の課題カードを見ながら作りましょう`);
   };
 
-  /** ガイドは白紙から始める(いまの作品に作業があると、手順の判定がずれるため) */
-  const startTutorial = () => {
-    if (s.doc.features.length > 0) {
-      if (!window.confirm("ガイドは新しい作品で始めます。いまの作品を閉じてよいですか?(残したいときは、先に「ファイルに保存」してください)")) return;
-      replaceDoc(emptyDocument());
-    }
-    setTutorial(0);
-  };
-  const closeTutorial = () => {
-    markTutorialSeen();
-    setTutorial(null);
-  };
-
   const fileMenu = (
     [
       ["file-new", "plus", "新しく", () => setDialog("new")],
       ["file-open", "open", "ひらく", () => fileRef.current?.click()],
       ["save-file", "save", "ファイルに保存", saveFile],
-      ["file-tutorial", "help", "使い方ガイド", startTutorial],
       ["file-assignment", "assignment", s.doc.assignment ? "課題をなおす(先生用)" : "課題を作る(先生用)", () => setDialog("assignment")],
     ] as const
   ).map(([id, iconName, label, run]) => (
@@ -662,7 +643,7 @@ export function App() {
         <ReplayBar features={s.doc.features} step={s.mode.step} busy={s.busy} onStep={setReplayStep} onClose={cancelMode} />
       )}
 
-      {tutorial !== null && <Tutorial state={s} step={tutorial} onStep={setTutorial} onClose={closeTutorial} />}
+      <TipLayer />
 
       {dialog === "new" && <NewDialog hasWork={s.doc.features.length > 0} onPick={startFrom} onClose={() => setDialog(null)} />}
       {dialog === "assignment" && (

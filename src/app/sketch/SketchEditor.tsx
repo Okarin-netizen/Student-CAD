@@ -856,6 +856,7 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
             className={tool === t.tool ? "tool active" : "tool"}
             aria-pressed={tool === t.tool}
             data-testid={`tool-${t.tool}`}
+            data-tip={t.hint}
             onClick={() => setTool(t.tool)}
           >
             <span className="tool-icon" aria-hidden>

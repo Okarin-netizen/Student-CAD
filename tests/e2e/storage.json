@@ -1,9 +1,4 @@
 {
   "cookies": [],
-  "origins": [
-    {
-      "origin": "http://localhost:4173",
-      "localStorage": [{ "name": "student-cad:tutorialSeen", "value": "1" }]
-    }
-  ]
+  "origins": []
 }
