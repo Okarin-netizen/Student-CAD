@@ -63,6 +63,8 @@ const CUBE_DIRS: Vec3[] = [
  * 右上のビューキューブの面をタップすると、その向きから見られる。
  */
 const HOWTO_KEY = "student-cad:howto3d";
+/** マウスで使う端末(PC)か。PC ではマウスの操作を、タブレットでは指の操作を説明する */
+const mouseFirst = typeof window !== "undefined" && window.matchMedia?.("(pointer: fine)").matches === true;
 
 /** いま見えている 3D の絵を PNG(data URL)にする。提出カードに入れる */
 let takeSnapshot: (() => string) | null = null;
@@ -394,7 +396,9 @@ export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, edgePick,
     <div className="viewer3d">
       {showHowTo && (
         <div className="howto" role="note" data-testid="howto-3d">
-          1本指でまわす ・ 2本指で動かす ・ つまんで大きくする
+          {mouseFirst
+            ? "ドラッグでまわす ・ 右ドラッグで動かす ・ ホイールで大きくする"
+            : "1本指でまわす ・ 2本指で動かす ・ つまんで大きくする"}
         </div>
       )}
       <div className="viewer3d-canvas" ref={hostRef} data-testid="viewer-3d" />
