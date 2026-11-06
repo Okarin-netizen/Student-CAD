@@ -14,8 +14,6 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:4173",
     trace: "retain-on-failure",
-    // はじめてのガイドは、ガイドのテスト以外では出さない(ボタンの上に重なるため)
-    storageState: "tests/e2e/storage.json",
   },
   webServer: {
     command: "npm run build && npx vite preview --port 4173 --strictPort",
