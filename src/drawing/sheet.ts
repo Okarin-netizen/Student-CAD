@@ -6,6 +6,7 @@
 
 import type { DrawingNotes, Vec2 } from "../doc/types";
 import type { DrawingKind, ProjectedView } from "../kernel/projection";
+import { escapeXml } from "../util/xml";
 
 export const PAPER = { width: 297, height: 210 } as const;
 
@@ -614,7 +615,6 @@ const SVG_STYLE: Record<LineStyle, string> = {
   arrow: 'stroke="#000" stroke-width="0.1" fill="#000"',
 };
 
-const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const n2 = (v: number) => String(Math.round(v * 100) / 100);
 
 /** 図面を SVG の文字列にする(大きさは実際の mm) */
@@ -633,7 +633,7 @@ export function sheetToSVG(sheet: Sheet): string {
   for (const t of sheet.texts) {
     const [x, y] = [n2(t.at[0]), n2(H - t.at[1])];
     const rot = t.rotate ? ` transform="rotate(${-t.rotate} ${x} ${y})"` : "";
-    out.push(`<text x="${x}" y="${y}" font-size="${t.size}" text-anchor="${t.anchor}"${rot}>${esc(t.text)}</text>`);
+    out.push(`<text x="${x}" y="${y}" font-size="${t.size}" text-anchor="${t.anchor}"${rot}>${escapeXml(t.text)}</text>`);
   }
   out.push("</g>", "</svg>");
   return out.join("\n");

@@ -5,6 +5,7 @@
 // 3MF は決まった名前の XML ファイルを ZIP にまとめたもの。
 
 import { makeZip } from "./zip";
+import { escapeXml } from "../util/xml";
 
 export interface TriangleMesh {
   /** xyz の並び */
@@ -40,7 +41,6 @@ export function weldMesh(mesh: TriangleMesh, precision = 1e-4): { vertices: numb
   return { vertices, triangles };
 }
 
-const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 const num = (v: number) => String(Math.round(v * 1e5) / 1e5);
 
 export function make3MF(mesh: TriangleMesh, title: string): Uint8Array {
@@ -52,9 +52,9 @@ export function make3MF(mesh: TriangleMesh, title: string): Uint8Array {
   const model = [
     '<?xml version="1.0" encoding="UTF-8"?>',
     '<model unit="millimeter" xml:lang="ja-JP" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02">',
-    `<metadata name="Title">${esc(title)}</metadata>`,
+    `<metadata name="Title">${escapeXml(title)}</metadata>`,
     '<metadata name="Application">Student-CAD</metadata>',
-    `<resources><object id="1" type="model" name="${esc(title)}"><mesh><vertices>${verts.join("")}</vertices><triangles>${tris.join("")}</triangles></mesh></object></resources>`,
+    `<resources><object id="1" type="model" name="${escapeXml(title)}"><mesh><vertices>${verts.join("")}</vertices><triangles>${tris.join("")}</triangles></mesh></object></resources>`,
     '<build><item objectid="1"/></build>',
     "</model>",
   ].join("\n");

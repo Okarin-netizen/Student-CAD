@@ -6,6 +6,7 @@
 
 import { ProjectionCamera, makeProjectedEdges, type Shape3D } from "replicad";
 import type { Vec2, Vec3 } from "../doc/types";
+import { cross3, distToSegment, dot3, normalize3 } from "../math/vec";
 
 /** 図の種類。技術・家庭科(技術分野)で習う3つ */
 export type DrawingKind = "thirdAngle" | "isometric" | "cabinet";
@@ -92,17 +93,17 @@ function cabinet(body: Shape3D, withHidden: boolean) {
 
 /** カメラの紙の右(u)と上(v)の向き(OpenCascade の gp_Ax2 と同じ決め方: 上 = 見る人の向き × 右) */
 function cameraAxes(cam: Camera): { u: Vec3; v: Vec3 } {
-  const n = normalize(cam.toViewer);
+  const n = normalize3(cam.toViewer);
   // right が toViewer と直角でないときは直角にする
-  const d = dot(cam.right, n);
-  const u = normalize([cam.right[0] - n[0] * d, cam.right[1] - n[1] * d, cam.right[2] - n[2] * d]);
-  const v: Vec3 = [n[1] * u[2] - n[2] * u[1], n[2] * u[0] - n[0] * u[2], n[0] * u[1] - n[1] * u[0]];
+  const d = dot3(cam.right, n);
+  const u = normalize3([cam.right[0] - n[0] * d, cam.right[1] - n[1] * d, cam.right[2] - n[2] * d]);
+  const v = cross3(n, u);
   return { u, v };
 }
 
 function project(body: Shape3D, cam: Camera, withHidden: boolean, findCircles = false) {
   const { u } = cameraAxes(cam);
-  const camera = new ProjectionCamera([0, 0, 0], normalize(cam.toViewer), u);
+  const camera = new ProjectionCamera([0, 0, 0], normalize3(cam.toViewer), u);
   try {
     // 円はかくれ線でも中心線を入れたいので、かくれ線をかかないときも円を探すために求める
     const { visible, hidden } = makeProjectedEdges(body, camera, withHidden || findCircles);
@@ -203,14 +204,6 @@ function coveredBy(line: Vec2[], others: Vec2[][], tol = 0.02): boolean {
   return pts.every((p) => others.some((o) => o.some((a, i) => i > 0 && distToSegment(p, o[i - 1], a) < tol)));
 }
 
-function distToSegment(p: Vec2, a: Vec2, b: Vec2): number {
-  const dx = b[0] - a[0];
-  const dy = b[1] - a[1];
-  const l2 = dx * dx + dy * dy;
-  const t = l2 === 0 ? 0 : Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / l2));
-  return Math.hypot(p[0] - a[0] - t * dx, p[1] - a[1] - t * dy);
-}
-
 /** 辺を折れ線にする。直線は両はしだけ、曲線は細かく分ける */
 function sampleEdge(e: ProjectedEdge): Vec2[] {
   const at = (t: number): Vec2 => {
@@ -223,8 +216,3 @@ function sampleEdge(e: ProjectedEdge): Vec2[] {
 }
 
 const round = (v: number) => Math.round(v * 1e4) / 1e4;
-const dot = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-const normalize = (a: Vec3): Vec3 => {
-  const l = Math.hypot(a[0], a[1], a[2]) || 1;
-  return [a[0] / l, a[1] / l, a[2] / l];
-};
