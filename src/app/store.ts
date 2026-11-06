@@ -166,11 +166,22 @@ export function replaceDoc(next: CadDocument) {
   lastActive = 0;
   // 作った人が入っていない古い作品は、この端末の人にしておく
   const m = meta ? { ...meta, author: meta.author ?? readDeviceAuthor() } : newMeta();
+  // 名前のない作品は、ファイル名や図面の題名が空にならないよう名前をつける
+  if (typeof doc.name !== "string" || !doc.name.trim()) doc.name = emptyDocument().name;
   setState({ doc, meta: m, drawing: drawing ?? emptyNotes(), past: [], future: [], mode: { kind: "model" }, draftSketch: null, draftOp: null, selectedFeature: null });
+}
+
+/**
+ * もどす/やりなおすが使える画面か。
+ * 押し出しなどの設定中・図面・再生の間は使えない(Ctrl+Z で作業が消えてしまうため。画面のボタンも同じ条件で止めている)
+ */
+export function canUseHistory(mode: Mode): boolean {
+  return mode.kind === "model" || mode.kind === "sketch";
 }
 
 export function undo() {
   const s = state;
+  if (!canUseHistory(s.mode)) return;
   if (s.mode.kind === "sketch") {
     const prev = s.sketchPast.at(-1);
     if (!prev || !s.draftSketch) return;
@@ -188,6 +199,7 @@ export function undo() {
 
 export function redo() {
   const s = state;
+  if (!canUseHistory(s.mode)) return;
   if (s.mode.kind === "sketch") {
     const next = s.sketchFuture.at(-1);
     if (!next || !s.draftSketch) return;

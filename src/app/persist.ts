@@ -48,8 +48,28 @@ export async function saveDoc(doc: CadDocument): Promise<boolean> {
   }
 }
 
+/** 作業の種類ごとに、なくてはならない一覧(これがないと形の計算や画面がこわれる) */
+const REQUIRED_LISTS: Record<string, string[]> = {
+  sketch: ["entities", "constraints"],
+  fillet: ["edges"],
+  loft: ["sketchIds"],
+  shell: ["faces"],
+};
+
+/**
+ * Student CAD の作品ファイルか。
+ * こわれたファイル(途中で切れた・手でなおした など)を開いて画面が止まらないよう、作業の形も確かめる。
+ */
 export function isDoc(v: unknown): v is CadDocument {
-  return !!v && typeof v === "object" && (v as CadDocument).format === "student-cad" && Array.isArray((v as CadDocument).features);
+  if (!v || typeof v !== "object") return false;
+  const d = v as CadDocument;
+  if (d.format !== "student-cad" || !Array.isArray(d.features)) return false;
+  if (d.variables !== undefined && !Array.isArray(d.variables)) return false;
+  return d.features.every((f) => {
+    if (!f || typeof f !== "object" || typeof f.id !== "string" || typeof f.type !== "string") return false;
+    const lists = REQUIRED_LISTS[f.type] ?? [];
+    return lists.every((k) => Array.isArray((f as unknown as Record<string, unknown>)[k]));
+  });
 }
 
 export function downloadFile(data: BlobPart, name: string, type: string) {

@@ -17,10 +17,12 @@ async function start() {
       </StrictMode>,
     );
   } else {
-    const { App } = await import("./app/App");
+    const [{ App }, { ErrorScreen }] = await Promise.all([import("./app/App"), import("./app/ErrorScreen")]);
     root.render(
       <StrictMode>
-        <App />
+        <ErrorScreen>
+          <App />
+        </ErrorScreen>
       </StrictMode>,
     );
   }

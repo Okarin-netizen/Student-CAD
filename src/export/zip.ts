@@ -24,9 +24,22 @@ export interface ZipEntry {
   data: Uint8Array;
 }
 
+/**
+ * ZIP に入れる日時(MS-DOS の形式)。
+ * 0 のままだと「1980年0月0日」というありえない日付になり、Windows などで日付がおかしく見えるので、作った日時を入れる。
+ */
+export function dosDateTime(d: Date): { date: number; time: number } {
+  const year = Math.min(Math.max(d.getFullYear(), 1980), 2107);
+  return {
+    date: ((year - 1980) << 9) | ((d.getMonth() + 1) << 5) | d.getDate(),
+    time: (d.getHours() << 11) | (d.getMinutes() << 5) | Math.floor(d.getSeconds() / 2),
+  };
+}
+
 /** ファイルの一覧から ZIP を作る */
-export function makeZip(entries: ZipEntry[]): Uint8Array {
+export function makeZip(entries: ZipEntry[], when: Date = new Date()): Uint8Array {
   const enc = new TextEncoder();
+  const { date, time } = dosDateTime(when);
   const locals: Uint8Array[] = [];
   const centrals: Uint8Array[] = [];
   let offset = 0;
@@ -39,6 +52,8 @@ export function makeZip(entries: ZipEntry[]): Uint8Array {
     lv.setUint16(4, 20, true); // 必要なバージョン
     lv.setUint16(6, 0x0800, true); // 名前は UTF-8
     lv.setUint16(8, 0, true); // 圧縮なし
+    lv.setUint16(10, time, true); // 時刻
+    lv.setUint16(12, date, true); // 日付
     lv.setUint32(14, crc, true);
     lv.setUint32(18, e.data.length, true);
     lv.setUint32(22, e.data.length, true);
@@ -52,6 +67,8 @@ export function makeZip(entries: ZipEntry[]): Uint8Array {
     cv.setUint16(4, 20, true);
     cv.setUint16(6, 20, true);
     cv.setUint16(8, 0x0800, true);
+    cv.setUint16(12, time, true);
+    cv.setUint16(14, date, true);
     cv.setUint32(16, crc, true);
     cv.setUint32(20, e.data.length, true);
     cv.setUint32(24, e.data.length, true);

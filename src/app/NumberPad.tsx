@@ -34,7 +34,9 @@ export function NumberPad({ title, unit, initial, initialExpr, onSubmit, onCance
   const inputRef = useRef<HTMLInputElement>(null);
   const vars = Object.fromEntries(variables.map((v) => [v.name, v.value]));
   const normalized = text.replace(/−/g, "-").replace(/＋/g, "+").trim();
-  const value = evaluate(normalized, vars);
+  const raw = evaluate(normalized, vars);
+  // 0.001 mm より細かい数は丸める。丸めたあとの数で確かめる(0.0001 が 0 になって通ってしまわないように)
+  const value = raw == null ? null : Math.round(raw * 1000) / 1000;
   const usesVariable = namesIn(normalized).length > 0;
   const valid = value != null && (allowZero ? value >= 0 : value > 0);
 
@@ -51,7 +53,7 @@ export function NumberPad({ title, unit, initial, initialExpr, onSubmit, onCance
     setFresh(false);
   };
   const submit = () => {
-    if (valid) onSubmit(Math.round(value! * 1000) / 1000, usesVariable ? normalized : undefined);
+    if (valid) onSubmit(value!, usesVariable ? normalized : undefined);
   };
   /** 変数の名前は、いまの式の後ろに足す(はじめての入力なら置きかえる) */
   const insertName = (name: string) => {

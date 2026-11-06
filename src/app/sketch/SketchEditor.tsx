@@ -305,6 +305,9 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
     onEdit(r.ok ? r.sketch : next, data);
   };
 
+  /** 2つのタップが画面の上でほとんど同じ所(4px より近い)か */
+  const tooClose = (a: Snap, b: Snap) => dist(a.xy, b.xy) * vp.scale < 4;
+
   const placePoint = (snap: Snap, wasDrag: Snap | null) => {
     const pts = wasDrag && pending.length === 0 ? [wasDrag, snap] : [...pending, snap];
     switch (tool) {
@@ -327,16 +330,22 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
       }
       case "circle": {
         if (pts.length < 2) return setPending(pts);
+        // 中心と同じ所をもう一度タップしたときは、大きさ0の円を作らずに、次のタップを待つ
+        if (tooClose(pts[0], pts[1])) return setPending([pts[0]]);
         commit(addCircle(data, pts[0].spec, dist(pts[0].xy, pts[1].xy)));
         return setPending([]);
       }
       case "polygon": {
         if (pts.length < 2) return setPending(pts);
+        if (tooClose(pts[0], pts[1])) return setPending([pts[0]]);
         commit(addPolygon(data, pts[0].spec, pts[1].xy, sides));
         return setPending([]);
       }
       case "arc": {
         if (pts.length < 3) return setPending(pts);
+        // 始まり・終わりが中心と同じ所だと、半径や向きが決まらない
+        if (tooClose(pts[0], pts[1])) return setPending([pts[0]]);
+        if (tooClose(pts[0], pts[2])) return setPending(pts.slice(0, 2));
         commit(addArc(data, pts[0].spec, pts[1].spec, pts[2].xy));
         return setPending([]);
       }
@@ -459,6 +468,15 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
 
   // ---- 指・マウスの操作 ----
 
+  /**
+   * えらぶ道具で点・線・文字を動かしかけていたら、動かす前の形にもどす。
+   * (動かしている間は「もどす」に積んでいないので、そのままにすると、もどせない形の変化が残ってしまう)
+   */
+  const undoDragPreview = () => {
+    const press = pressRef.current;
+    if (tool === "select" && press?.moved && press.hit && press.hit.kind !== "constraint") onPreview(press.before);
+  };
+
   const onPointerDown = (e: React.PointerEvent) => {
     lastPointer.current = e.pointerType;
     (e.target as Element).setPointerCapture?.(e.pointerId);
@@ -466,7 +484,7 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
     pointers.current.set(e.pointerId, p);
     if (pointers.current.size === 2) {
       // 2本指: 拡大縮小と移動。1本目の操作は取り消す
-      if (pressRef.current?.moved && pressRef.current.hit?.kind === "point") onPreview(pressRef.current.before);
+      undoDragPreview();
       pressRef.current = null;
       const [p1, p2] = [...pointers.current.values()];
       gesture.current = { dist: dist(p1, p2), mid: mid(p1, p2), vp };
@@ -888,6 +906,8 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
           onPointerUp={onPointerUp}
           onPointerCancel={(e) => {
             pointers.current.delete(e.pointerId);
+            // 指の操作が取り消された(手のひらが当たった・画面の端からのスワイプなど)ときは、動かしかけた形をもとにもどす
+            if (pressRef.current?.pointerId === e.pointerId) undoDragPreview();
             pressRef.current = null;
             gesture.current = null;
           }}

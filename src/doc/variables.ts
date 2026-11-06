@@ -27,6 +27,12 @@ export function evaluateVariables(variables: Variable[] = []): { values: Variabl
       errors[v.id] = unknown.length > 0 ? `「${unknown.join("」「")}」は、この変数より上にありません` : "式が計算できません";
       continue;
     }
+    // 基準の数は寸法やあつさに使うので、0 より大きい数だけにする(0 や マイナスだと形がこわれるため)。
+    // 計算した結果が 0 以下のときも使わず、寸法はいまの数のまま残す
+    if (value <= 0) {
+      errors[v.id] = "0 より大きい数にしてください";
+      continue;
+    }
     values[v.name] = value;
   }
   return { values, errors };
