@@ -1090,7 +1090,7 @@ button.danger {
 }
 
 .drawing-author.short input {
-  width: 4.5em;
+  width: 6em; /* 見本「例: 2312」が入る幅 */
 }
 
 /* 氏名がまだ入っていないときは、入れる所を目立たせる */
@@ -1242,6 +1242,7 @@ button.danger {
 
 .file-menu button {
   flex-direction: row;
+  align-items: center; /* 文字をボタンのたての真ん中に */
 }
 
 /* 課題カード(3D の右上) */
@@ -1564,6 +1565,14 @@ button[data-tip] {
 .more-menu {
   left: 0;
   right: auto;
+}
+
+/* 縦向きのタブレットでは「そのほか」が右はしに来るので、右にそろえて画面からはみ出さないようにする */
+@media (max-width: 820px) {
+  .more-menu {
+    left: auto;
+    right: 0;
+  }
 }
 
 .plane-offset {

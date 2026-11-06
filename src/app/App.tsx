@@ -62,6 +62,7 @@ import { NewDialog } from "./NewDialog";
 import { Icon } from "./Icon";
 import { TipLayer } from "./TipLayer";
 import { NumberPad, type PadVariable } from "./NumberPad";
+import { useDismiss } from "./useDismiss";
 import "./app.css";
 
 const EMPTY = new Float32Array(0);
@@ -228,6 +229,15 @@ export function App() {
   const shellPicking = mode === "op" && s.draftOp?.type === "shell" && !s.opPreview;
   /** 「そのほかの作業」メニュー(対称・ならべる・つなぐ・くりぬく) */
   const [showMore, setShowMore] = useState(false);
+  // メニューは、外をタップする・Esc・ほかの画面へ進むと とじる
+  const fileMenuRef = useDismiss<HTMLDivElement>(showFileMenu, () => setShowFileMenu(false));
+  const moreMenuRef = useDismiss<HTMLDivElement>(showMore, () => setShowMore(false));
+  const exportMenuRef = useDismiss<HTMLDivElement>(showExport, () => setShowExport(false));
+  useEffect(() => {
+    setShowFileMenu(false);
+    setShowMore(false);
+    setShowExport(false);
+  }, [mode]);
   /** 基準面をずらす量(mm)。0 ならそのままの基準面にかく */
   const [planeOffset, setPlaneOffset] = useState(0);
   const [offsetPad, setOffsetPad] = useState(false);
@@ -392,7 +402,7 @@ export function App() {
               <button type="button" onClick={() => setShowVariables(true)} disabled={mode !== "model"} data-testid="open-variables">
                 <Icon name="variables" /> {term("variables", pro)}
               </button>
-              <div className="export-wrap">
+              <div className="export-wrap" ref={fileMenuRef}>
                 <button type="button" onClick={() => setShowFileMenu((v) => !v)} disabled={mode !== "model"} aria-expanded={showFileMenu} data-testid="open-file-menu">
                   <Icon name="folder" /> ファイル
                 </button>
@@ -557,7 +567,7 @@ export function App() {
             <button type="button" className="step" onClick={() => startFillet()} data-testid="new-fillet">
               <Icon name="fillet" /> {term("fillet", pro)}
             </button>
-            <div className="export-wrap">
+            <div className="export-wrap" ref={moreMenuRef}>
               <button type="button" className="step" onClick={() => setShowMore((v) => !v)} aria-expanded={showMore} data-testid="open-more">
                 <Icon name="more" /> そのほか
               </button>
@@ -597,7 +607,7 @@ export function App() {
           </span>
           <div className="step-group">
             <span className="step-num">3</span>
-            <div className="export-wrap">
+            <div className="export-wrap" ref={exportMenuRef}>
               <button type="button" className="step" onClick={() => setShowExport((v) => !v)} disabled={!hasBody || s.busy} aria-expanded={showExport} data-testid="open-export">
                 <Icon name="export" /> 書き出す
               </button>

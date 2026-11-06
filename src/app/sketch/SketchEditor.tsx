@@ -840,7 +840,7 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
       ? "まだ何もかいていません"
       : status.dof === 0
         ? term("fullyDefined", pro)
-        : `このままでも立体にできます(あと ${status.dof} つ寸法か${term("constraint", pro)}を入れると、形が動かなくなります)`;
+        : `このままでも立体にできます(あと ${status.dof} つ寸法か「${term("constraint", pro)}」を入れると、形が動かなくなります)`;
 
   const overflowText = sketch.entities.find((e): e is Extract<SketchEntity, { type: "text" }> => e.type === "text" && overflows(e)) ?? null;
 
