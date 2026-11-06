@@ -227,7 +227,7 @@ export function DrawingView({ client, title, version, onClose }: Props) {
               inputMode="numeric"
               maxLength={4}
               onChange={(e) => setAuthor({ ...who, studentId: e.target.value.replace(/[^0-9０-９]/g, "").replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0)) })}
-              placeholder="2312"
+              placeholder="例: 2312"
               data-testid="drawing-student-id"
             />
           </label>

@@ -1090,7 +1090,7 @@ button.danger {
 }
 
 .drawing-author.short input {
-  width: 4.5em;
+  width: 6em; /* 見本「例: 2312」が入る幅 */
 }
 
 /* 氏名がまだ入っていないときは、入れる所を目立たせる */
