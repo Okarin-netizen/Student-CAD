@@ -8,6 +8,7 @@ import { isDoc } from "../../src/app/persist";
 import { cancelMode, getState, replaceDoc, setState, startExtrude, startReplay, undo, redo, commitDoc } from "../../src/app/store";
 import { emptyDocument, type SketchFeature } from "../../src/doc/types";
 import { dosDateTime, makeZip } from "../../src/export/zip";
+import { evaluateVariables } from "../../src/doc/variables";
 
 const sketch: SketchFeature = { id: "sk1", type: "sketch", name: "スケッチ1", plane: { kind: "base", name: "top" }, entities: [], constraints: [] };
 
@@ -64,5 +65,18 @@ describe("ZIP の日付", () => {
     const zip = makeZip([{ name: "a.txt", data: new Uint8Array([1]) }], new Date(2026, 10, 6));
     const v = new DataView(zip.buffer);
     expect(v.getUint16(12, true)).toBe(dosDateTime(new Date(2026, 10, 6)).date);
+  });
+});
+
+describe("基準の数", () => {
+  it("0 や マイナスになる基準の数は使わない(寸法が 0 になって形がこわれていた)", () => {
+    const r = evaluateVariables([
+      { id: "v1", name: "幅", expr: "40", value: 0 },
+      { id: "v2", name: "ゼロ", expr: "0", value: 0 },
+      { id: "v3", name: "引く", expr: "幅-50", value: 0 },
+    ]);
+    expect(r.values).toEqual({ 幅: 40 });
+    expect(r.errors.v2).toContain("0 より大きい");
+    expect(r.errors.v3).toContain("0 より大きい");
   });
 });

@@ -102,7 +102,6 @@ export function VariablesPanel({ doc, pro, onClose }: Props) {
             unit=""
             initial={values[editing.name] ?? 0}
             initialExpr={editing.expr}
-            allowZero
             variables={usableFor(editing)}
             onSubmit={(value, expr) => {
               updateVariable(editing.id, { expr: expr ?? String(value) });
