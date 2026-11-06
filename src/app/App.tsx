@@ -384,6 +384,8 @@ export function App() {
               onBlur={(e) => {
                 const v = e.target.value.trim();
                 if (v && v !== s.doc.name) renameDoc(v);
+                // 空にしたときは名前を変えないので、入力欄も元の名前にもどす
+                else e.target.value = s.doc.name;
               }}
               onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
             />

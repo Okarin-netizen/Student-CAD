@@ -60,7 +60,7 @@ export function makeSubmission(input: SubmissionInput): Uint8Array {
   if (input.stl) files.push({ name: `${base}.stl`, data: new Uint8Array(input.stl) });
   if (input.drawingSvg) files.push({ name: `${base}_図面.svg`, data: enc.encode(input.drawingSvg) });
   if (input.image) files.push({ name: `${base}.png`, data: dataUrlBytes(input.image) });
-  return makeZip(files);
+  return makeZip(files, now);
 }
 
 function dataUrlBytes(url: string): Uint8Array {

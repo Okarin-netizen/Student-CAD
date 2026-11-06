@@ -100,7 +100,10 @@ export function TipLayer() {
     document.addEventListener("click", onClick, true);
     document.addEventListener("contextmenu", onContext);
     window.addEventListener("scroll", hide, true);
+    // タブレットを回して画面の大きさが変わると、説明の位置がずれて画面の外にはみ出すので消す
+    window.addEventListener("resize", hide);
     return () => {
+      window.removeEventListener("resize", hide);
       window.clearTimeout(timer.current);
       window.clearTimeout(hideTimer.current);
       document.removeEventListener("pointerover", onOver);
