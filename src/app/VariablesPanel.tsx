@@ -9,6 +9,7 @@ import { countUses, evaluateVariables } from "../doc/variables";
 import { NumberPad } from "./NumberPad";
 import { addVariable, deleteVariable, updateVariable } from "./store";
 import { term } from "./terms";
+import { ConfirmDialog } from "./ConfirmDialog";
 
 interface Props {
   doc: CadDocument;
@@ -112,28 +113,20 @@ export function VariablesPanel({ doc, pro, onClose }: Props) {
         )}
 
         {confirm && (
-          <div className="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && setConfirm(null)}>
-            <div className="dialog" role="dialog" aria-label="変数をけす確認">
-              <h3>「{confirm.name}」をけしますか?</h3>
-              {countUses(doc, confirm.name) > 0 && <p>これを使っているところが {countUses(doc, confirm.name)} こあります。けしても、いまの数のまま残ります。</p>}
-              <div className="dialog-actions">
-                <button type="button" onClick={() => setConfirm(null)}>
-                  やめる
-                </button>
-                <button
-                  type="button"
-                  className="danger"
-                  data-testid="var-delete-ok"
-                  onClick={() => {
-                    deleteVariable(confirm.id);
-                    setConfirm(null);
-                  }}
-                >
-                  けす
-                </button>
-              </div>
-            </div>
-          </div>
+          <ConfirmDialog
+            label="変数をけす確認"
+            title={`「${confirm.name}」をけしますか?`}
+            cancelText="やめる"
+            okText="けす"
+            okTestId="var-delete-ok"
+            onCancel={() => setConfirm(null)}
+            onOk={() => {
+              deleteVariable(confirm.id);
+              setConfirm(null);
+            }}
+          >
+            {countUses(doc, confirm.name) > 0 && <p>これを使っているところが {countUses(doc, confirm.name)} こあります。けしても、いまの数のまま残ります。</p>}
+          </ConfirmDialog>
         )}
       </div>
     </div>
