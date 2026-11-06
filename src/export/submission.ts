@@ -9,6 +9,7 @@ import type { CheckResult, Measure } from "../doc/assignment";
 import { fmt } from "../doc/assignment";
 import type { CadDocument, Feature } from "../doc/types";
 import { makeZip } from "./zip";
+import { escapeXml } from "../util/xml";
 
 export interface Student {
   /** 組(例: "2-3") */
@@ -79,7 +80,6 @@ export function durationText(seconds: number): string {
   return h > 0 ? `${h}時間 ${m % 60}分` : `${m}分`;
 }
 
-const esc = (s: string) => s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;");
 
 const FEATURE_WORDS: Record<Feature["type"], string> = {
   sketch: "スケッチ",
@@ -135,7 +135,7 @@ export function reportHTML(input: SubmissionInput, now: Date): string {
   rows.push(["作業の数", `${doc.features.length}`]);
 
   return `<!doctype html>
-<html lang="ja"><head><meta charset="utf-8"><title>提出カード ${esc(student.name)} ${esc(doc.name)}</title>
+<html lang="ja"><head><meta charset="utf-8"><title>提出カード ${escapeXml(student.name)} ${escapeXml(doc.name)}</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
 body{font-family:system-ui,"Hiragino Sans","Noto Sans JP",sans-serif;margin:24px auto;max-width:720px;padding:0 16px;color:#1f2933;background:#fff}
@@ -146,16 +146,16 @@ ol{padding-left:1.6em}li{margin:2px 0}
 </style></head><body>
 <h1>提出カード</h1>
 <p class="muted">Student CAD で作った作品です。いっしょに入っている .scad.json を Student CAD で開くと、作り方を再生できます。</p>
-<table>${rows.map(([k, v]) => `<tr><th>${esc(k)}</th><td>${esc(v)}</td></tr>`).join("")}</table>
+<table>${rows.map(([k, v]) => `<tr><th>${escapeXml(k)}</th><td>${escapeXml(v)}</td></tr>`).join("")}</table>
 ${input.image ? `<h2>作品の見た目</h2><img src="${input.image}" alt="作品の 3D の絵">` : ""}
 ${
   doc.assignment
-    ? `<h2>課題「${esc(doc.assignment.title)}」の条件 ${okCount} / ${checks.length}</h2>
-<table>${checks.map((c) => `<tr><td class="${c.ok ? "ok" : "ng"}">${c.ok ? "✓ できた" : "・ まだ"}</td><td>${esc(c.label)}</td><td>${esc(c.detail)}</td></tr>`).join("")}</table>`
+    ? `<h2>課題「${escapeXml(doc.assignment.title)}」の条件 ${okCount} / ${checks.length}</h2>
+<table>${checks.map((c) => `<tr><td class="${c.ok ? "ok" : "ng"}">${c.ok ? "✓ できた" : "・ まだ"}</td><td>${escapeXml(c.label)}</td><td>${escapeXml(c.detail)}</td></tr>`).join("")}</table>`
     : ""
 }
 <h2>作り方の順番(れきし)</h2>
-<ol>${doc.features.map((f) => `<li>${esc(f.name)} <span class="muted">${esc(FEATURE_WORDS[f.type])} ・ ${esc(featureDetail(f))}</span></li>`).join("")}</ol>
+<ol>${doc.features.map((f) => `<li>${escapeXml(f.name)} <span class="muted">${escapeXml(FEATURE_WORDS[f.type])} ・ ${escapeXml(featureDetail(f))}</span></li>`).join("")}</ol>
 </body></html>
 `;
 }

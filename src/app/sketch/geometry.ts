@@ -39,13 +39,7 @@ export function textBox(e: Extract<SketchEntity, { type: "text" }>, at: Vec2): {
   return { min: [at[0], at[1] - e.size * 0.15], max: [at[0] + w * e.size, at[1] + e.size * 0.9] };
 }
 
-export function distToSegment(p: Vec2, a: Vec2, b: Vec2): number {
-  const dx = b[0] - a[0];
-  const dy = b[1] - a[1];
-  const len2 = dx * dx + dy * dy || 1e-12;
-  const t = Math.max(0, Math.min(1, ((p[0] - a[0]) * dx + (p[1] - a[1]) * dy) / len2));
-  return Math.hypot(p[0] - (a[0] + t * dx), p[1] - (a[1] + t * dy));
-}
+export { distToSegment } from "../../math/vec";
 
 /** 円弧の上にあるか(角度が範囲内か)も見て、円弧までの距離を返す */
 export function distToArc(p: Vec2, c: Vec2, r: number, a0: number, a1: number): number {
