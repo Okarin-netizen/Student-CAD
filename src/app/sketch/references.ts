@@ -1,8 +1,10 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 技術科　岡田
 
-import { dot3, planeYDir } from "../../doc/planes";
-import type { Plane3, Vec2, Vec3 } from "../../doc/types";
+import { planeYDir, resolvePlane } from "../../doc/planes";
+import { dot3 } from "../../math/vec";
+import type { Feature, Id, Plane3, PlaneRef, Vec2, Vec3 } from "../../doc/types";
+import type { BodyMesh, SketchDisplay } from "../../kernel/rebuild";
 
 const ON_PLANE_MM = 0.01;
 
@@ -44,6 +46,35 @@ export function linesProjected(lines: Float32Array, plane: Plane3): Float32Array
     out.push(dot3(a, x), dot3(a, y), dot3(b, x), dot3(b, y));
   }
   return Float32Array.from(out);
+}
+
+/**
+ * スケッチの下がき(スケッチの座標の線分の並び)。面にかくとき、どこにかけばよいか分かるようにする。
+ * - 立体の輪郭のうち、スケッチ平面の上にあるもの
+ * - 平行な面にかいた、ほかのスケッチの線(「つなぐ」の下の形など)
+ */
+export function sketchUnderlay(planeRef: PlaneRef, mesh: BodyMesh | null, sketches: SketchDisplay[], features: Feature[], draftId: Id | undefined): Float32Array {
+  const p = resolvePlane(planeRef);
+  const parts: Float32Array[] = mesh ? [edgesOnPlane(mesh.edges, p)] : [];
+  for (const d of sketches) {
+    if (d.featureId === draftId) continue;
+    const other = features.find((f) => f.id === d.featureId);
+    if (other?.type !== "sketch") continue;
+    const q = resolvePlane(other.plane);
+    if (Math.abs(Math.abs(dot3(q.normal, p.normal)) - 1) > 1e-6) continue;
+    parts.push(linesProjected(d.lines, p));
+  }
+  return parts.length === 1 ? parts[0] : concat(parts);
+}
+
+function concat(parts: Float32Array[]): Float32Array {
+  const out = new Float32Array(parts.reduce((n, a) => n + a.length, 0));
+  let o = 0;
+  for (const a of parts) {
+    out.set(a, o);
+    o += a.length;
+  }
+  return out;
 }
 
 /** 下がきの線の端の点(重なりは1つにまとめる)。曲線は細かい線分なので、角だけが残るように間引く */

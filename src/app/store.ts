@@ -29,6 +29,7 @@ import { findProfiles } from "../sketch/profiles";
 import type { RebuildReply } from "../worker/cad.worker";
 import type { SketchData } from "../sketch/edit";
 import { applyVariables, forgetName, renameInDoc } from "../doc/variables";
+import { dependents, usedSketchIds } from "../doc/links";
 
 export type Mode =
   | { kind: "model" }
@@ -312,9 +313,7 @@ function pickSketch(sketchId?: Id): Id | null {
 const names = () => state.doc.features.map((f) => f.name);
 
 /** 立体を作るのにもう使ったスケッチ */
-function usedSketches(): Set<Id> {
-  return new Set(state.doc.features.flatMap((f) => (f.type === "extrude" || f.type === "revolve" ? [f.sketchId] : f.type === "loft" ? f.sketchIds : f.type === "sweep" ? [f.pathId, f.profileId] : [])));
-}
+const usedSketches = () => usedSketchIds(state.doc);
 
 /**
  * なぞる(スイープ)。道すじ(閉じていない線)のスケッチと、断面(閉じた形)のスケッチを自動でえらぶ。
@@ -454,20 +453,6 @@ export function editFeature(id: Id) {
   } else {
     setState({ mode: { kind: "op", isNew: false }, draftOp: f, opPreview: !picksOnBody(f), selectedFeature: id });
   }
-}
-
-/** 消すと一緒に消える作業(スケッチを使っている押し出し、それをならべたパターンなど) */
-export function dependents(doc: CadDocument, id: Id): Feature[] {
-  const gone = new Set([id]);
-  const out: Feature[] = [];
-  for (const f of doc.features) {
-    const uses = f.type === "extrude" || f.type === "revolve" ? [f.sketchId] : f.type === "mirror" || f.type === "pattern" ? [f.source] : f.type === "loft" ? f.sketchIds : f.type === "sweep" ? [f.pathId, f.profileId] : [];
-    if (uses.some((u) => gone.has(u))) {
-      gone.add(f.id);
-      out.push(f);
-    }
-  }
-  return out;
 }
 
 export function deleteFeature(id: Id) {

@@ -1,6 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 技術科　岡田
 
+import { add3, cross3, dot3, normalize3, scale3 } from "../math/vec";
 import type { BasePlaneName, Plane3, PlaneRef, Vec2, Vec3 } from "./types";
 
 // Onshape と同じ3つの基準面(上・正面・右)。どれも Z が上の世界座標で定義する。
@@ -31,19 +32,6 @@ export function planeLabel(ref: PlaneRef): string {
   if (ref.kind === "offset") return `${BASE_PLANE_LABELS[ref.base]}から ${ref.distance}mm`;
   return "立体の面";
 }
-
-export const add3 = (a: Vec3, b: Vec3): Vec3 => [a[0] + b[0], a[1] + b[1], a[2] + b[2]];
-export const scale3 = (a: Vec3, s: number): Vec3 => [a[0] * s, a[1] * s, a[2] * s];
-export const dot3 = (a: Vec3, b: Vec3) => a[0] * b[0] + a[1] * b[1] + a[2] * b[2];
-export const cross3 = (a: Vec3, b: Vec3): Vec3 => [
-  a[1] * b[2] - a[2] * b[1],
-  a[2] * b[0] - a[0] * b[2],
-  a[0] * b[1] - a[1] * b[0],
-];
-export const normalize3 = (a: Vec3): Vec3 => {
-  const l = Math.hypot(a[0], a[1], a[2]) || 1;
-  return [a[0] / l, a[1] / l, a[2] / l];
-};
 
 export function planeYDir(p: Plane3): Vec3 {
   return cross3(p.normal, p.xDir);

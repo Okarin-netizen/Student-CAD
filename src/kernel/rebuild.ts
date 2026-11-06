@@ -18,7 +18,8 @@ import type {
   Vec3,
   WorldAxis,
 } from "../doc/types";
-import { BASE_PLANES, cross3, dot3, normalize3, resolvePlane, scale3, toWorld } from "../doc/planes";
+import { BASE_PLANES, resolvePlane, toWorld } from "../doc/planes";
+import { cross3, dot3, normalize3, scale3 } from "../math/vec";
 import { pointPos, solveSketch } from "../sketch/solver";
 import { arcThrough, findProfiles, type Loop, type Region } from "../sketch/profiles";
 
