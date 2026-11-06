@@ -5,7 +5,8 @@ import { useState } from "react";
 import type { CadDocument, Feature, Id } from "../doc/types";
 import type { FeatureStatus } from "../kernel/rebuild";
 import { BASE_PLANE_LABELS } from "../doc/planes";
-import { dependents } from "./store";
+import { dependents } from "../doc/links";
+import { ConfirmDialog } from "./ConfirmDialog";
 import { term } from "./terms";
 import { Icon, type IconName } from "./Icon";
 
@@ -115,33 +116,25 @@ export function FeatureTree({ doc, statuses, selected, pro, disabled, onSelect, 
       </ol>
 
       {confirm && (
-        <div className="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && setConfirm(null)}>
-          <div className="dialog" role="dialog" aria-label="けす確認">
-            <h3>「{confirm.name}」をけしますか?</h3>
-            {dependents(doc, confirm.id).length > 0 && (
-              <p>
-                これを使っている {dependents(doc, confirm.id).map((f) => `「${f.name}」`).join("")} も一緒に消えます。
-              </p>
-            )}
-            <p className="muted">まちがえたら「もどす」で元にもどせます。</p>
-            <div className="dialog-actions">
-              <button type="button" onClick={() => setConfirm(null)}>
-                やめる
-              </button>
-              <button
-                type="button"
-                className="danger"
-                data-testid="confirm-delete"
-                onClick={() => {
-                  onDelete(confirm.id);
-                  setConfirm(null);
-                }}
-              >
-                けす
-              </button>
-            </div>
-          </div>
-        </div>
+        <ConfirmDialog
+          label="けす確認"
+          title={`「${confirm.name}」をけしますか?`}
+          cancelText="やめる"
+          okText="けす"
+          okTestId="confirm-delete"
+          onCancel={() => setConfirm(null)}
+          onOk={() => {
+            onDelete(confirm.id);
+            setConfirm(null);
+          }}
+        >
+          {dependents(doc, confirm.id).length > 0 && (
+            <p>
+              これを使っている {dependents(doc, confirm.id).map((f) => `「${f.name}」`).join("")} も一緒に消えます。
+            </p>
+          )}
+          <p className="muted">まちがえたら「もどす」で元にもどせます。</p>
+        </ConfirmDialog>
       )}
     </aside>
   );
