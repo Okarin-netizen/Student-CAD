@@ -34,7 +34,7 @@ export function FeatureTree({ doc, statuses, selected, pro, disabled, onSelect, 
       <div className="tree-head">
         <h2>{term("history", pro)}</h2>
         {doc.features.length > 1 && replayStep === null && (
-          <button type="button" className="tree-replay" onClick={onReplay} disabled={disabled} title="作った順に、形ができていく様子を見る" data-testid="start-replay">
+          <button type="button" className="tree-replay" onClick={onReplay} disabled={disabled} data-testid="start-replay">
             <Icon name="replay" /> 作り方を再生
           </button>
         )}

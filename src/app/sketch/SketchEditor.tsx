@@ -860,7 +860,7 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
             onClick={() => setTool(t.tool)}
           >
             <span className="tool-icon" aria-hidden>
-              <Icon name={t.icon} size={24} />
+              <Icon name={t.icon} size={22} />
             </span>
             {t.label}
           </button>

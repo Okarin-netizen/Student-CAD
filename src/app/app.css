@@ -76,6 +76,13 @@ select {
   font-weight: 700;
   touch-action: manipulation;
   cursor: pointer;
+  /* ボタンの文字は1行にする(2行になると読みにくく、見た目もそろわない) */
+  white-space: nowrap;
+}
+
+/* メニューの説明文(ボタンの中の小さい文字)だけは折り返してよい */
+button small {
+  white-space: normal;
 }
 
 button:active:not(:disabled) {
@@ -572,21 +579,20 @@ button.danger {
   white-space: nowrap;
 }
 
+/* スケッチの道具: アイコンと名前を横にならべて1行にする */
 .tool {
   display: flex;
-  flex-direction: column;
+  flex: none;
   align-items: center;
   justify-content: center;
-  min-width: 64px;
+  gap: 6px;
   min-height: 56px;
-  padding: 2px 8px;
-  font-size: 0.85rem;
-  white-space: nowrap;
+  padding: 0 12px;
+  font-size: 0.95rem;
 }
 
 .tool-icon {
-  font-size: 1.2rem;
-  line-height: 1.2;
+  line-height: 1;
 }
 
 .sides {
@@ -1450,6 +1456,7 @@ button.danger {
 /* 作り方の再生 */
 .tree-head {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   justify-content: space-between;
   gap: 6px;
