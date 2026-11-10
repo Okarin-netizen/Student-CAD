@@ -14,7 +14,7 @@ export const TIPS: Record<string, string> = {
   "file-open": "保存しておいた作品ファイル(.scad.json)をひらきます",
   "save-file": "作品をファイル(.scad.json)に保存します。ほかの端末でもひらけます",
   "file-assignment": "先生用: 大きさや使う作業などの条件をつけた課題ファイルを作ります",
-  "pro-terms": "ボタンの名前を、Onshape・SolidWorks と同じ専門用語にします",
+  "pro-terms": "ボタンの名前を、Onshape・SolidWorks と同じ専門用語にします(もう一度えらぶと元にもどります)",
   // 手順の帯
   "new-sketch": "面をえらんで、その上に線・長方形・円などで形をかきます。立体づくりは ここから始めます",
   "new-extrude": "かいた形を まっすぐ持ち上げて立体にします。「けずる」にすると穴やみぞを作れます",

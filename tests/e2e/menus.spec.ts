@@ -75,3 +75,27 @@ test("絵がないときは、次に押す「絵をかく」が青く、「そ�
   await expect(page.getByTestId("feature-tree")).toContainText("立体1");
   await expect(page.getByTestId("feature-tree")).toContainText("絵1");
 });
+
+test("専門用語の切りかえは「ファイル」の中にある", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByTestId("new-extrude")).toContainText("立体にする");
+  await page.getByTestId("open-file-menu").click();
+  await page.getByTestId("pro-terms").click();
+  await expect(page.getByTestId("new-extrude")).toContainText("押し出し");
+  await page.getByTestId("open-file-menu").click();
+  await expect(page.getByTestId("pro-terms")).toContainText("ふだんの言葉にもどす");
+  await page.getByTestId("pro-terms").click();
+  await expect(page.getByTestId("new-extrude")).toContainText("立体にする");
+});
+
+test("縦向きでは、れきしはボタン1つにたたまれ、押すと開いて外をタップすると とじる", async ({ page }) => {
+  await page.setViewportSize({ width: 820, height: 1180 });
+  await page.goto("/");
+  await drawRect(page);
+  await expect(page.getByTestId("feature-tree")).toBeHidden();
+  await expect(page.getByTestId("tree-toggle")).toContainText("1");
+  await page.getByTestId("tree-toggle").click();
+  await expect(page.getByTestId("feature-tree")).toContainText("絵1");
+  await page.getByTestId("viewer-3d").click({ position: { x: 400, y: 600 } });
+  await expect(page.getByTestId("feature-tree")).toBeHidden();
+});
