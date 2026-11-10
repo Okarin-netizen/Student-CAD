@@ -28,9 +28,19 @@ test("図面: 第三角法・等角図・キャビネット図をかいて、SVG
   await expect(sheet).toContainText("正面図");
   await expect(sheet).toContainText("右側面図");
 
+  // 表題欄(右下)をタップすると、学籍番号と氏名を入れる画面が出る
+  const at = await sheet.locator("svg").evaluate((el) => {
+    // 用紙の (230mm, 下から 25mm) を画面の座標にする
+    const svg = el as SVGSVGElement;
+    const p = new DOMPoint(230, 210 - 25).matrixTransform(svg.getScreenCTM()!);
+    return { x: p.x, y: p.y };
+  });
+  await page.mouse.click(at.x, at.y);
   await page.getByTestId("drawing-student-id").fill("2312");
   await page.getByTestId("drawing-author").fill("技術 太郎");
+  await page.getByTestId("title-block-ok").click();
   await expect(sheet).toContainText("2312 技術 太郎");
+  await expect(page.getByTestId("drawing-who")).toHaveText(/2312 技術 太郎/);
 
   let download = page.waitForEvent("download");
   await page.getByTestId("drawing-svg").click();

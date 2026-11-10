@@ -167,27 +167,22 @@ button.danger {
 }
 
 .save-state {
-  color: var(--muted);
-  font-size: 0.9rem;
-  min-width: 6em;
-  text-align: right;
-}
-
-.toggle {
-  display: flex;
+  display: inline-flex;
   align-items: center;
-  gap: 6px;
-  min-height: var(--touch);
-  padding: 0 8px;
-  font-size: 0.9rem;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 0.95rem;
+  min-width: 6em;
 }
 
-.toggle input {
-  width: 22px;
-  height: 22px;
+/* 保存できたときは、緑のチェックで分かるようにする(2026-11-10) */
+.save-state.saved {
+  color: var(--ok);
+  font-weight: 700;
 }
 
 .workspace {
+  position: relative;
   flex: 1;
   display: flex;
   min-height: 0;
@@ -1724,4 +1719,86 @@ button.primary .icon,
 }
 .error-screen h2 {
   margin-top: 0;
+}
+
+/* ---- 画面の見直し その2(2026-11-10) ---- */
+
+/* 図面: 学籍番号・氏名のボタン(入っていないときは目立たせる) */
+.drawing-who-button.needs {
+  border-color: var(--accent);
+  background: var(--pick);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+
+/* 表題欄に入れる画面の入力らん */
+.title-field input {
+  min-height: var(--touch);
+  padding: 6px 10px;
+  border: var(--bw) solid var(--border);
+  border-radius: 10px;
+  font-size: 1.1rem;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.title-field.needs input {
+  border-color: var(--accent);
+  background: var(--pick);
+}
+
+/* 作業のれきし: 横長の画面では左にいつも出す。たたむボタンは使わない */
+.tree-wrap {
+  display: contents;
+}
+
+.tree-toggle {
+  display: none;
+}
+
+/* 縦向きの画面では、れきしを「作業のれきし」ボタン1つにたたみ、押したときだけ 3D の上に開く */
+@media (max-width: 820px) {
+  .tree-wrap {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    z-index: 7;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    max-height: calc(100% - 24px);
+  }
+
+  .tree-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+    box-shadow: 0 4px 12px #0002;
+  }
+
+  .tree-wrap .tree {
+    display: none;
+  }
+
+  .tree-wrap.open .tree {
+    display: block;
+    width: 280px;
+    min-height: 0;
+    border: 2px solid var(--line);
+    border-radius: 16px;
+    box-shadow: 0 8px 24px #0002;
+  }
+}
+
+.tree-count {
+  display: inline-grid;
+  place-items: center;
+  min-width: 24px;
+  height: 24px;
+  padding: 0 6px;
+  border-radius: 12px;
+  background: var(--accent);
+  color: #fff;
+  font-size: 0.85rem;
 }

@@ -3,13 +3,14 @@
 
 import { useEffect, useMemo, useState } from "react";
 import type { DrawingKind, ProjectedView } from "../kernel/projection";
-import { KIND_LABELS, PAPER, buildSheet, formatMm, laserDXF, sheetToDXF, sheetToSVG, type SheetSnap } from "../drawing/sheet";
+import { KIND_LABELS, PAPER, TITLE_BLOCK, buildSheet, formatMm, laserDXF, sheetToDXF, sheetToSVG, type SheetSnap } from "../drawing/sheet";
 import { newId } from "../doc/ids";
 import type { CadClient } from "./cadClient";
 import { downloadFile } from "./persist";
 import { setAuthor, setDrawingNotes, toast, useStore } from "./store";
 import { authorLabel, emptyAuthor, fileBaseName, isStudentId } from "./author";
 import { Icon } from "./Icon";
+import { TitleBlockDialog } from "./TitleBlockDialog";
 
 interface Props {
   client: CadClient;
@@ -65,6 +66,8 @@ export function DrawingView({ client, title, version, onClose }: Props) {
   /** 寸法を手で直すモード: add = 2つの点をタップして足す、erase = 数字をタップして消す */
   const [edit, setEdit] = useState<"none" | "add" | "erase">("none");
   const [pending, setPending] = useState<SheetSnap | null>(null);
+  /** 表題欄(学籍番号・氏名・材料)を入れる画面を出しているか */
+  const [askTitle, setAskTitle] = useState(false);
 
   // 等角図・キャビネット図は、ふつう かくれ線をかかない
   const withHidden = kind === "thirdAngle" && hidden;
@@ -111,6 +114,7 @@ export function DrawingView({ client, title, version, onClose }: Props) {
     }
     return out;
   }, [svg, editing, sheet, pending]);
+  const whoReady = isStudentId(who.studentId) && !!who.name.trim();
   // ファイル名は「学籍番号_氏名_作品名」。SVG・DXF は図の種類もつける
   const pdfName = fileBaseName(who, title);
   const fileBase = fileBaseName(who, title, KINDS.find((k) => k.kind === kind)!.label);
@@ -143,10 +147,16 @@ export function DrawingView({ client, title, version, onClose }: Props) {
   };
 
   const onPaperTap = (e: React.PointerEvent<HTMLDivElement>) => {
-    if (editing === "none" || !sheet) return;
+    if (!sheet) return;
     const hit = paperPoint(e);
     if (!hit) return;
     const [x, y] = hit.at;
+    // 寸法を直していないときに表題欄をタップしたら、学籍番号・氏名・材料を入れる画面を出す
+    if (editing === "none") {
+      const t = TITLE_BLOCK;
+      if (x >= t.x0 && x <= t.x1 && y >= t.y0 && y <= t.y1) setAskTitle(true);
+      return;
+    }
     if (editing === "erase") {
       const pad = hit.tol / 2;
       const found = sheet.dims
@@ -215,48 +225,27 @@ export function DrawingView({ client, title, version, onClose }: Props) {
             </label>
             <label className="check">
               <input type="checkbox" checked={withIso} onChange={(e) => setWithIso(e.target.checked)} data-testid="drawing-with-iso" />
-              等角図もそえる
+              等角図
             </label>
           </>
         )}
-        <fieldset className="drawing-who" aria-label="作った人(表題欄の氏名とファイル名に入ります)">
-          <label className={`drawing-author short ${isStudentId(who.studentId) ? "" : "needs"}`}>
-            学籍番号
-            <input
-              value={who.studentId}
-              inputMode="numeric"
-              maxLength={4}
-              onChange={(e) => setAuthor({ ...who, studentId: e.target.value.replace(/[^0-9０-９]/g, "").replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0)) })}
-              placeholder="例: 2312"
-              data-testid="drawing-student-id"
-            />
-          </label>
-          <label className={`drawing-author ${who.name.trim() ? "" : "needs"}`}>
-            氏名
-            <input value={who.name} onChange={(e) => setAuthor({ ...who, name: e.target.value })} placeholder="作った人の名前" data-testid="drawing-author" />
-          </label>
-        </fieldset>
-        <label className="drawing-author">
-          材料
-          <input value={material} onChange={(e) => saveMaterial(e.target.value)} placeholder="例: PLA、ヒノキ" data-testid="drawing-material" />
-        </label>
-      </div>
-
-      {canEdit && (
-        <div className="drawing-edit" role="group" aria-label="寸法を直す">
-          <button type="button" className={editing === "add" ? "active" : ""} aria-pressed={editing === "add"} onClick={() => toggleEdit("add")} data-testid="dim-add">
-            <Icon name="dimension" /> 寸法を足す
-          </button>
-          <button type="button" className={editing === "erase" ? "active" : ""} aria-pressed={editing === "erase"} onClick={() => toggleEdit("erase")} data-testid="dim-erase">
-            <Icon name="cut" /> 寸法を消す
-          </button>
-          {(notes.added.length > 0 || notes.hidden.length > 0) && (
-            <button type="button" onClick={() => setDrawingNotes({ hidden: [], added: [] })} data-testid="dim-reset">
-              <Icon name="replay" /> 寸法をもとにもどす
+        {/* 寸法を足す・消すも同じ段にならべ、紙を大きくうつす(2026-11-10) */}
+        {canEdit && (
+          <div className="drawing-edit" role="group" aria-label="寸法を直す">
+            <button type="button" className={editing === "add" ? "active" : ""} aria-pressed={editing === "add"} onClick={() => toggleEdit("add")} data-testid="dim-add">
+              <Icon name="dimension" /> 寸法を足す
             </button>
-          )}
-        </div>
-      )}
+            <button type="button" className={editing === "erase" ? "active" : ""} aria-pressed={editing === "erase"} onClick={() => toggleEdit("erase")} data-testid="dim-erase">
+              <Icon name="cut" /> 消す
+            </button>
+            {(notes.added.length > 0 || notes.hidden.length > 0) && (
+              <button type="button" onClick={() => setDrawingNotes({ hidden: [], added: [] })} data-testid="dim-reset" aria-label="寸法をもとにもどす">
+                <Icon name="replay" /> もとにもどす
+              </button>
+            )}
+          </div>
+        )}
+      </div>
 
       <p className="drawing-hint">
         {editing === "add"
@@ -265,7 +254,7 @@ export function DrawingView({ client, title, version, onClose }: Props) {
             : "図の点(●)を2つタップすると、その間の寸法が入ります"
           : editing === "erase"
             ? "消したい寸法の数字をタップしてください。消した寸法は「寸法をもとにもどす」で戻せます"
-            : KINDS.find((k) => k.kind === kind)!.hint}
+            : `${KINDS.find((k) => k.kind === kind)!.hint}${whoReady ? "" : "。右下の表題欄をタップすると、学籍番号と氏名を入れられます"}`}
       </p>
 
       <div className={`drawing-paper ${editing !== "none" ? "editing" : ""}`} data-testid="drawing-sheet" onPointerUp={onPaperTap}>
@@ -274,10 +263,21 @@ export function DrawingView({ client, title, version, onClose }: Props) {
         {sheet && <div className="sheet-print" dangerouslySetInnerHTML={{ __html: displaySvg }} />}
       </div>
 
+      {askTitle && <TitleBlockDialog who={who} material={material} onAuthor={setAuthor} onMaterial={saveMaterial} onClose={() => setAskTitle(false)} />}
+
       <div className="drawing-actions">
         <span className="muted">
           {KIND_LABELS[kind]} ・ 尺度 {sheet?.scaleLabel ?? "-"} ・ A4 横
         </span>
+        {/* 学籍番号・氏名・材料は、このボタンか表題欄のタップで入れる */}
+        <button
+          type="button"
+          className={`drawing-who-button ${whoReady ? "" : "needs"}`}
+          onClick={() => setAskTitle(true)}
+          data-testid="drawing-who"
+        >
+          <Icon name="sketch" /> {whoReady ? authorLabel(who) : "学籍番号と氏名"}
+        </button>
         <button type="button" disabled={!sheet} onClick={printSheet} data-testid="drawing-print">
           <Icon name="print" /> 印刷 / PDF
         </button>

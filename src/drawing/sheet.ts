@@ -95,6 +95,8 @@ const SCALES: { s: number; label: string }[] = [
 // 用紙のわく(JIS: A4 は紙のはしから 10mm の輪郭線)と表題欄(右下 130×32)
 const FRAME = { x0: 10, y0: 10, x1: 287, y1: 200 };
 const TITLE = { w: 130, h: 32 };
+/** 表題欄の四角(用紙の mm、下が y=0)。画面で表題欄をタップしたかを調べるのに使う(2026-11-10) */
+export const TITLE_BLOCK = { x0: FRAME.x1 - TITLE.w, y0: FRAME.y0, x1: FRAME.x1, y1: FRAME.y0 + TITLE.h };
 /** 図をかける場所(表題欄の上と、わくの内側) */
 const AREA = { x0: 18, y0: FRAME.y0 + TITLE.h + 6, x1: 279, y1: 194 };
 /** 図と図のすき間、寸法のための余白(用紙の mm) */

@@ -64,6 +64,7 @@ import { TipLayer } from "./TipLayer";
 import type { PadVariable } from "./NumberPad";
 import { DropMenu, type MenuItem } from "./DropMenu";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { useDismiss } from "./useDismiss";
 import { PlanePanel } from "./PlanePanel";
 import { nextStepAfterSketch } from "./nextStep";
 import { stepGuide, type StepButton } from "./stepGuide";
@@ -177,6 +178,12 @@ export function App() {
     };
   };
 
+  // 縦向きの画面で、たたんだ れきしを開いているか(外をタップ・Esc でとじる)
+  const [treeOpen, setTreeOpen] = useState(false);
+  const treeRef = useDismiss<HTMLDivElement>(treeOpen, () => setTreeOpen(false));
+
+  const saveState = s.busy || !ready ? "busy" : savedDoc === s.doc ? "saved" : "saving";
+
   // ---- 操作 ----
 
   const onPick = (p: PickResult) => {
@@ -269,6 +276,13 @@ export function App() {
     { id: "file-open", icon: "open", label: "ひらく", run: () => fileRef.current?.click() },
     { id: "save-file", icon: "save", label: "ファイルに保存", run: saveFile },
     { id: "file-assignment", icon: "assignment", label: s.doc.assignment ? "課題をなおす(先生用)" : "課題を作る(先生用)", run: () => setDialog("assignment") },
+    // 専門用語の切りかえは、生徒がふだん使わないので「ファイル」の中に置く(2026-11-10)。説明は長押しで出る(tips.ts)
+    {
+      id: "pro-terms",
+      icon: "info",
+      label: pro ? "ふだんの言葉にもどす" : "専門用語で表示する",
+      run: () => setProTerms(!pro),
+    },
   ];
 
   /** 「そのほか」の作業(対称・ならべる・つなぐ・なぞる・くりぬく) */
@@ -366,6 +380,11 @@ export function App() {
               }}
               onKeyDown={(e) => e.key === "Enter" && (e.target as HTMLInputElement).blur()}
             />
+            {/* 保存のようす。作品の名前のとなりに、しるしをつけて出す(2026-11-10) */}
+            <span className={`save-state ${saveState}`} data-testid="save-state">
+              {saveState === "saved" && <Icon name="check" size={18} />}
+              {saveState === "busy" ? "計算中…" : saveState === "saved" ? "保存ずみ" : "保存中…"}
+            </span>
             <div className="topbar-group">
               <button type="button" onClick={undo} disabled={!canUndo} data-testid="undo">
                 <Icon name="undo" /> もどす
@@ -375,17 +394,10 @@ export function App() {
               </button>
             </div>
             <div className="topbar-group end">
-              <span className="save-state" data-testid="save-state">
-                {s.busy || !ready ? "計算中…" : savedDoc === s.doc ? "保存ずみ" : "保存中…"}
-              </span>
               <button type="button" onClick={() => setShowVariables(true)} disabled={mode !== "model"} data-testid="open-variables">
                 <Icon name="variables" /> {term("variables", pro)}
               </button>
               <DropMenu icon="folder" label="ファイル" testId="open-file-menu" disabled={mode !== "model"} menuLabel="ファイル" menuClass="file-menu" items={fileMenu} closeKey={mode} />
-              <label className="toggle" title="専門用語(Onshape/SolidWorks と同じ言葉)で表示する">
-                <input type="checkbox" checked={pro} onChange={(e) => setProTerms(e.target.checked)} data-testid="pro-terms" />
-                専門用語
-              </label>
               <input
                 ref={fileRef}
                 type="file"
@@ -404,18 +416,25 @@ export function App() {
 
       <main className="workspace">
         {mode !== "sketch" && (
-          <FeatureTree
-            doc={s.doc}
-            statuses={statuses}
-            selected={s.selectedFeature}
-            pro={pro}
-            disabled={mode !== "model"}
-            onSelect={(id) => setState({ selectedFeature: id })}
-            onEdit={editFeature}
-            onDelete={deleteFeature}
-            replayStep={s.mode.kind === "replay" ? s.mode.step : null}
-            onReplay={startReplay}
-          />
+          <div className={treeOpen ? "tree-wrap open" : "tree-wrap"} ref={treeRef}>
+            {/* 縦向きの画面では、れきしをこのボタン1つにたたむ(CSS で縦向きのときだけ出す) */}
+            <button type="button" className="tree-toggle" aria-expanded={treeOpen} onClick={() => setTreeOpen((v) => !v)} data-testid="tree-toggle">
+              <Icon name="layers" /> {term("history", pro)}
+              <span className="tree-count">{s.doc.features.length}</span>
+            </button>
+            <FeatureTree
+              doc={s.doc}
+              statuses={statuses}
+              selected={s.selectedFeature}
+              pro={pro}
+              disabled={mode !== "model"}
+              onSelect={(id) => setState({ selectedFeature: id })}
+              onEdit={editFeature}
+              onDelete={deleteFeature}
+              replayStep={s.mode.kind === "replay" ? s.mode.step : null}
+              onReplay={startReplay}
+            />
+          </div>
         )}
 
         <div className="stage" ref={stageRef}>
