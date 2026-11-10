@@ -26,7 +26,17 @@ interface Props {
   facePick?: { selected: Vec3[]; onToggle: (point: Vec3, normal: Vec3) => void } | null;
   /** 押し出しの作業中など、半透明で見せたいとき */
   ghost?: boolean;
+  /** 3D の上に重なっているパネルの大きさ(px)。立体はパネルのない所に全体をうつす */
+  cover?: Cover;
 }
+
+/** 3D ビューの左と下で、パネルにかくれている はば(px)。2026-11-10 追加 */
+export interface Cover {
+  left: number;
+  bottom: number;
+}
+
+const NO_COVER: Cover = { left: 0, bottom: 0 };
 
 interface Stage {
   renderer: THREE.WebGLRenderer;
@@ -45,6 +55,10 @@ interface Stage {
   /** 最後に全体を見せたときの立体の大きさ(対角線の長さ) */
   fittedSize: number;
   mesh: BodyMesh | null;
+  /** パネルにかくれている所(ここをよけて立体をうつす) */
+  cover: Cover;
+  /** 前に大きさを合わせたとき横長だったか(向きが変わったら全体を見せ直す) */
+  landscape: boolean | null;
 }
 
 const PLANE_SIZE = 60;
@@ -72,7 +86,7 @@ export function snapshot3D(): string | null {
   return takeSnapshot?.() ?? null;
 }
 
-export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, edgePick, facePick, ghost }: Props) {
+export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, edgePick, facePick, ghost, cover = NO_COVER }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const cubeRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Stage | null>(null);
@@ -146,13 +160,21 @@ export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, edgePick,
     controls.addEventListener("change", render);
 
     const resize = () => {
-      const w = host.clientWidth || 1;
-      const h = host.clientHeight || 1;
+      // スケッチ中などで 3D がかくれているときは何もしない(大きさが 0 になるため)
+      if (!host.clientWidth || !host.clientHeight) return;
+      const w = host.clientWidth;
+      const h = host.clientHeight;
       renderer.setSize(w, h, false);
       renderer.domElement.style.width = "100%";
       renderer.domElement.style.height = "100%";
       camera.aspect = w / h;
-      camera.updateProjectionMatrix();
+      const st = stageRef.current;
+      if (!st) return render();
+      applyCover(st);
+      // タブレットの向きを変えたときは、立体がはみ出さないように全体を見せ直す
+      const landscape = w > h;
+      if (st.landscape !== null && st.landscape !== landscape) fitView(st);
+      st.landscape = landscape;
       render();
     };
     const ro = new ResizeObserver(resize);
@@ -174,6 +196,8 @@ export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, edgePick,
       fitted: false,
       fittedSize: 0,
       mesh: null,
+      cover: NO_COVER,
+      landscape: null,
     };
     stageRef.current = stage;
     takeSnapshot = () => {
@@ -307,6 +331,15 @@ export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, edgePick,
     }
     stage.render();
   }, [mesh, ghost]);
+
+  // パネルが出たり、大きさが変わったりしたら、パネルのない所に立体の全体をうつす
+  useEffect(() => {
+    const stage = stageRef.current;
+    if (!stage) return;
+    stage.cover = cover;
+    applyCover(stage);
+    fitView(stage);
+  }, [cover.left, cover.bottom]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // えらんだ辺を太く見せる
   const selectedKey = JSON.stringify(edgePick?.selected ?? []);
@@ -631,6 +664,37 @@ function highlightFace(stage: Stage, face: number | null, ok: boolean) {
   stage.render();
 }
 
+/**
+ * パネルにかくれている所をよけるように、カメラの中心をずらす(2026-11-10 追加)。
+ * 左にパネルがあれば右へ、下にパネルがあれば上へ、かくれた はばの半分だけずらす。
+ */
+function applyCover(stage: Stage) {
+  const { left, bottom } = stage.cover;
+  const el = stage.renderer.domElement;
+  const w = el.clientWidth || 1;
+  const h = el.clientHeight || 1;
+  if (left > 0 || bottom > 0) stage.camera.setViewOffset(w, h, -left / 2, bottom / 2, w, h);
+  else stage.camera.clearViewOffset();
+  stage.camera.updateProjectionMatrix();
+}
+
+/**
+ * 半径 r の球(立体を包む球)が、パネルにかくれていない所に入りきるカメラの距離。
+ * 縦と横のうち、せまいほうに合わせる(縦向きの画面で横にはみ出さないように)。
+ */
+function fitDistance(stage: Stage, r: number): number {
+  const el = stage.renderer.domElement;
+  const w = el.clientWidth || 1;
+  const h = el.clientHeight || 1;
+  const { left, bottom } = stage.cover;
+  const tanHalf = Math.tan(THREE.MathUtils.degToRad(stage.camera.fov / 2));
+  // 見えている所の、半分の高さ・半分のはば(距離 1 のとき)
+  const tanV = (tanHalf * Math.max(h - bottom, h * 0.3)) / h;
+  const tanH = (tanHalf * Math.max(w - left, w * 0.3)) / h;
+  const margin = 1.1;
+  return (r / Math.sin(Math.atan(Math.min(tanV, tanH)))) * margin;
+}
+
 function setView(stage: Stage, dir: Vec3) {
   const box = new THREE.Box3().setFromObject(stage.part);
   if (box.isEmpty()) box.set(new THREE.Vector3(0, 0, 0), new THREE.Vector3(PLANE_SIZE, PLANE_SIZE, PLANE_SIZE / 3));
@@ -639,7 +703,7 @@ function setView(stage: Stage, dir: Vec3) {
   const d = new THREE.Vector3(...dir).normalize();
   // 真上・真下から見るときは、少しだけ手前(-Y)に寄せて画面の上を +Y にする(回転の軸が乱れないように)
   if (Math.abs(d.z) > 0.999) d.set(0, -0.002, Math.sign(d.z)).normalize();
-  stage.camera.position.copy(center).addScaledVector(d, size * 1.6);
+  stage.camera.position.copy(center).addScaledVector(d, fitDistance(stage, size / 2));
   stage.controls.target.copy(center);
   stage.controls.update();
   stage.render();

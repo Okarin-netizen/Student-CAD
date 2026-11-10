@@ -159,7 +159,7 @@ test("線をタップするとすぐ長さを入れられ、かいた絵は確�
   await tapCanvas(page, 0.3, 0.3);
   await expect(page.getByTestId("sketch-hint")).toContainText("反対の角");
   await tapCanvas(page, 0.7, 0.7);
-  await expect(page.getByTestId("sketch-dof")).toContainText("このままでも立体にできます");
+  await expect(page.getByTestId("sketch-dof")).toHaveText(/^あと \d+ つで形が決まる$/);
 
   await page.getByTestId("tool-dimension").click();
   await tapCanvas(page, 0.5, 0.7);

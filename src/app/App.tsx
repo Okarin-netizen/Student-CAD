@@ -51,7 +51,7 @@ import {
   updateOp,
   useStore,
 } from "./store";
-import { term } from "./terms";
+import { featureLabel, term } from "./terms";
 import { Viewer3D, faceGroupAt, type PickResult } from "./Viewer3D";
 import { VariablesPanel } from "./VariablesPanel";
 import { DrawingView } from "./DrawingView";
@@ -66,6 +66,8 @@ import { DropMenu, type MenuItem } from "./DropMenu";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { PlanePanel } from "./PlanePanel";
 import { nextStepAfterSketch } from "./nextStep";
+import { stepGuide, type StepButton } from "./stepGuide";
+import { usePanelCover } from "./usePanelCover";
 import "./app.css";
 
 const EMPTY = new Float32Array(0);
@@ -162,6 +164,18 @@ export function App() {
     const st = s.draftOp && statuses.find((x) => x.id === s.draftOp!.id);
     return st && st.ok ? st.warning : undefined;
   })();
+
+  // 手順バー: 次に押すボタンを青く、まだ使えないボタンをうすくする(stepGuide.ts)
+  const guide = useMemo(() => stepGuide(s.doc, hasBody, pro), [s.doc, hasBody, pro]);
+  /** 手順バーのボタンの class と、押したときの動き(使えないときは案内だけ出す) */
+  const stepProps = (b: StepButton, run: () => void) => {
+    const why = guide.notReady[b];
+    return {
+      className: ["step", guide.next === b ? "next" : "", why ? "not-ready" : ""].filter(Boolean).join(" "),
+      "aria-disabled": why ? true : undefined,
+      onClick: () => (why ? toast(why) : run()),
+    };
+  };
 
   // ---- 操作 ----
 
@@ -309,12 +323,17 @@ export function App() {
     [plane, mesh, sketchDisplays, draftId, s.doc.features],
   );
 
+  // 作業パネル(立体にする・面をえらぶ)が出ている間は、パネルのない所に立体をうつす
+  const stageRef = useRef<HTMLDivElement>(null);
+  const panelKey = mode === "pickPlane" ? "plane" : mode === "op" && s.draftOp ? `op-${s.draftOp.type}` : null;
+  const cover = usePanelCover(stageRef, panelKey);
+
   return (
     <div className={`app mode-${mode}`}>
       <header className="topbar">
         {mode === "sketch" && sketchFeature ? (
           <>
-            <span className="topbar-title"><Icon name="sketch" /> {sketchFeature.name}</span>
+            <span className="topbar-title"><Icon name="sketch" /> {featureLabel(sketchFeature.name, pro)}</span>
             <div className="topbar-group">
               <button type="button" onClick={undo} disabled={!canUndo} aria-label="もどす" data-testid="undo">
                 <Icon name="undo" /> もどす
@@ -399,7 +418,7 @@ export function App() {
           />
         )}
 
-        <div className="stage">
+        <div className="stage" ref={stageRef}>
           <div className="stage-3d" hidden={mode === "sketch"}>
             <Viewer3D
               mesh={s.result?.mesh ?? null}
@@ -408,6 +427,7 @@ export function App() {
               onPick={onPick}
               onMessage={(t) => toast(t)}
               ghost={mode === "op" && s.draftOp?.type !== "fillet" && s.draftOp?.type !== "shell"}
+              cover={cover}
               edgePick={filletPicking && s.draftOp?.type === "fillet" ? { selected: s.draftOp.edges.map((e) => e.mid), onToggle: toggleEdge } : null}
               facePick={shellPicking && s.draftOp?.type === "shell" ? { selected: s.draftOp.faces.map((f) => f.point), onToggle: toggleFace } : null}
             />
@@ -455,7 +475,7 @@ export function App() {
 
       {mode === "model" && (
         <nav className="stepbar" aria-label="作り方の手順">
-          <button type="button" className="step" onClick={startPickPlane} data-testid="new-sketch">
+          <button type="button" {...stepProps("sketch", startPickPlane)} data-testid="new-sketch">
             <span className="step-num">1</span><Icon name="sketch" /> {term("newSketch", pro)}
           </button>
           <span className="step-arrow" aria-hidden>
@@ -463,23 +483,29 @@ export function App() {
           </span>
           <div className="step-group">
             <span className="step-num">2</span>
-            <button type="button" className="step" onClick={() => startExtrude()} data-testid="new-extrude">
+            <button type="button" {...stepProps("extrude", () => startExtrude())} data-testid="new-extrude">
               <Icon name="extrude" /> {term("extrude", pro)}
             </button>
-            <button type="button" className="step" onClick={() => startRevolve()} data-testid="new-revolve">
+            <button type="button" {...stepProps("revolve", () => startRevolve())} data-testid="new-revolve">
               <Icon name="revolve" /> {term("revolveName", pro)}
             </button>
-            <button type="button" className="step" onClick={() => startFillet()} data-testid="new-fillet">
+            <button type="button" {...stepProps("fillet", () => startFillet())} data-testid="new-fillet">
               <Icon name="fillet" /> {term("fillet", pro)}
             </button>
-            <DropMenu icon="more" label="そのほか" testId="open-more" buttonClass="step" menuLabel="そのほかの作業" menuClass="more-menu" items={moreMenu} closeKey={mode} />
+            <DropMenu
+              icon="more"
+              label="そのほか"
+              testId="open-more"
+              buttonClass="step"
+              onNotReady={guide.notReady.more ? () => toast(guide.notReady.more!) : undefined}
+              menuLabel="そのほかの作業" menuClass="more-menu" items={moreMenu} closeKey={mode} />
           </div>
           <span className="step-arrow" aria-hidden>
             <Icon name="chevron" />
           </span>
           <div className="step-group">
             <span className="step-num">3</span>
-            <DropMenu icon="export" label="書き出す" testId="open-export" buttonClass="step" disabled={!hasBody || s.busy} menuLabel="書き出す" items={exportMenu} closeKey={mode} />
+            <DropMenu icon="export" label="書き出す" testId="open-export" buttonClass={guide.next === "export" ? "step next" : "step"} disabled={!hasBody || s.busy} menuLabel="書き出す" items={exportMenu} closeKey={mode} />
             <button type="button" className="step" onClick={startDrawing} disabled={!hasBody || s.busy} data-testid="open-drawing">
               <Icon name="drawing" /> 図面
             </button>
@@ -491,7 +517,7 @@ export function App() {
       )}
 
       {s.mode.kind === "replay" && (
-        <ReplayBar features={s.doc.features} step={s.mode.step} busy={s.busy} onStep={setReplayStep} onClose={cancelMode} />
+        <ReplayBar features={s.doc.features} step={s.mode.step} busy={s.busy} pro={pro} onStep={setReplayStep} onClose={cancelMode} />
       )}
 
       <TipLayer />

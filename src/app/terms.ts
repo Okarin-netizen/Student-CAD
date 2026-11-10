@@ -3,7 +3,7 @@
 
 // 画面の言葉。ふだんはやさしい言葉、設定で Onshape/SolidWorks と同じ専門用語に切り替えられる。
 const TERMS = {
-  sketch: ["スケッチ", "スケッチ"],
+  sketch: ["絵", "スケッチ"],
   newSketch: ["絵をかく", "スケッチ"],
   extrude: ["立体にする", "押し出し"],
   extrudeName: ["押し出し", "押し出し"],
@@ -39,4 +39,33 @@ export type TermKey = keyof typeof TERMS;
 
 export function term(key: TermKey, pro: boolean): string {
   return TERMS[key][pro ? 1 : 0];
+}
+
+/**
+ * 作業の名前(「押し出し1」など)を、画面に出す言葉にする。2026-11-10 追加。
+ * 設計図には専門用語の名前で保存されている(ファイルは変えない)。ふだんの言葉のときは、
+ * ボタンと同じ言葉(「立体にする」→「立体1」、「絵をかく」→「絵1」)に読みかえて見せる。
+ * 生徒が自分でつけた名前など、決まった形でない名前はそのまま見せる。
+ */
+const EASY_NAMES: Record<string, string> = {
+  スケッチ: "絵",
+  押し出し: "立体",
+  ミラー: "対称",
+  パターン: "ならべ",
+  ロフト: "つなぎ",
+  スイープ: "なぞり",
+  面取り: "角落とし",
+};
+
+export function featureLabel(name: string, pro: boolean): string {
+  if (pro) return name;
+  const m = /^(\D+?)(\d+)$/.exec(name);
+  const easy = m && EASY_NAMES[m[1]];
+  return easy ? `${easy}${m[2]}` : name;
+}
+
+/** 計算のエラー文などに出てくる「スケッチ1」のような名前を、画面の言葉に読みかえる */
+export function withFeatureLabels(text: string, names: string[], pro: boolean): string {
+  if (pro) return text;
+  return names.reduce((t, n) => t.split(`「${n}」`).join(`「${featureLabel(n, pro)}」`), text);
 }

@@ -14,7 +14,7 @@ import type {
 } from "../doc/types";
 import { NumberPad, type PadVariable } from "./NumberPad";
 import { isCopyable, type OpFeature } from "./store";
-import { term } from "./terms";
+import { featureLabel, term, withFeatureLabels } from "./terms";
 import { planeLabel } from "../doc/planes";
 
 interface Props {
@@ -111,7 +111,7 @@ export function OpPanel({ doc, draft, pro, error, warning, busy, preview, variab
       <select value={sketchId} onChange={(e) => onChange({ sketchId: e.target.value })} data-testid="op-sketch">
         {sketches.map((s) => (
           <option key={s.id} value={s.id}>
-            {s.name}
+            {featureLabel(s.name, pro)}
           </option>
         ))}
       </select>
@@ -183,7 +183,7 @@ export function OpPanel({ doc, draft, pro, error, warning, busy, preview, variab
 
       {draft.type === "loft" && (
         <>
-          <LoftSketches sketches={sketches} value={draft.sketchIds} onChange={(sketchIds) => onChange({ sketchIds })} />
+          <LoftSketches sketches={sketches} pro={pro} value={draft.sketchIds} onChange={(sketchIds) => onChange({ sketchIds })} />
           <label className="check">
             <input type="checkbox" checked={draft.ruled} onChange={(e) => onChange({ ruled: e.target.checked })} data-testid="op-ruled" />
             まっすぐつなぐ(角ばった形にする)
@@ -199,7 +199,7 @@ export function OpPanel({ doc, draft, pro, error, warning, busy, preview, variab
             <select value={draft.pathId} onChange={(e) => onChange({ pathId: e.target.value })} data-testid="op-path">
               {sketches.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.name}({planeLabel(s.plane)})
+                  {featureLabel(s.name, pro)}({planeLabel(s.plane)})
                 </option>
               ))}
             </select>
@@ -209,7 +209,7 @@ export function OpPanel({ doc, draft, pro, error, warning, busy, preview, variab
             <select value={draft.profileId} onChange={(e) => onChange({ profileId: e.target.value })} data-testid="op-profile">
               {sketches.map((s) => (
                 <option key={s.id} value={s.id}>
-                  {s.name}({planeLabel(s.plane)})
+                  {featureLabel(s.name, pro)}({planeLabel(s.plane)})
                 </option>
               ))}
             </select>
@@ -238,11 +238,11 @@ export function OpPanel({ doc, draft, pro, error, warning, busy, preview, variab
         </>
       )}
 
-      {draft.type === "mirror" && <MirrorFields draft={draft} copyable={copyable} onChange={onChange} />}
+      {draft.type === "mirror" && <MirrorFields draft={draft} pro={pro} copyable={copyable} onChange={onChange} />}
 
       {draft.type === "pattern" && (
         <>
-          <SourceSelect label="ならべるもの" value={draft.source} options={copyable} onChange={(source) => onChange({ source })} />
+          <SourceSelect label="ならべるもの" pro={pro} value={draft.source} options={copyable} onChange={(source) => onChange({ source })} />
           <Segmented
             label="ならべ方"
             value={draft.kind}
@@ -265,12 +265,12 @@ export function OpPanel({ doc, draft, pro, error, warning, busy, preview, variab
 
       {error && (
         <p className="panel-error" data-testid="op-error">
-          {error}
+          {withFeatureLabels(error, doc.features.map((f) => f.name), pro)}
         </p>
       )}
       {!error && warning && (
         <p className="panel-warning" data-testid="op-warning">
-          {warning}
+          {withFeatureLabels(warning, doc.features.map((f) => f.name), pro)}
         </p>
       )}
 
@@ -327,7 +327,7 @@ function panelTitle(draft: OpFeature, pro: boolean): string {
  * つなぐスケッチをえらぶ。タップした順が、つなぐ順になる(番号を出す)。
  * もう一度タップすると外す。
  */
-function LoftSketches({ sketches, value, onChange }: { sketches: SketchFeature[]; value: string[]; onChange: (ids: string[]) => void }) {
+function LoftSketches({ sketches, value, pro, onChange }: { sketches: SketchFeature[]; value: string[]; pro: boolean; onChange: (ids: string[]) => void }) {
   return (
     <div className="field">
       <span>つなぐスケッチ(タップした順につなぎます)</span>
@@ -343,7 +343,7 @@ function LoftSketches({ sketches, value, onChange }: { sketches: SketchFeature[]
               onClick={() => onChange(n >= 0 ? value.filter((id) => id !== s.id) : [...value, s.id])}
             >
               <span className="loft-num">{n >= 0 ? n + 1 : ""}</span>
-              {s.name}
+              {featureLabel(s.name, pro)}
               <small>{planeLabel(s.plane)}</small>
             </button>
           );
@@ -389,9 +389,11 @@ interface SourceSelectProps {
   onChange: (v: string) => void;
   /** 「立体ぜんぶ」をえらべるようにする(対称のとき) */
   includeBody?: boolean;
+  /** 専門用語で表示するか(作業の名前の言葉を切りかえる) */
+  pro: boolean;
 }
 
-function SourceSelect({ label, value, options, onChange, includeBody }: SourceSelectProps) {
+function SourceSelect({ label, value, options, onChange, includeBody, pro }: SourceSelectProps) {
   return (
     <label className="field">
       <span>{label}</span>
@@ -399,7 +401,7 @@ function SourceSelect({ label, value, options, onChange, includeBody }: SourceSe
         {includeBody && <option value="body">立体ぜんぶ</option>}
         {options.map((f) => (
           <option key={f.id} value={f.id}>
-            {f.name}
+            {featureLabel(f.name, pro)}
           </option>
         ))}
       </select>
@@ -422,10 +424,10 @@ function AxisPick({ label, value, onChange, testid }: { label: string; value: Wo
   );
 }
 
-function MirrorFields({ draft, copyable, onChange }: { draft: MirrorFeature; copyable: CadDocument["features"]; onChange: (p: Partial<MirrorFeature>) => void }) {
+function MirrorFields({ draft, copyable, pro, onChange }: { draft: MirrorFeature; copyable: CadDocument["features"]; pro: boolean; onChange: (p: Partial<MirrorFeature>) => void }) {
   return (
     <>
-      <SourceSelect label="何を写す?" value={draft.source} options={copyable} includeBody onChange={(source) => onChange({ source })} />
+      <SourceSelect label="何を写す?" pro={pro} value={draft.source} options={copyable} includeBody onChange={(source) => onChange({ source })} />
       <div className="field">
         <span>鏡にする面(原点を通る)</span>
         <div className="segmented vertical" role="radiogroup">

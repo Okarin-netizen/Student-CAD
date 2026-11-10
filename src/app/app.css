@@ -321,6 +321,24 @@ button.danger {
   white-space: nowrap;
 }
 
+/* 次に押すボタン(1つだけ青くする)。2026-11-10 追加 */
+.step.next {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: var(--accent-text);
+  box-shadow: 0 0 0 3px #0b5cad40;
+}
+
+.step.next .step-num {
+  background: #fff;
+  color: var(--accent);
+}
+
+/* まだ使えないボタン。押せるが、押すと何を先にするかの案内が出る */
+.step.not-ready {
+  opacity: 0.45;
+}
+
 .step-num {
   display: inline-grid;
   place-items: center;
@@ -698,8 +716,9 @@ button.danger {
 }
 
 .sk-glyph text {
-  font-size: 13px;
-  fill: var(--muted);
+  font-size: 20px;
+  font-weight: 700;
+  fill: var(--text);
 }
 
 .sk-glyph.selected rect,
@@ -714,7 +733,7 @@ button.danger {
 }
 
 .sk-dim text {
-  font-size: 15px;
+  font-size: 20px;
   font-weight: 700;
   fill: var(--accent);
 }
@@ -876,18 +895,13 @@ button.danger {
   color: var(--muted);
 }
 
-.sk-glyph {
-  opacity: 0.7;
-}
-
-.sk-glyph text {
-  font-size: 11px;
-}
 
 .howto {
   position: absolute;
   left: 50%;
-  bottom: 16px;
+  /* 下に出るお知らせと重ならないように、上に出す(2026-11-10) */
+  top: 12px;
+  max-width: calc(100% - 140px);
   transform: translateX(-50%);
   background: #1b2430d9;
   color: #fff;
@@ -897,6 +911,12 @@ button.danger {
   pointer-events: none;
   z-index: 3;
   white-space: nowrap;
+}
+
+/* パネルが出ているときは、操作の説明を出さない(パネルと重なるため) */
+.mode-op .howto,
+.mode-pickPlane .howto {
+  display: none;
 }
 
 /* ---- フェーズ2その2: 文字・対称・ならべる・変数 ---- */
