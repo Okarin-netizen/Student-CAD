@@ -7,7 +7,7 @@ import type { FeatureStatus } from "../kernel/rebuild";
 import { BASE_PLANE_LABELS } from "../doc/planes";
 import { dependents } from "../doc/links";
 import { ConfirmDialog } from "./ConfirmDialog";
-import { term } from "./terms";
+import { featureLabel, term, withFeatureLabels } from "./terms";
 import { Icon, type IconName } from "./Icon";
 
 interface Props {
@@ -28,7 +28,14 @@ interface Props {
 export function FeatureTree({ doc, statuses, selected, pro, disabled, onSelect, onEdit, onDelete, replayStep, onReplay }: Props) {
   const [confirm, setConfirm] = useState<Feature | null>(null);
   const status = new Map(statuses.map((s) => [s.id, s]));
-  const nameOf = (id: Id) => doc.features.find((f) => f.id === id)?.name ?? "?";
+  // 名前はボタンと同じ言葉で見せる(「押し出し1」→「立体1」)
+  const label = (f: Feature) => featureLabel(f.name, pro);
+  const nameOf = (id: Id) => {
+    const f = doc.features.find((x) => x.id === id);
+    return f ? label(f) : "?";
+  };
+  const names = doc.features.map((f) => f.name);
+  const say = (text: string) => withFeatureLabels(text, names, pro);
 
   return (
     <aside className="tree" aria-label={term("history", pro)}>
@@ -61,7 +68,7 @@ export function FeatureTree({ doc, statuses, selected, pro, disabled, onSelect, 
                   <Icon name={icon(f)} />
                 </span>
                 <span className="tree-name">
-                  {f.name}
+                  {label(f)}
                   {f.type === "extrude" && <small> {nameOf(f.sketchId)} ・ {f.distance}mm</small>}
                   {f.type === "revolve" && <small> {nameOf(f.sketchId)} ・ {f.angle}°</small>}
                   {f.type === "fillet" && (
@@ -98,8 +105,8 @@ export function FeatureTree({ doc, statuses, selected, pro, disabled, onSelect, 
                   </span>
                 )}
               </button>
-              {bad && <p className="tree-error-text">{(st as { error: string }).error}</p>}
-              {st?.ok && st.warning && <p className="tree-warning-text">{st.warning}</p>}
+              {bad && <p className="tree-error-text">{say((st as { error: string }).error)}</p>}
+              {st?.ok && st.warning && <p className="tree-warning-text">{say(st.warning)}</p>}
               {selected === f.id && !disabled && (
                 <div className="tree-actions">
                   <button type="button" onClick={() => onEdit(f.id)} data-testid="tree-edit">
@@ -118,7 +125,7 @@ export function FeatureTree({ doc, statuses, selected, pro, disabled, onSelect, 
       {confirm && (
         <ConfirmDialog
           label="けす確認"
-          title={`「${confirm.name}」をけしますか?`}
+          title={`「${label(confirm)}」をけしますか?`}
           cancelText="やめる"
           okText="けす"
           okTestId="confirm-delete"
@@ -130,7 +137,7 @@ export function FeatureTree({ doc, statuses, selected, pro, disabled, onSelect, 
         >
           {dependents(doc, confirm.id).length > 0 && (
             <p>
-              これを使っている {dependents(doc, confirm.id).map((f) => `「${f.name}」`).join("")} も一緒に消えます。
+              これを使っている {dependents(doc, confirm.id).map((f) => `「${label(f)}」`).join("")} も一緒に消えます。
             </p>
           )}
           <p className="muted">まちがえたら「もどす」で元にもどせます。</p>

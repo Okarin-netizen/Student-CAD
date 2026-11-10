@@ -35,7 +35,7 @@ import {
 } from "../../sketch/edit";
 import { measureAngle, measureLength, solveSketch } from "../../sketch/solver";
 import { findProfiles } from "../../sketch/profiles";
-import { term } from "../terms";
+import { term, type TermKey } from "../terms";
 import { NumberPad, type PadVariable } from "../NumberPad";
 import { referenceCorners } from "./references";
 import { arcPath, bounds, distToArc, distToSegment, fmt, gridStep, positions, textBox, toScreen, toWorld, type Viewport } from "./geometry";
@@ -93,6 +93,17 @@ type NewDimension = DimensionConstraint extends infer C ? (C extends DimensionCo
 
 const HIT_PX = 22;
 const MOVE_PX = 6;
+/** きまりの記号(水平・垂直など)の大きさと、線からのはなれ方(px)。指でさわれる大きさにする(2026-11-10) */
+const GLYPH_SIZE = 28;
+const GLYPH_GAP = 24;
+/** きまりの記号をえらんだときに出す、意味の説明 */
+const CONSTRAINT_MEANING: Partial<Record<SketchConstraint["type"], string>> = {
+  horizontal: "この線はまっすぐ横",
+  vertical: "この線はまっすぐ縦",
+  parallel: "2本の線は同じ向き",
+  perpendicular: "2本の線は直角に交わる",
+  equal: "2つは同じ長さ(同じ大きさ)",
+};
 
 const TOOLS: { tool: Tool; label: string; icon: IconName; hint: string }[] = [
   { tool: "select", label: "えらぶ", icon: "select", hint: "点や線をタップしてえらびます。点はドラッグで動かせます。何もないところをドラッグすると画面が動きます" },
@@ -749,18 +760,18 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
         const a = S(pos.get(l.p1)!);
         const b = S(pos.get(l.p2)!);
         const n = normal(a, b);
-        return { at: [(a[0] + b[0]) / 2 + n[0] * 22, (a[1] + b[1]) / 2 + n[1] * 22], text: withExpr(c, fmt(c.value)) };
+        return { at: [(a[0] + b[0]) / 2 + n[0] * 28, (a[1] + b[1]) / 2 + n[1] * 28], text: withExpr(c, fmt(c.value)) };
       }
       case "distance": {
         const a = S(pos.get(c.a)!);
         const b = S(pos.get(c.b)!);
-        return { at: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - 14], text: withExpr(c, fmt(c.value)), line: [a, b] };
+        return { at: [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - 20], text: withExpr(c, fmt(c.value)), line: [a, b] };
       }
       case "diameter": {
         const e = ents.get(c.circle);
         if (e?.type !== "circle" && e?.type !== "arc") return null;
         const cc = S(pos.get(e.c)!);
-        return { at: [cc[0] + e.r * vp.scale * 0.7, cc[1] - e.r * vp.scale * 0.7 - 12], text: withExpr(c, `⌀${fmt(c.value)}`) };
+        return { at: [cc[0] + e.r * vp.scale * 0.7, cc[1] - e.r * vp.scale * 0.7 - 16], text: withExpr(c, `⌀${fmt(c.value)}`) };
       }
       case "angle": {
         const la = ents.get(c.a);
@@ -789,12 +800,12 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
     const t = sym[c.type];
     if (!t) return [];
     if (c.type === "horizontal" || c.type === "vertical") {
-      const at = lineMid(c.line, 16);
+      const at = lineMid(c.line, GLYPH_GAP);
       return at ? [{ at, text: t }] : [];
     }
     if (c.type === "parallel" || c.type === "perpendicular" || c.type === "equal") {
       return [c.a, c.b].flatMap((id) => {
-        const at = lineMid(id, 16);
+        const at = lineMid(id, GLYPH_GAP);
         if (at) return [{ at, text: t }];
         const e = ents.get(id);
         if (e?.type === "circle" || e?.type === "arc") {
@@ -858,11 +869,20 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
       ? "まだ何もかいていません"
       : status.dof === 0
         ? term("fullyDefined", pro)
-        : `このままでも立体にできます(あと ${status.dof} つ寸法か「${term("constraint", pro)}」を入れると、形が動かなくなります)`;
+        : `あと ${status.dof} つで形が決まる`;
+  // 長い説明は、マウスをのせる・長押しで出す(2026-11-10: 下の説明を短くした)
+  const dofTip =
+    status.ok && status.dof > 0 && sketch.entities.length > 0
+      ? `このままでも立体にできます。あと ${status.dof} つ寸法か「${term("constraint", pro)}」を入れると、形が動かなくなり、線が青から黒に変わります`
+      : undefined;
+
+  // きまりの記号を1つだけえらんだときは、その意味を上に出す
+  const selGlyph = selection.length === 1 ? sketch.constraints.find((c) => c.id === selection[0] && CONSTRAINT_MEANING[c.type]) : undefined;
+  const glyphHint = selGlyph ? `${term(selGlyph.type as TermKey, pro)}: ${CONSTRAINT_MEANING[selGlyph.type]}` : null;
 
   const overflowText = sketch.entities.find((e): e is Extract<SketchEntity, { type: "text" }> => e.type === "text" && overflows(e)) ?? null;
 
-  const hint = guide ?? (pending.length > 0 ? nextStepHint(tool, pending.length) : null) ?? TOOLS.find((t) => t.tool === tool)!.hint;
+  const hint = glyphHint ?? guide ?? (pending.length > 0 ? nextStepHint(tool, pending.length) : null) ?? TOOLS.find((t) => t.tool === tool)!.hint;
 
   return (
     <div className="sketch-editor">
@@ -984,11 +1004,11 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
           {sketch.constraints.flatMap((c) =>
             glyph(c).map((g, i) => {
               const sel = selection.includes(c.id);
-              labels.push({ id: c.id, x: g.at[0], y: g.at[1], w: 16, h: 16 });
+              labels.push({ id: c.id, x: g.at[0], y: g.at[1], w: GLYPH_SIZE + 8, h: GLYPH_SIZE + 8 });
               return (
                 <g key={`${c.id}-${i}`} className={sel ? "sk-glyph selected" : "sk-glyph"}>
-                  <rect x={g.at[0] - 7} y={g.at[1] - 7} width={14} height={14} rx={3} />
-                  <text x={g.at[0]} y={g.at[1] + 4} textAnchor="middle">
+                  <rect x={g.at[0] - GLYPH_SIZE / 2} y={g.at[1] - GLYPH_SIZE / 2} width={GLYPH_SIZE} height={GLYPH_SIZE} rx={6} />
+                  <text x={g.at[0]} y={g.at[1] + 7} textAnchor="middle">
                     {g.text}
                   </text>
                 </g>
@@ -999,14 +1019,15 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
           {sketch.constraints.map((c) => {
             const d = dimLabel(c);
             if (!d) return null;
-            const w = [...d.text].reduce((n, ch) => n + (ch.charCodeAt(0) < 128 ? 9 : 15), 16);
-            labels.push({ id: c.id, x: d.at[0], y: d.at[1], w, h: 26 });
+            // 数字はボタンの字と同じくらい大きくする(20px)。文字のはばから、わくの大きさを決める
+            const w = [...d.text].reduce((n, ch) => n + (ch.charCodeAt(0) < 128 ? 12 : 20), 20);
+            labels.push({ id: c.id, x: d.at[0], y: d.at[1], w, h: 34 });
             const sel = selection.includes(c.id);
             return (
               <g key={c.id} className={sel ? "sk-dim selected" : "sk-dim"} data-testid={`dim-${c.type}`}>
                 {d.line && <line x1={d.line[0][0]} y1={d.line[0][1]} x2={d.line[1][0]} y2={d.line[1][1]} className="sk-dim-line" />}
-                <rect x={d.at[0] - w / 2} y={d.at[1] - 13} width={w} height={26} rx={8} />
-                <text x={d.at[0]} y={d.at[1] + 5} textAnchor="middle">
+                <rect x={d.at[0] - w / 2} y={d.at[1] - 17} width={w} height={34} rx={9} />
+                <text x={d.at[0]} y={d.at[1] + 7} textAnchor="middle">
                   {d.text}
                 </text>
               </g>
@@ -1040,6 +1061,11 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
           <p className="sk-hint" data-testid="sketch-hint">
             {hint}
           </p>
+          {selGlyph && (
+            <button type="button" className="danger" onClick={deleteSelection} data-testid="glyph-delete">
+              この{term("constraint", pro)}をけす
+            </button>
+          )}
           {pending.length > 0 && (
             <button type="button" onClick={() => setPending([])} data-testid="sketch-pending-stop">
               {tool === "line" ? "線をここで終わる" : "やりなおす"}
@@ -1047,7 +1073,7 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
           )}
         </div>
         <div className="sk-overlay-bottom">
-          <span className={defined ? "sk-dof done" : "sk-dof"} data-testid="sketch-dof">
+          <span className={defined ? "sk-dof done" : "sk-dof"} data-testid="sketch-dof" data-tip={dofTip}>
             {dofText}
           </span>
           {profiles.openChains > 0 && <span className="sk-warn">閉じていない線があります</span>}

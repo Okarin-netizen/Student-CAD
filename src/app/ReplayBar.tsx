@@ -4,6 +4,7 @@
 import { useEffect, useState } from "react";
 import type { Feature } from "../doc/types";
 import { Icon } from "./Icon";
+import { featureLabel } from "./terms";
 
 interface Props {
   features: Feature[];
@@ -12,6 +13,8 @@ interface Props {
   /** 形の計算中は、次へ進まない(計算が追いつかないと形が飛ぶため) */
   busy: boolean;
   onStep: (step: number) => void;
+  /** 専門用語で表示するか(作業の名前の言葉を切りかえる) */
+  pro: boolean;
   onClose: () => void;
 }
 
@@ -19,7 +22,7 @@ interface Props {
 const INTERVAL = 1200;
 
 /** 作り方の再生。れきしを最初から1つずつ、形ができていく様子を見せる */
-export function ReplayBar({ features, step, busy, onStep, onClose }: Props) {
+export function ReplayBar({ features, step, busy, pro, onStep, onClose }: Props) {
   const [playing, setPlaying] = useState(true);
   const n = features.length;
   const atEnd = step >= n;
@@ -75,7 +78,7 @@ export function ReplayBar({ features, step, busy, onStep, onClose }: Props) {
         }}
       />
       <span className="replay-label" data-testid="replay-label">
-        {step} / {n} ・ {f?.name}
+        {step} / {n} ・ {f ? featureLabel(f.name, pro) : ""}
       </span>
       <button type="button" onClick={onClose} data-testid="replay-close">
         おわる

@@ -37,7 +37,7 @@ test("ずらした面にかいた形と、下の形をつなぐ(ロフト)", asy
   await page.getByTestId("op-ok").click();
   const tree = page.getByTestId("feature-tree");
   await expect(tree.locator("li")).toHaveCount(3);
-  await expect(tree).toContainText("スケッチ1 → スケッチ2");
+  await expect(tree).toContainText("絵1 → 絵2");
   await expect(tree.locator("li.bad")).toHaveCount(0);
 });
 
@@ -96,6 +96,6 @@ test("線をかいて道すじにし、断面の円をそれにそって動か�
   await page.getByTestId("op-ok").click();
   const tree = page.getByTestId("feature-tree");
   await expect(tree.locator("li")).toHaveCount(3);
-  await expect(tree).toContainText("スケッチ2 を スケッチ1 にそって");
+  await expect(tree).toContainText("絵2 を 絵1 にそって");
   await expect(tree.locator("li.bad")).toHaveCount(0);
 });
