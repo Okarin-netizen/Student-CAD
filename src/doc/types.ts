@@ -314,9 +314,9 @@ export interface Assignment {
 export interface Author {
   /** 学籍番号(4桁。例 "2312")。図面の表題欄とファイル名に使う */
   studentId: string;
-  /** 組(例 "2-3")。提出用ファイルに使う */
+  /** 組(例 "2-3")。前の版で提出に使っていた。いまは使わない(古いファイルを読めるよう残す) */
   klass: string;
-  /** 出席番号 */
+  /** 出席番号。klass と同じく、いまは使わない */
   number: string;
   name: string;
 }

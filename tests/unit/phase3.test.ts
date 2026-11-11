@@ -77,10 +77,10 @@ describe("課題のひな形", () => {
 });
 
 describe("提出用ファイル", () => {
-  const student = { klass: "2-3", number: "5", name: "技術 太郎" };
+  const student = { studentId: "2312", name: "技術 太郎" };
 
-  it("ファイル名は 組-番号_名前_作品名(番号は2けた、使えない文字は _)", () => {
-    expect(submissionName(student, "名札")).toBe("2-3-05_技術_太郎_名札.zip");
+  it("ファイル名は 学籍番号_氏名_作品名(図面の PDF と同じ。空白はつめ、使えない文字は _)", () => {
+    expect(submissionName(student, "名札")).toBe("2312_技術太郎_名札.zip");
     expect(safeName('a/b:c*?"<>|')).toBe("a_b_c");
   });
 

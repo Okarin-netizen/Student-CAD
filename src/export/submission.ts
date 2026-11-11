@@ -11,11 +11,10 @@ import type { CadDocument, Feature } from "../doc/types";
 import { makeZip } from "./zip";
 import { escapeXml } from "../util/xml";
 
+/** 提出する人。図面の表題欄と同じ「学籍番号・氏名」(2026-11-11 組・番号から変更) */
 export interface Student {
-  /** 組(例: "2-3") */
-  klass: string;
-  /** 出席番号 */
-  number: string;
+  /** 学籍番号(4けた。例 "2312") */
+  studentId: string;
   name: string;
 }
 
@@ -39,10 +38,13 @@ export function safeName(s: string): string {
   return s.replace(/[\\/:*?"<>|\s]+/g, "_").replace(/^_+|_+$/g, "") || "_";
 }
 
-/** 提出ファイルの名前。先生が並べたとき組・番号の順になるように「組-番号_名前_作品名」 */
+/**
+ * 提出ファイルの名前。図面の PDF と同じ「学籍番号_氏名_作品名」(例 "2312_技術太郎_名札.zip")。
+ * 学籍番号が先なので、先生が並べたとき学籍番号の順になる。
+ */
 export function submissionName(student: Student, title: string): string {
-  const num = student.number.trim().padStart(2, "0");
-  return `${safeName(student.klass)}-${safeName(num)}_${safeName(student.name)}_${safeName(title || "作品")}.zip`;
+  const part = (v: string) => safeName(v.replace(/\s+/g, ""));
+  return `${part(student.studentId)}_${part(student.name)}_${part(title || "作品")}.zip`;
 }
 
 export function makeSubmission(input: SubmissionInput): Uint8Array {
@@ -122,8 +124,8 @@ export function reportHTML(input: SubmissionInput, now: Date): string {
   const meta = doc.meta;
   const okCount = checks.filter((c) => c.ok).length;
   const rows: [string, string][] = [
-    ["組・番号", `${student.klass} ${student.number}番`],
-    ["名前", student.name],
+    ["学籍番号", student.studentId],
+    ["氏名", student.name],
     ["作品名", doc.name],
     ["提出した日時", now.toLocaleString("ja-JP")],
   ];

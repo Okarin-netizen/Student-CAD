@@ -9,7 +9,7 @@ import { makeSubmission, submissionName, } from "../export/submission";
 import type { CadClient } from "./cadClient";
 import { downloadFile } from "./persist";
 import { setAuthor, toast, useStore } from "./store";
-import { authorLabel, readDeviceAuthor } from "./author";
+import { authorLabel, digitsOnly, isStudentId, readDeviceAuthor } from "./author";
 import { snapshot3D } from "./Viewer3D";
 
 interface Props {
@@ -20,12 +20,15 @@ interface Props {
   onClose: () => void;
 }
 
-/** 提出用ファイル(ZIP)を作る画面。組・番号・名前は作品に保存し、端末にも覚えておく */
+/**
+ * 提出用ファイル(ZIP)を作る画面。学籍番号・氏名は作品に保存し、端末にも覚えておく。
+ * 2026-11-11 図面の表題欄と同じ「学籍番号・氏名」にした(前は組・番号・名前で、2回ちがう形で入れていた)。
+ */
 export function SubmitDialog({ client, doc, checks, measure, onClose }: Props) {
   const saved = useStore((s) => s.meta.author);
   const [student, setStudent] = useState<Author>(() => (saved && saved.name ? saved : readDeviceAuthor()));
   const [working, setWorking] = useState(false);
-  const missing = !student.klass.trim() || !student.number.trim() || !student.name.trim();
+  const missing = !isStudentId(student.studentId) || !student.name.trim();
   const notYet = checks.filter((c) => !c.ok);
 
   const set = (p: Partial<Author>) => setStudent((s) => ({ ...s, ...p }));
@@ -54,15 +57,18 @@ export function SubmitDialog({ client, doc, checks, measure, onClose }: Props) {
         <p className="muted">作品・STL・図面・見た目の絵・提出カードを1つのファイル(ZIP)にまとめます。</p>
         <div className="submit-fields">
           <label className="field">
-            組
-            <input value={student.klass} onChange={(e) => set({ klass: e.target.value })} placeholder="例: 2-3" data-testid="submit-class" />
-          </label>
-          <label className="field">
-            番号
-            <input value={student.number} inputMode="numeric" onChange={(e) => set({ number: e.target.value })} placeholder="例: 12" data-testid="submit-number" />
+            学籍番号(4けた)
+            <input
+              value={student.studentId}
+              inputMode="numeric"
+              maxLength={4}
+              onChange={(e) => set({ studentId: digitsOnly(e.target.value) })}
+              placeholder="例: 2312"
+              data-testid="submit-student-id"
+            />
           </label>
           <label className="field grow">
-            名前
+            氏名
             <input value={student.name} onChange={(e) => set({ name: e.target.value })} placeholder="例: 技術 太郎" data-testid="submit-name" />
           </label>
         </div>
@@ -81,7 +87,7 @@ export function SubmitDialog({ client, doc, checks, measure, onClose }: Props) {
             {working ? "作っています…" : "提出用ファイルを作る"}
           </button>
         </div>
-        {missing && <p className="muted">組・番号・名前を入れてください(次からは覚えています)</p>}
+        {missing && <p className="muted">学籍番号(4けた)と氏名を入れてください。図面と同じものが使われ、次からは覚えています</p>}
       </div>
     </div>
   );
