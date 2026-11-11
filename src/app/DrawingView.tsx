@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 技術科　岡田
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import type { DrawingKind, ProjectedView } from "../kernel/projection";
 import { KIND_LABELS, PAPER, TITLE_BLOCK, buildSheet, formatMm, laserDXF, sheetToDXF, sheetToSVG, type SheetSnap } from "../drawing/sheet";
 import { newId } from "../doc/ids";
@@ -68,6 +68,25 @@ export function DrawingView({ client, title, version, onClose }: Props) {
   const [pending, setPending] = useState<SheetSnap | null>(null);
   /** 表題欄(学籍番号・氏名・材料)を入れる画面を出しているか */
   const [askTitle, setAskTitle] = useState(false);
+  /**
+   * 画面の上で、用紙の 1mm が何 px になっているか。
+   * 寸法を足すときの点(●)を、紙を小さくうつしても指で押せる大きさにするために使う(2026-11-11)。
+   */
+  const paperRef = useRef<HTMLDivElement>(null);
+  const [pxPerMm, setPxPerMm] = useState(2);
+  useEffect(() => {
+    const el = paperRef.current;
+    if (!el) return;
+    const measure = () => {
+      const w = el.clientWidth / PAPER.width;
+      const h = el.clientHeight / PAPER.height;
+      if (w > 0 && h > 0) setPxPerMm(Math.min(w, h));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, []);
 
   // 等角図・キャビネット図は、ふつう かくれ線をかかない
   const withHidden = kind === "thirdAngle" && hidden;
@@ -109,11 +128,15 @@ export function DrawingView({ client, title, version, onClose }: Props) {
     let out = svg.replace('width="297mm" height="210mm"', 'width="100%" height="100%" preserveAspectRatio="xMidYMid meet"');
     if (editing === "add" && sheet) {
       const dot = (p: [number, number], r: number, cls: string) => `<circle class="${cls}" cx="${p[0].toFixed(2)}" cy="${(PAPER.height - p[1]).toFixed(2)}" r="${r}"/>`;
-      const marks = sheet.snaps.map((sn) => dot(sn.at, 1.1, "snap-dot")).join("") + (pending ? dot(pending.at, 2.2, "snap-picked") : "");
+      // 点は画面で直径 14px 以上、えらんだ点は外側に直径 28px の輪をつける(用紙の mm にかえて かく)
+      const r = Math.max(1.1, 7 / pxPerMm);
+      const marks =
+        sheet.snaps.map((sn) => dot(sn.at, r, "snap-dot")).join("") +
+        (pending ? dot(pending.at, r * 2, "snap-picked") + dot(pending.at, r, "snap-picked-dot") : "");
       out = out.replace("</svg>", `<g class="edit-only">${marks}</g></svg>`);
     }
     return out;
-  }, [svg, editing, sheet, pending]);
+  }, [svg, editing, sheet, pending, pxPerMm]);
   const whoReady = isStudentId(who.studentId) && !!who.name.trim();
   // ファイル名は「学籍番号_氏名_作品名」。SVG・DXF は図の種類もつける
   const pdfName = fileBaseName(who, title);
@@ -257,7 +280,7 @@ export function DrawingView({ client, title, version, onClose }: Props) {
             : `${KINDS.find((k) => k.kind === kind)!.hint}${whoReady ? "" : "。右下の表題欄をタップすると、学籍番号と氏名を入れられます"}`}
       </p>
 
-      <div className={`drawing-paper ${editing !== "none" ? "editing" : ""}`} data-testid="drawing-sheet" onPointerUp={onPaperTap}>
+      <div className={`drawing-paper ${editing !== "none" ? "editing" : ""}`} data-testid="drawing-sheet" ref={paperRef} onPointerUp={onPaperTap}>
         {loading && !sheet && <p className="loading">図をかいています…</p>}
         {!loading && !views && <p className="loading">先に立体を作ってください</p>}
         {sheet && <div className="sheet-print" dangerouslySetInnerHTML={{ __html: displaySvg }} />}

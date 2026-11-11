@@ -38,20 +38,19 @@ test("作り方を再生すると、1つずつ形ができていく", async ({ p
   await expect(page.getByTestId("new-sketch")).toBeVisible();
 });
 
-test("提出用ファイルは 組-番号_名前_作品名.zip で、名前は次から覚えている", async ({ page }) => {
+test("提出用ファイルは 学籍番号_氏名_作品名.zip で、名前は次から覚えている", async ({ page }) => {
   await startTemplate(page, "nameplate");
   await expect(page.getByTestId("assignment-count")).toHaveText("2 / 4");
   await page.getByTestId("open-submit").click();
   await expect(page.getByTestId("submit-ok")).toBeDisabled();
   // まだできていない条件を知らせる
   await expect(page.getByTestId("submit-not-yet")).toContainText("「文字」を使う");
-  await page.getByTestId("submit-class").fill("2-3");
-  await page.getByTestId("submit-number").fill("7");
+  await page.getByTestId("submit-student-id").fill("２３０７"); // 全角で入れても半角になる
   await page.getByTestId("submit-name").fill("技術 花子");
   const download = page.waitForEvent("download");
   await page.getByTestId("submit-ok").click();
   const d = await download;
-  expect(d.suggestedFilename()).toBe("2-3-07_技術_花子_名札.zip");
+  expect(d.suggestedFilename()).toBe("2307_技術花子_名札.zip");
   const bytes = readFileSync((await d.path())!);
   expect(bytes.subarray(0, 2).toString()).toBe("PK");
   expect(bytes.toString("utf8")).toContain("提出カード.html");

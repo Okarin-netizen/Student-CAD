@@ -1143,15 +1143,24 @@ button.danger {
   touch-action: manipulation;
 }
 
+/* 寸法を足すときの点。白いふちをつけて、線の上でも見えるようにする */
 .drawing-paper .snap-dot {
   fill: var(--accent);
-  opacity: 0.7;
+  fill-opacity: 0.55;
+  stroke: #fff;
+  stroke-width: 0.3;
 }
 
+/* 1つ目にえらんだ点: 色をこくして、まわりに輪をつける */
 .drawing-paper .snap-picked {
-  fill: none;
+  fill: var(--accent);
+  fill-opacity: 0.15;
   stroke: var(--accent);
-  stroke-width: 0.5;
+  stroke-width: 0.6;
+}
+
+.drawing-paper .snap-picked-dot {
+  fill: var(--accent);
 }
 
 .drawing-hint {
@@ -1430,7 +1439,8 @@ button.danger {
 }
 
 .submit-fields .field {
-  width: 90px;
+  width: 150px; /* 「学籍番号(4けた)」が1行に入る幅 */
+  white-space: nowrap;
 }
 
 .submit-fields .field.grow {

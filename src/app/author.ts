@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 技術科　岡田
 
-// 作った人(組・番号・名前)。
+// 作った人(学籍番号・氏名)。2026-11-11 提出も学籍番号にそろえた(組・番号は前の版のなごり)。
 // 端末に覚えておき(次の作品にも使う)、作品にも保存する(図面の表題欄・提出に使う)。
 
 import type { Author } from "../doc/types";
@@ -37,6 +37,9 @@ export function authorLabel(a: Author | undefined): string {
   if (!a) return "";
   return [a.studentId?.trim(), a.name.trim()].filter(Boolean).join(" ");
 }
+
+/** 全角の数字を半角にし、数字でない文字をのぞく(学籍番号の入力用。図面と提出で使う) */
+export const digitsOnly = (v: string) => v.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0)).replace(/[^0-9]/g, "");
 
 /** 学籍番号が 4 けたの数字か */
 export const isStudentId = (v: string) => /^[0-9]{4}$/.test(v.trim());

@@ -5,7 +5,7 @@
 // 今までは図面の上に入力らんが3つならび、紙が小さくなっていたので、表題欄をタップして入れるようにした。
 
 import type { Author } from "../doc/types";
-import { isStudentId } from "./author";
+import { digitsOnly, isStudentId } from "./author";
 
 interface Props {
   who: Author;
@@ -14,9 +14,6 @@ interface Props {
   onMaterial: (m: string) => void;
   onClose: () => void;
 }
-
-/** 全角の数字を半角にし、数字でない文字をのぞく(学籍番号用) */
-const digitsOnly = (v: string) => v.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0)).replace(/[^0-9]/g, "");
 
 export function TitleBlockDialog({ who, material, onAuthor, onMaterial, onClose }: Props) {
   return (
