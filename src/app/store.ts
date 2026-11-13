@@ -427,7 +427,19 @@ export function startPattern() {
 
 export function updateOp(patch: Partial<OpFeature>) {
   if (!state.draftOp) return;
-  setState({ draftOp: { ...state.draftOp, ...patch } as OpFeature, ...touch() });
+  const draftOp = { ...state.draftOp, ...patch } as OpFeature;
+  // えらんだ辺・面がなくなったら、えらぶ画面にもどす。
+  // (できあがりを見ている間に「ぜんぶはずす」を押すと、「えらびなおす」ボタンが消えて
+  //   辺をタップできないままになっていた: 2026-11-13)
+  const nothingPicked = picksOnBody(draftOp) && pickedCount(draftOp) === 0;
+  setState({ draftOp, ...(nothingPicked ? { opPreview: false } : {}), ...touch() });
+}
+
+/** 3D でえらんだ辺や面の数(角を丸める・くりぬくのとき) */
+function pickedCount(op: OpFeature): number {
+  if (op.type === "fillet") return op.edges.length;
+  if (op.type === "shell") return op.faces.length;
+  return 0;
 }
 
 export function setOpPreview(on: boolean) {
