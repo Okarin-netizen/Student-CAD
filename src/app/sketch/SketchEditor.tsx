@@ -873,7 +873,7 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
   // 長い説明は、マウスをのせる・長押しで出す(2026-11-10: 下の説明を短くした)
   const dofTip =
     status.ok && status.dof > 0 && sketch.entities.length > 0
-      ? `このままでも立体にできます。あと ${status.dof} つ寸法か「${term("constraint", pro)}」を入れると、形が動かなくなり、線が青から黒に変わります`
+      ? `このままでも立体にできます。あと ${status.dof} つ寸法か「${term("constraint", pro)}」を入れると、形が動かなくなり、線がみどりから黒に変わります`
       : undefined;
 
   // きまりの記号を1つだけえらんだときは、その意味を上に出す
