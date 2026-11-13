@@ -14,7 +14,8 @@ export class CadClient {
   private worker: Worker;
   private pending: CadDocument | null = null;
   private running = false;
-  onResult: (r: RebuildReply) => void = () => {};
+  /** 計算できた形。doc は、その形を計算した設計図(画面の形が最新かどうかを見るのに使う) */
+  onResult: (r: RebuildReply, doc: CadDocument) => void = () => {};
   onBusy: (busy: boolean) => void = () => {};
 
   constructor() {
@@ -40,7 +41,7 @@ export class CadClient {
         const doc = this.pending;
         this.pending = null;
         const r = await this.api.rebuild(doc);
-        if (!this.pending) this.onResult(r);
+        if (!this.pending) this.onResult(r, doc);
       }
     } finally {
       this.running = false;

@@ -64,6 +64,8 @@ export interface State {
   opPreview: boolean;
   selectedFeature: Id | null;
   result: RebuildReply | null;
+  /** result を計算した設計図。画面に出している設計図と同じなら、result は最新 */
+  resultDoc: CadDocument | null;
   busy: boolean;
   proTerms: boolean;
   toast: { text: string; kind: "info" | "error" } | null;
@@ -95,6 +97,7 @@ let state: State = {
   opPreview: false,
   selectedFeature: null,
   result: null,
+  resultDoc: null,
   busy: false,
   proTerms: readPro(),
   toast: null,
@@ -366,18 +369,22 @@ export function startExtrude(sketchId?: Id) {
   startOp({ id: newId("ex"), type: "extrude", name: nextName("押し出し", names()), sketchId: target, distance: 10, operation: "add", flip: false });
 }
 
+/** 回す軸のはじめの値。補助線があれば、それを軸にする(コマやコップをかくときの決まった手順) */
+export function defaultRevolveAxis(sketch: SketchFeature | undefined): RevolveFeature["axis"] {
+  const axisLine = sketch?.entities.find((e) => e.type === "line" && e.construction);
+  return axisLine ? { kind: "line", line: axisLine.id } : { kind: "y" };
+}
+
 export function startRevolve(sketchId?: Id) {
   const target = pickSketch(sketchId);
   if (!target) return;
   const sk = sketchesOf().find((s) => s.id === target)!;
-  // 補助線があれば、それを軸にする(コマやコップをかくときの決まった手順)
-  const axisLine = sk.entities.find((e) => e.type === "line" && e.construction);
   startOp({
     id: newId("rv"),
     type: "revolve",
     name: nextName("回転", names()),
     sketchId: target,
-    axis: axisLine ? { kind: "line", line: axisLine.id } : { kind: "y" },
+    axis: defaultRevolveAxis(sk),
     angle: 360,
     operation: "add",
     flip: false,
@@ -426,8 +433,14 @@ export function startPattern() {
 }
 
 export function updateOp(patch: Partial<OpFeature>) {
-  if (!state.draftOp) return;
-  const draftOp = { ...state.draftOp, ...patch } as OpFeature;
+  const draft = state.draftOp;
+  if (!draft) return;
+  const draftOp = { ...draft, ...patch } as OpFeature;
+  // 丸める ⇔ 落とす を切りかえたら、自動でつけた名前(丸め1 / 面取り1)も合わせる(2026-11-13)
+  if (draft.type === "fillet" && draftOp.type === "fillet" && draftOp.kind !== draft.kind && /^(丸め|面取り)\d+$/.test(draft.name)) {
+    const others = state.doc.features.filter((f) => f.id !== draft.id).map((f) => f.name);
+    draftOp.name = nextName(draftOp.kind === "fillet" ? "丸め" : "面取り", others);
+  }
   // えらんだ辺・面がなくなったら、えらぶ画面にもどす。
   // (できあがりを見ている間に「ぜんぶはずす」を押すと、「えらびなおす」ボタンが消えて
   //   辺をタップできないままになっていた: 2026-11-13)
