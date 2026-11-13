@@ -2,7 +2,7 @@
 // Copyright (c) 2026 技術科　岡田
 
 // 下の手順バーで「次に押すボタン」と「まだ使えないボタン」を決める。2026-11-10 追加。
-// はじめて使う生徒が「次どこ押すの?」と迷わないように、いま押すとよいボタンを1つだけ青くする。
+// はじめて使う生徒が「次どこ押すの?」と迷わないように、いま押すとよいボタンを1つだけ色(みどり)にする。
 // まだ使えないボタンはうすく見せ、押したら赤ではなく、ふつうの色で何を先にするかを伝える。
 
 import { usedSketchIds } from "../doc/links";
@@ -14,7 +14,7 @@ import { term } from "./terms";
 export type StepButton = "sketch" | "extrude" | "revolve" | "fillet" | "more" | "export";
 
 export interface StepGuide {
-  /** 次に押すとよいボタン(青くする) */
+  /** 次に押すとよいボタン(みどりにする) */
   next: StepButton;
   /** まだ使えないボタンと、押したときに出す案内 */
   notReady: Partial<Record<StepButton, string>>;

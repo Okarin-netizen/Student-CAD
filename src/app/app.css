@@ -8,31 +8,39 @@
 }
 
 :root {
-  /* デザイン E「モノトーン線画」(B「大きく はっきり」をもとに、大人向けに落ち着かせた): 黒い線・白い面・青1色 */
-  --bg: #f3f4f6;
+  /* デザイン F「三角定規」(2026-11-13 /impeccable で見直し): 白い紙・墨の線・みどりの定規の色1つ。
+     前のデザイン E「モノトーン線画」の黒いわく・角丸・ふわっとした影は「AIっぽい」のでやめた */
+  --bg: #e9eeeb;
   --surface: #ffffff;
-  --text: #111827;
-  --muted: #374151;
-  --line: #111827;
-  --border: #111827;
-  --border-soft: #9ca3af;
-  --accent: #0b5cad;
-  --accent-soft: #fff3b0;
+  --text: #14201b;
+  --muted: #43514a;
+  --line: #14201b;
+  /* ボタンのわくは うすい線にする(黒いわくが全部のボタンにあると、うるさく見える) */
+  --border: #9fada6;
+  --border-soft: #c9d3ce;
+  /* 三角定規のみどり。次に押すボタン・えらんでいるもの・寸法に使う */
+  --accent: #0f7356;
+  --accent-soft: #dcefe6;
   --accent-text: #ffffff;
-  --pick: #e1ebf7;
+  --pick: #dcefe6;
   --danger: #b42318;
   --danger-bg: #fff1f0;
-  --ok: #1a7f37;
+  --ok: #0f7356;
   --sk-bg: #ffffff;
-  --sk-grid: #e5e7eb;
-  --sk-grid-major: #c4c9d1;
+  --sk-grid: #e1e8e4;
+  --sk-grid-major: #bccbc3;
   --sk-selected: #e8590c;
-  --sk-construction: #6b7280;
-  --sk-defined: #111827;
-  --sk-free: #0b5cad;
-  --sk-region: #0b5cad22;
+  --sk-construction: #6b7a73;
+  --sk-defined: #14201b;
+  --sk-free: #0f7356;
+  --sk-region: #0f735620;
+  /* 目もりの線の色 */
+  --tick: #14201b;
+  /* 角は定規のように ほとんど四角にする */
+  --r: 4px;
+  --r2: 6px;
   --touch: 56px;
-  --bw: 1.5px;
+  --bw: 1px;
   color-scheme: light;
   /* 読みまちがえにくい UD 書体を先に使う(Windows は BIZ UDPゴシック、iPad はヒラギノ、Chromebook は Noto) */
   font-family: "BIZ UDPGothic", "BIZ UDPゴシック", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Noto Sans CJK JP", "Yu Gothic UI", system-ui, sans-serif;
@@ -70,7 +78,7 @@ select {
   min-height: var(--touch);
   min-width: var(--touch);
   padding: 0 14px;
-  border-radius: 12px;
+  border-radius: var(--r);
   border: var(--bw) solid var(--border);
   background: var(--surface);
   font-weight: 700;
@@ -150,7 +158,7 @@ button.danger {
 .doc-name {
   min-height: var(--touch);
   border: 1px solid transparent;
-  border-radius: 10px;
+  border-radius: var(--r);
   padding: 0 10px;
   font-weight: 700;
   font-size: 1.1rem;
@@ -316,12 +324,11 @@ button.danger {
   white-space: nowrap;
 }
 
-/* 次に押すボタン(1つだけ青くする)。2026-11-10 追加 */
+/* 次に押すボタン(1つだけ みどりにする)。2026-11-10 追加、2026-11-13 青→みどり */
 .step.next {
   background: var(--accent);
   border-color: var(--accent);
   color: var(--accent-text);
-  box-shadow: 0 0 0 3px #0b5cad40;
 }
 
 .step.next .step-num {
@@ -360,8 +367,7 @@ button.danger {
   width: min(340px, calc(100% - 24px));
   background: var(--surface);
   border: var(--bw) solid var(--border);
-  border-radius: 16px;
-  box-shadow: 0 8px 24px #0002;
+  border-radius: var(--r2);
   padding: 14px;
   display: flex;
   flex-direction: column;
@@ -426,7 +432,7 @@ button.danger {
   margin: 0;
   color: var(--danger);
   background: var(--danger-bg);
-  border-radius: 10px;
+  border-radius: var(--r);
   padding: 8px 10px;
 }
 
@@ -443,10 +449,9 @@ button.danger {
 
 .dialog {
   background: var(--surface);
-  border-radius: 18px;
+  border-radius: var(--r2);
   padding: 18px;
   width: min(380px, calc(100% - 24px));
-  box-shadow: 0 12px 40px #0004;
 }
 
 .dialog h3 {
@@ -477,7 +482,7 @@ button.danger {
   font-size: 1.6rem;
   padding: 8px 12px;
   border: 2px solid var(--accent);
-  border-radius: 12px;
+  border-radius: var(--r);
   text-align: right;
   -webkit-user-select: text;
   user-select: text;
@@ -507,11 +512,10 @@ button.danger {
   bottom: 96px;
   transform: translateX(-50%);
   max-width: calc(100% - 32px);
-  background: #1b2430;
+  background: #14201b;
   color: #fff;
   padding: 12px 18px;
-  border-radius: 14px;
-  box-shadow: 0 8px 24px #0003;
+  border-radius: var(--r);
   z-index: 60;
   pointer-events: none;
 }
@@ -739,7 +743,7 @@ button.danger {
 }
 
 .sk-readout rect {
-  fill: #1b2430e0;
+  fill: #14201be0;
 }
 
 .sk-readout text {
@@ -777,7 +781,7 @@ button.danger {
   font-weight: 700;
   background: #ffffffe6;
   border: var(--bw) solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--r);
   padding: 8px 12px;
   font-size: 0.9rem;
   max-width: 560px;
@@ -787,7 +791,7 @@ button.danger {
 .sk-dof {
   background: #ffffffe6;
   border: var(--bw) solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--r);
   padding: 8px 12px;
   font-size: 0.9rem;
 }
@@ -801,7 +805,7 @@ button.danger {
 .sk-warn {
   background: var(--danger-bg);
   color: var(--danger);
-  border-radius: 12px;
+  border-radius: var(--r);
   padding: 8px 12px;
   font-size: 0.9rem;
 }
@@ -842,7 +846,7 @@ button.danger {
   margin: 0;
   background: #fff4e5;
   border: 1px solid #f5c07a;
-  border-radius: 10px;
+  border-radius: var(--r);
   padding: 8px 10px;
   font-weight: 600;
 }
@@ -884,7 +888,7 @@ button.danger {
 .sk-scale {
   background: #ffffffe6;
   border: var(--bw) solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--r);
   padding: 8px 12px;
   font-size: 0.85rem;
   color: var(--muted);
@@ -898,10 +902,10 @@ button.danger {
   top: 12px;
   max-width: calc(100% - 140px);
   transform: translateX(-50%);
-  background: #1b2430d9;
+  background: #14201bd9;
   color: #fff;
   padding: 10px 16px;
-  border-radius: 14px;
+  border-radius: var(--r);
   font-size: 0.95rem;
   pointer-events: none;
   z-index: 3;
@@ -946,7 +950,7 @@ button.danger {
   font-size: 1.4rem;
   padding: 8px 12px;
   border: 2px solid var(--accent);
-  border-radius: 12px;
+  border-radius: var(--r);
   -webkit-user-select: text;
   user-select: text;
 }
@@ -1011,7 +1015,7 @@ button.danger {
   padding: 8px 10px;
   min-height: var(--touch);
   border: var(--bw) solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--r);
   min-width: 0;
   -webkit-user-select: text;
   user-select: text;
@@ -1037,7 +1041,7 @@ button.danger {
   margin: 0;
   color: #7a4b00;
   background: #fff6e0;
-  border-radius: 10px;
+  border-radius: var(--r);
   padding: 8px 10px;
   font-size: 0.9rem;
 }
@@ -1118,7 +1122,7 @@ button.danger {
   min-height: var(--touch);
   padding: 6px 10px;
   border: var(--bw) solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--r);
   font-size: 1rem;
   width: 9em;
   -webkit-user-select: text;
@@ -1176,7 +1180,7 @@ button.danger {
   display: grid;
   place-items: center;
   background: #cfd6df;
-  border-radius: 12px;
+  border-radius: var(--r);
 }
 
 /* 紙は灰色の場所いっぱいに、縦横の比をたもって表示する */
@@ -1237,8 +1241,7 @@ button.danger {
   padding: 8px;
   background: var(--surface);
   border: var(--bw) solid var(--border);
-  border-radius: 14px;
-  box-shadow: 0 8px 24px #0003;
+  border-radius: var(--r);
   z-index: 20;
 }
 
@@ -1279,8 +1282,7 @@ button.danger {
   overflow: auto;
   background: var(--surface);
   border: var(--bw) solid var(--border);
-  border-radius: 12px;
-  box-shadow: 0 4px 16px #0f172a1f;
+  border-radius: var(--r);
   z-index: 5;
 }
 
@@ -1302,7 +1304,7 @@ button.danger {
 .assignment-count {
   font-size: 0.85rem;
   padding: 2px 8px;
-  border-radius: 999px;
+  border-radius: var(--r);
   background: var(--accent-soft);
   color: var(--accent);
 }
@@ -1384,7 +1386,7 @@ button.danger {
   font-weight: 400;
   padding: 10px;
   border: var(--bw) solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--r);
   min-height: var(--touch);
 }
 
@@ -1409,7 +1411,7 @@ button.danger {
   min-height: 40px;
   padding: 6px 8px;
   border: var(--bw) solid var(--border);
-  border-radius: 8px;
+  border-radius: var(--r);
   font: inherit;
 }
 
@@ -1496,7 +1498,7 @@ button.danger {
 
 .tree li.replay-current {
   outline: 2px solid var(--accent);
-  border-radius: 8px;
+  border-radius: var(--r);
   background: var(--accent-soft);
 }
 
@@ -1570,14 +1572,13 @@ button.danger {
   z-index: 1000;
   padding: 10px 14px;
   border: var(--bw) solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--r);
   background: var(--text);
   color: #fff;
   font-size: 0.95rem;
   font-weight: normal;
   line-height: 1.5;
   pointer-events: none;
-  box-shadow: 0 4px 14px rgb(0 0 0 / 0.18);
 }
 
 button[data-testid],
@@ -1656,31 +1657,15 @@ button[data-tip] {
    B「大きく はっきり」の大きなボタンと黒い区切り線はそのままに、線を細くし、色は青1色にした。
    アイコンは絵文字をやめ、Icon.tsx の線のアイコンを使う。 */
 
-.topbar {
-  border-bottom-width: 2px;
-}
-
-.tree {
-  border-right-width: 2px;
-}
-
-.stepbar {
-  border-top-width: 2px;
-}
-
 .panel,
 .dialog {
-  border: 2px solid var(--line);
-  box-shadow: 0 8px 24px #11182724;
+  border: 1px solid var(--line);
 }
 
 .step {
   font-size: 1.1rem;
 }
 
-.step-num {
-  background: var(--line);
-}
 
 /* 線のアイコンは、となりの文字の高さにそろえる */
 .icon {
@@ -1723,7 +1708,7 @@ button.primary .icon,
   margin: 64px auto;
   padding: 24px;
   border: var(--bw) solid var(--border);
-  border-radius: 12px;
+  border-radius: var(--r);
   background: var(--surface);
   line-height: 1.6;
 }
@@ -1745,7 +1730,7 @@ button.primary .icon,
   min-height: var(--touch);
   padding: 6px 10px;
   border: var(--bw) solid var(--border);
-  border-radius: 10px;
+  border-radius: var(--r);
   font-size: 1.1rem;
   -webkit-user-select: text;
   user-select: text;
@@ -1784,7 +1769,6 @@ button.primary .icon,
     align-items: center;
     gap: 6px;
     font-weight: 700;
-    box-shadow: 0 4px 12px #0002;
   }
 
   .tree-wrap .tree {
@@ -1795,9 +1779,8 @@ button.primary .icon,
     display: block;
     width: 280px;
     min-height: 0;
-    border: 2px solid var(--line);
-    border-radius: 16px;
-    box-shadow: 0 8px 24px #0002;
+    border: 1px solid var(--line);
+    border-radius: var(--r2);
   }
 }
 
@@ -1807,8 +1790,150 @@ button.primary .icon,
   min-width: 24px;
   height: 24px;
   padding: 0 6px;
-  border-radius: 12px;
+  border-radius: var(--r);
   background: var(--accent);
   color: #fff;
   font-size: 0.85rem;
+}
+
+/* ---- デザイン F「三角定規」(2026-11-13 おかだ さんの依頼で /impeccable を使って見直し) ----
+   「AIっぽい」と感じる元だった、どれも同じ角丸と黒いわく・ふわっとした影・吹き出し・丸の中の番号をやめた。
+   かわりに、技術室の三角定規とものさしから「目もりの線」と「定規のみどり」をもらう。
+   ボタンの場所・大きさ・言葉・動きは変えていない。 */
+
+/* 目もり: 1mm ごとに短い線、5mm で中くらい、10mm で長い線(6px を 1mm に見立てる)。
+   上のバー・スケッチの道具の下のふちと、下の手順バーの上のふちに入れる */
+.topbar,
+.sk-toolbar,
+.stepbar,
+.sk-actions {
+  position: relative;
+  border-color: transparent;
+}
+
+.topbar,
+.sk-toolbar {
+  padding-bottom: 17px;
+}
+
+.stepbar,
+.sk-actions {
+  padding-top: 18px;
+}
+
+.topbar::after,
+.sk-toolbar::after,
+.stepbar::before,
+.sk-actions::before {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  height: 9px;
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(90deg, var(--tick) 0 1px, transparent 1px 60px) 0 0 / 100% 9px no-repeat,
+    repeating-linear-gradient(90deg, var(--tick) 0 1px, transparent 1px 30px) 0 0 / 100% 6px no-repeat,
+    repeating-linear-gradient(90deg, var(--tick) 0 1px, transparent 1px 6px) 0 0 / 100% 3px no-repeat;
+}
+
+/* 上のバーの目もりは下向き(ふちの線から下へのびる)。下のバーは上のふちから下へのびる */
+.topbar::after,
+.sk-toolbar::after {
+  bottom: 0;
+  border-top: 1px solid var(--tick);
+}
+
+.stepbar::before,
+.sk-actions::before {
+  top: 0;
+  border-top: 1px solid var(--tick);
+}
+
+.tree {
+  border-right-color: var(--tick);
+}
+
+/* 手順の番号: 丸をやめ、定規の数字のように文字だけにする */
+.step-num {
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  background: transparent;
+  color: var(--muted);
+  font-size: 1rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.step.next .step-num {
+  background: transparent;
+  color: var(--accent-text);
+}
+
+/* えらんでいる道具は、みどりの文字とわく */
+.tool.active {
+  color: var(--accent);
+}
+
+/* 作業のれきし: えらんでいるものは うすいみどりの面だけ(わくの二重線はやめる) */
+.tree li.selected .tree-item {
+  border-color: transparent;
+  box-shadow: none;
+  color: var(--accent);
+}
+
+.tree h2 {
+  color: var(--muted);
+  font-size: 0.95rem;
+}
+
+/* スケッチの説明: 吹き出しのような白い箱をやめ、すき通ったみどりの帯にする */
+.sk-hint,
+.sk-dof {
+  border: none;
+  background: #dcefe6eb;
+}
+
+.sk-dof.done {
+  background: var(--accent);
+  color: var(--accent-text);
+}
+
+.sk-scale {
+  border: none;
+  background: transparent;
+}
+
+/* 数字キーの入力らん: 下の線だけ太くして、定規で読む所のようにする */
+.numpad-display input {
+  border: 1px solid var(--tick);
+  border-bottom: 3px solid var(--accent);
+  border-radius: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.numpad-keys button {
+  background: #f3f6f4;
+}
+
+button.danger {
+  background: var(--surface);
+}
+
+/* ブラウザが自動でつける部分も、このアプリの色にする */
+::selection {
+  background: var(--pick);
+  color: var(--text);
+}
+
+input,
+textarea {
+  caret-color: var(--accent);
+}
+
+button:focus-visible,
+select:focus-visible,
+input:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: 2px;
 }

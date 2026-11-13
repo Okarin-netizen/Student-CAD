@@ -529,7 +529,7 @@ function labelMaterial(text: string): THREE.MeshBasicMaterial {
   g.strokeStyle = "#9aa4b2";
   g.lineWidth = 6;
   g.strokeRect(3, 3, 122, 122);
-  g.fillStyle = "#1b2430";
+  g.fillStyle = "#14201b";
   g.font = "bold 64px sans-serif";
   g.textAlign = "center";
   g.textBaseline = "middle";

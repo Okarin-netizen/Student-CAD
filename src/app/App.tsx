@@ -174,7 +174,7 @@ export function App() {
     return st && st.ok ? st.warning : undefined;
   })();
 
-  // 手順バー: 次に押すボタンを青く、まだ使えないボタンをうすくする(stepGuide.ts)
+  // 手順バー: 次に押すボタンをみどりに、まだ使えないボタンをうすくする(stepGuide.ts)
   const guide = useMemo(() => stepGuide(s.doc, hasBody, pro), [s.doc, hasBody, pro]);
   /** 手順バーのボタンの class と、押したときの動き(使えないときは案内だけ出す) */
   const stepProps = (b: StepButton, run: () => void) => {
