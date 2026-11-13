@@ -13,7 +13,7 @@ import type {
   WorldAxis,
 } from "../doc/types";
 import { NumberPad, type PadVariable } from "./NumberPad";
-import { isCopyable, type OpFeature } from "./store";
+import { defaultRevolveAxis, isCopyable, type OpFeature } from "./store";
 import { featureLabel, term, withFeatureLabels } from "./terms";
 import { planeLabel } from "../doc/planes";
 
@@ -105,10 +105,19 @@ export function OpPanel({ doc, draft, pro, error, warning, busy, preview, variab
     );
   };
 
+  /**
+   * 使うスケッチを変える。回すときは軸も新しいスケッチに合わせる
+   * (前のスケッチの補助線を軸にしたままだと、画面は「たての軸」と出るのに回せなかった。2026-11-13)
+   */
+  const changeSketch = (sketchId: string) => {
+    if (draft.type === "revolve") onChange({ sketchId, axis: defaultRevolveAxis(sketches.find((s) => s.id === sketchId)) });
+    else onChange({ sketchId });
+  };
+
   const sketchSelect = (sketchId: string) => (
     <label className="field">
       <span>使う{term("sketch", pro)}</span>
-      <select value={sketchId} onChange={(e) => onChange({ sketchId: e.target.value })} data-testid="op-sketch">
+      <select value={sketchId} onChange={(e) => changeSketch(e.target.value)} data-testid="op-sketch">
         {sketches.map((s) => (
           <option key={s.id} value={s.id}>
             {featureLabel(s.name, pro)}

@@ -211,6 +211,13 @@ export function DrawingView({ client, title, version, onClose }: Props) {
     toast(`寸法 ${formatMm(value)} を足しました`);
   };
 
+  // 図の種類や寸法の表示を変えたら、寸法を足す・消す途中の操作はやめる。
+  // (寸法を消してまた出すと、前にえらんだ点と「足す」がのこっていた。2026-11-13)
+  useEffect(() => {
+    setPending(null);
+    if (!canEdit) setEdit("none");
+  }, [kind, withHidden, dims, withIso, canEdit]);
+
   const toggleEdit = (m: "add" | "erase") => {
     setPending(null);
     setEdit(editing === m ? "none" : m);

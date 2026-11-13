@@ -46,6 +46,7 @@ import {
   startRevolve,
   startPickPlane,
   startSketch,
+  picksOnBody,
   toast,
   undo,
   updateOp,
@@ -90,7 +91,7 @@ export function App() {
   useEffect(() => {
     const client = new CadClient();
     clientRef.current = client;
-    client.onResult = (r) => setState({ result: r });
+    client.onResult = (r, doc) => setState({ result: r, resultDoc: doc });
     client.onBusy = (busy) => setState({ busy });
     client
       .init()
@@ -110,7 +111,12 @@ export function App() {
   }, []);
 
   // ---- 形の計算: 設計図(編集中のものを含む)が変わるたびに Worker へ ----
-  const preview = useMemo(() => previewDoc(s), [s.doc, s.mode, s.draftSketch, s.draftOp, s.opPreview]); // eslint-disable-line react-hooks/exhaustive-deps
+  // 角を丸める辺・くりぬく面をえらんでいる間は、えらんだものが変わっても見せる形は同じなので、計算し直さない
+  const pickingOnBody = s.mode.kind === "op" && !!s.draftOp && picksOnBody(s.draftOp) && !s.opPreview;
+  const opKey = pickingOnBody ? s.draftOp?.id : s.draftOp;
+  const preview = useMemo(() => previewDoc(s), [s.doc, s.mode, s.draftSketch, opKey, s.opPreview]); // eslint-disable-line react-hooks/exhaustive-deps
+  /** 画面の立体が、いま見せたい形の計算を終えたものか(「辺をえらびなおす」を押した直後は、まだ前の形が出ている) */
+  const resultIsCurrent = s.resultDoc === preview;
   useEffect(() => {
     clientRef.current?.request(preview);
   }, [preview]);
@@ -134,6 +140,8 @@ export function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.target as HTMLElement).closest("input, select, textarea")) return;
+      // 数字キーパッドなどの小さな画面が出ている間は、うしろの作品を変えない(2026-11-13)
+      if (document.querySelector(".dialog-backdrop")) return;
       if (!(e.ctrlKey || e.metaKey)) return;
       const k = e.key.toLowerCase();
       if (k === "z" && !e.shiftKey) {
@@ -225,8 +233,12 @@ export function App() {
   const [planeOffset, setPlaneOffset] = useState(0);
   const pickBase = (name: BasePlaneName) => {
     startSketch(planeOffset > 0 ? { kind: "offset", base: name, distance: planeOffset } : { kind: "base", name });
-    setPlaneOffset(0);
   };
+  // 面をえらぶパネルを「やめる」で閉じたときや、立体の面をタップしたときも、ずらす量を 0 にもどす
+  // (前に入れた量がのこったまま、次にパネルを開いたときに出てしまっていた。2026-11-13)
+  useEffect(() => {
+    if (mode !== "pickPlane") setPlaneOffset(0);
+  }, [mode]);
 
   /** 立体をファイルに書き出す。make は Worker に作らせる関数、done は書き出せたときの案内 */
   const exportBody = async (make: (c: CadClient) => Promise<ArrayBuffer | null | undefined>, ext: string, mime: string, done: string) => {
@@ -447,6 +459,7 @@ export function App() {
               onMessage={(t) => toast(t)}
               ghost={mode === "op" && s.draftOp?.type !== "fillet" && s.draftOp?.type !== "shell"}
               cover={cover}
+              pickReady={resultIsCurrent}
               edgePick={filletPicking && s.draftOp?.type === "fillet" ? { selected: s.draftOp.edges.map((e) => e.mid), onToggle: toggleEdge } : null}
               facePick={shellPicking && s.draftOp?.type === "shell" ? { selected: s.draftOp.faces.map((f) => f.point), onToggle: toggleFace } : null}
             />

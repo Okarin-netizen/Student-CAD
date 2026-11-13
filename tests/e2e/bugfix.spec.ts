@@ -176,6 +176,8 @@ test("くりぬく: できあがりを見たあと「ぜんぶはずす」を押
   await expect(page.getByTestId("op-faces")).toContainText("1 こ");
   await page.getByTestId("op-preview").click();
   await page.getByRole("button", { name: "ぜんぶはずす" }).click();
+  // くりぬく前の形の計算が終わるまでは、タップしても えらばない(2026-11-13 selection.spec.ts)
+  await expect(page.getByTestId("save-state")).not.toHaveText("計算中…");
   await tapTop();
   await expect(page.getByTestId("op-faces")).toContainText("1 こ");
 });
