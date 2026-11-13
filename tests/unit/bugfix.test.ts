@@ -5,7 +5,7 @@
 
 import { describe, expect, it } from "vitest";
 import { isDoc } from "../../src/app/persist";
-import { cancelMode, getState, replaceDoc, setState, startExtrude, startReplay, undo, redo, commitDoc } from "../../src/app/store";
+import { cancelMode, getState, replaceDoc, setState, startExtrude, startReplay, undo, redo, commitDoc, setOpPreview, updateOp } from "../../src/app/store";
 import { emptyDocument, type SketchFeature } from "../../src/doc/types";
 import { dosDateTime, makeZip } from "../../src/export/zip";
 import { evaluateVariables } from "../../src/doc/variables";
@@ -78,5 +78,29 @@ describe("基準の数", () => {
     expect(r.values).toEqual({ 幅: 40 });
     expect(r.errors.v2).toContain("0 より大きい");
     expect(r.errors.v3).toContain("0 より大きい");
+  });
+});
+
+// 2026-11-13: できあがりを見ている間に「ぜんぶはずす」を押すと、辺をえらびなおせなくなっていた
+describe("角を丸める・くりぬくの「ぜんぶはずす」", () => {
+  it("えらんだ辺がなくなったら、えらぶ画面(できあがりを見ない)にもどる", () => {
+    replaceDoc({ ...emptyDocument(), features: [sketch] });
+    setState({ mode: { kind: "op", isNew: true }, draftOp: { id: "fl1", type: "fillet", name: "丸め1", kind: "fillet", radius: 2, edges: [] } });
+    updateOp({ edges: [{ p: [0, 0, 0], q: [10, 0, 0] }] } as never);
+    setOpPreview(true);
+    updateOp({ radius: 3 });
+    expect(getState().opPreview).toBe(true); // 辺が残っている間は、見たまま
+    updateOp({ edges: [] });
+    expect(getState().opPreview).toBe(false);
+    cancelMode();
+  });
+
+  it("くりぬく面がなくなったときも、えらぶ画面にもどる", () => {
+    setState({ mode: { kind: "op", isNew: true }, draftOp: { id: "sh1", type: "shell", name: "くりぬき1", thickness: 2, faces: [] } });
+    updateOp({ faces: [{ p: [0, 0, 0], n: [0, 0, 1] }] } as never);
+    setOpPreview(true);
+    updateOp({ faces: [] });
+    expect(getState().opPreview).toBe(false);
+    cancelMode();
   });
 });

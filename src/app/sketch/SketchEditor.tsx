@@ -193,6 +193,18 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
     if (tool !== "select") setSelection([]);
   }, [tool]);
 
+  // もどす・やりなおすで消えた点・線・きまりを、えらんだまま(途中の操作のまま)にしない。
+  // 消えた点から線を引き続けたり、消えた点で寸法を入れたりすると、計算が止まってしまうため(2026-11-13)
+  useEffect(() => {
+    const exists = (id: Id) => id === ORIGIN_ID || ents.has(id) || sketch.constraints.some((c) => c.id === id);
+    if (!selection.every(exists)) setSelection(selection.filter(exists));
+    if (!dimPick.every((h) => exists(h.id))) {
+      setDimPick([]);
+      setGuide(null);
+    }
+    if (!pending.every((p) => !("id" in p.spec) || exists(p.spec.id))) setPending([]);
+  }, [ents, sketch.constraints]); // eslint-disable-line react-hooks/exhaustive-deps
+
   // 下がきが後から届いたら(面にかき始めたとき)、それが見えるように合わせ直す
   const refFitted = useRef(false);
   useEffect(() => {

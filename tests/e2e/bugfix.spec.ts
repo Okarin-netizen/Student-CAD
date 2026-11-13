@@ -125,3 +125,59 @@ test("点を動かしている途中で指の操作が取り消されたら、�
   );
   await expect.poll(height).toBe(before);
 });
+
+/** 3D のまん中をたてに少しずつタップして、辺を1本えらぶ */
+async function pickOneEdge(page: Page) {
+  const view = (await page.getByTestId("viewer-3d").boundingBox())!;
+  for (let y = 0.9; y > 0.1; y -= 0.02) {
+    await page.mouse.click(view.x + view.width * 0.5, view.y + view.height * y);
+    if ((await page.getByTestId("op-edges").textContent())?.includes("1 本")) break;
+  }
+  await expect(page.getByTestId("op-edges")).toContainText("1 本");
+}
+
+// 2026-11-13: 「できあがりを見る」→「ぜんぶはずす」のあと、辺をえらびなおせなくなっていた
+test("角を丸める: できあがりを見たあと「ぜんぶはずす」を押しても、また辺をえらべる", async ({ page }) => {
+  await page.goto("/");
+  await makeBox(page);
+  await page.getByTestId("new-fillet").click();
+  await pickOneEdge(page);
+  await page.getByTestId("op-preview").click();
+  await page.getByRole("button", { name: "ぜんぶはずす" }).click();
+  await expect(page.getByTestId("op-edges")).toContainText("タップ");
+  // えらぶ画面にもどっているので、もう一度えらべる
+  await pickOneEdge(page);
+  await expect(page.getByTestId("op-preview")).toHaveText("できあがりを見る");
+});
+
+test("面取り: できあがりを見たあと「ぜんぶはずす」を押しても、また辺をえらべる", async ({ page }) => {
+  await page.goto("/");
+  await makeBox(page);
+  await page.getByTestId("new-fillet").click();
+  await page.getByTestId("op-chamfer").click();
+  await pickOneEdge(page);
+  await page.getByTestId("op-preview").click();
+  await page.getByRole("button", { name: "ぜんぶはずす" }).click();
+  await pickOneEdge(page);
+});
+
+test("くりぬく: できあがりを見たあと「ぜんぶはずす」を押しても、また面をえらべる", async ({ page }) => {
+  await page.goto("/");
+  await makeBox(page);
+  await page.getByTestId("open-more").click();
+  await page.getByTestId("new-shell").click();
+  // 真上から見て、まん中(上の面)をタップする
+  const cube = (await page.locator(".viewcube canvas").boundingBox())!;
+  await page.mouse.click(cube.x + cube.width * 0.5, cube.y + cube.height * 0.2);
+  await page.waitForTimeout(500);
+  const view = (await page.getByTestId("viewer-3d").boundingBox())!;
+  const tapTop = () => page.mouse.click(view.x + view.width * 0.5, view.y + view.height * 0.5);
+  await tapTop();
+  await expect(page.getByTestId("op-faces")).toContainText("1 こ");
+  await page.getByTestId("op-preview").click();
+  await page.getByRole("button", { name: "ぜんぶはずす" }).click();
+  // くりぬく前の形の計算が終わるまでは、タップしても えらばない(2026-11-13 selection.spec.ts)
+  await expect(page.getByTestId("save-state")).not.toHaveText("計算中…");
+  await tapTop();
+  await expect(page.getByTestId("op-faces")).toContainText("1 こ");
+});

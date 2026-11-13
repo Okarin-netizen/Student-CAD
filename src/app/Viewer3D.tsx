@@ -24,6 +24,11 @@ interface Props {
   edgePick?: { selected: Vec3[]; onToggle: (mid: Vec3) => void } | null;
   /** 平らな面をえらぶ状態(くりぬくとき)。selected はえらんだ面の上の点 */
   facePick?: { selected: Vec3[]; onToggle: (point: Vec3, normal: Vec3) => void } | null;
+  /**
+   * 辺・面をえらべる形が出ているか。false のときは、計算の途中で前の形(丸めたあとの形など)が出ているので、
+   * タップしても えらばずに「計算しています」と知らせる(2026-11-13)
+   */
+  pickReady?: boolean;
   /** 押し出しの作業中など、半透明で見せたいとき */
   ghost?: boolean;
   /** 3D の上に重なっているパネルの大きさ(px)。立体はパネルのない所に全体をうつす */
@@ -86,7 +91,7 @@ export function snapshot3D(): string | null {
   return takeSnapshot?.() ?? null;
 }
 
-export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, edgePick, facePick, ghost, cover = NO_COVER }: Props) {
+export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, edgePick, facePick, pickReady = true, ghost, cover = NO_COVER }: Props) {
   const hostRef = useRef<HTMLDivElement>(null);
   const cubeRef = useRef<HTMLDivElement>(null);
   const stageRef = useRef<Stage | null>(null);
@@ -97,8 +102,8 @@ export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, edgePick,
       return true;
     }
   });
-  const pickRef = useRef({ picking, onPick, onMessage, edgePick, facePick });
-  pickRef.current = { picking, onPick, onMessage, edgePick, facePick };
+  const pickRef = useRef({ picking, onPick, onMessage, edgePick, facePick, pickReady });
+  pickRef.current = { picking, onPick, onMessage, edgePick, facePick, pickReady };
 
   useEffect(() => {
     const host = hostRef.current!;
@@ -229,13 +234,20 @@ export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, edgePick,
       // マウスのときは、ボタンを押していなくても指している面を見せる
       if (e.pointerType === "mouse" && e.buttons === 0) hover(e);
     };
+    /** 辺・面をえらぶタップか(動かさずに離した)。計算の途中なら、えらばずに知らせる */
+    const isPickTap = (e: PointerEvent, start: { x: number; y: number }) => {
+      if (Math.hypot(e.clientX - start.x, e.clientY - start.y) > 8) return false;
+      if (pickRef.current.pickReady) return true;
+      pickRef.current.onMessage?.("形を計算しています。少し待ってからタップしてください");
+      return false;
+    };
     const onUp = (e: PointerEvent) => {
       const fp = pickRef.current.facePick;
       if (down && fp) {
-        const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
+        const start = down;
         down = null;
         if (e.pointerType !== "mouse") highlightFace(stage, null, false);
-        if (moved > 8) return;
+        if (!isPickTap(e, start)) return;
         const hit = pickAt(stage, e.clientX, e.clientY);
         if (hit.result?.kind === "face" && hit.point) fp.onToggle(hit.point, hit.result.normal);
         else if (hit.face != null) pickRef.current.onMessage?.("丸い面は取りのぞけません。平らな面をえらんでください");
@@ -244,9 +256,9 @@ export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, edgePick,
       }
       const ep = pickRef.current.edgePick;
       if (down && ep) {
-        const moved = Math.hypot(e.clientX - down.x, e.clientY - down.y);
+        const start = down;
         down = null;
-        if (moved > 8) return;
+        if (!isPickTap(e, start)) return;
         const mid = pickEdgeAt(stage, e.clientX, e.clientY);
         if (mid) ep.onToggle(mid);
         else pickRef.current.onMessage?.("辺(線)の近くをタップしてください");
