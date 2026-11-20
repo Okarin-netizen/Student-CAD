@@ -17,7 +17,10 @@ async function startNameplate(page: Page) {
   await expect(page.getByTestId("save-state")).not.toHaveText("計算中…");
 }
 
-test("AR が使えない端末では、使える端末を案内する", async ({ page }) => {
+test("カメラも使えない端末では、使える端末を案内する", async ({ page }) => {
+  await page.addInitScript(() => {
+    Object.defineProperty(navigator, "mediaDevices", { value: undefined });
+  });
   await startNameplate(page);
   await page.getByTestId("open-ar").click();
   const dialog = page.getByTestId("ar-dialog");

@@ -6,6 +6,7 @@
 | [replicad-opencascadejs](https://github.com/sgenoud/replicad) | LGPL-2.1-only | 3D形状カーネル OpenCascade の WebAssembly 版 |
 | [@salusoft89/planegcs](https://github.com/Salusoft89/planegcs) | LGPL-2.0-or-later(package.json の記載) | FreeCAD の2Dスケッチ拘束ソルバの WebAssembly 版 |
 | [three.js](https://github.com/mrdoob/three.js) | MIT | 3D描画。AR では three.js の USDZExporter(iPad 用ファイル)と WebXR を使う |
+| [js-aruco2](https://github.com/damianofalcioni/js-aruco2) | MIT | マーカーAR: カメラの絵からマーカー(ArUco)をさがし、位置と向きを計算する。元のファイルは改変せず src/app/ar/aruco.ts で読みこむ |
 | [fflate](https://github.com/101arrowz/fflate) | MIT | USDZ(ZIP)を作る。three.js に同梱されているものを使う |
 | [React](https://github.com/facebook/react) | MIT | 画面 |
 | [Comlink](https://github.com/GoogleChromeLabs/comlink) | Apache-2.0 | Web Worker との通信 |
