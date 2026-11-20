@@ -5,7 +5,8 @@
 // 作った立体を、タブレットのカメラごしに机の上へ実物大で置いて見る。
 //   iPad・iPhone … AR クイックルック(USDZ)
 //   Android      … WebXR
-//   そのほか     … 使えないことと、使える端末を知らせる
+//   Chromebook・パソコン … 印刷したマーカーをカメラにうつす「マーカーAR」(2026-11-20 追加)
+//   カメラもない … 使えないことと、使える端末を知らせる
 
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
@@ -13,6 +14,8 @@ import type { BodyMesh } from "../kernel/rebuild";
 import { arSize, buildArObject, makeUsdz } from "./ar/arModel";
 import { detectArMethod, type ArMethod } from "./ar/arSupport";
 import { openQuickLook } from "./ar/quickLook";
+import { printMarkerSheet } from "./ar/markerSheet";
+import { MarkerArView } from "./MarkerArView";
 import { startWebXrAr, type XrArControl, type XrPhase } from "./ar/webxrAr";
 import { Icon } from "./Icon";
 import { toast } from "./store";
@@ -39,6 +42,8 @@ export function ArDialog({ mesh, onClose }: Props) {
   // Android の AR 画面のようす(null なら AR は開いていない)
   const [phase, setPhase] = useState<XrPhase | null>(null);
   const [starting, setStarting] = useState(false);
+  // マーカーAR の画面を出しているか
+  const [markerOpen, setMarkerOpen] = useState(false);
   const overlayRef = useRef<HTMLDivElement>(null);
   const controlRef = useRef<XrArControl | null>(null);
 
@@ -115,11 +120,25 @@ export function ArDialog({ mesh, onClose }: Props) {
           </ol>
         )}
 
+        {method === "marker" && (
+          <>
+            <p className="muted" data-testid="ar-marker-intro">
+              この端末では、<b>印刷したマーカー</b>をカメラにうつすと、その上に立体が乗って見えます。
+            </p>
+            <ol className="ar-steps">
+              <li>「マーカーを印刷」で A4 に印刷する(「実際のサイズ」で。黒い四角が 10cm)</li>
+              <li>「カメラで見る」を押す(カメラを使ってよいか聞かれたら「許可」)</li>
+              <li>マーカーをカメラにうつす。前のカメラしかないときは、紙を手に持ってカメラに向ける</li>
+              <li>おわるときは「おわる」を押す</li>
+            </ol>
+          </>
+        )}
+
         {method === "none" && (
           <div className="panel-warning" data-testid="ar-unsupported">
-            <b>この端末では AR が使えません。</b>
+            <b>この端末では AR が使えません(カメラが使えません)。</b>
             <br />
-            iPad・iPhone、または Android のスマホ・タブレット(Chrome)で、このページを開くと使えます。
+            iPad・iPhone、Android のスマホ・タブレット(Chrome)、カメラのある Chromebook・パソコンで、このページを開くと使えます。
             作品は「ファイル」→「ファイルに保存」で、ほかの端末に持っていけます。
           </div>
         )}
@@ -133,6 +152,16 @@ export function ArDialog({ mesh, onClose }: Props) {
               <Icon name="ar" /> {usdz ? "カメラで見る" : "準備しています…"}
             </button>
           )}
+          {method === "marker" && (
+            <>
+              <button type="button" onClick={printMarkerSheet} data-testid="ar-print-marker">
+                <Icon name="print" /> マーカーを印刷
+              </button>
+              <button type="button" className="primary" onClick={() => setMarkerOpen(true)} data-testid="ar-start">
+                <Icon name="ar" /> カメラで見る
+              </button>
+            </>
+          )}
           {method === "webxr" && (
             <button type="button" className="primary" disabled={starting} onClick={() => void startXr()} data-testid="ar-start">
               <Icon name="ar" /> カメラで見る
@@ -140,6 +169,8 @@ export function ArDialog({ mesh, onClose }: Props) {
           )}
         </div>
       </div>
+
+      {markerOpen && <MarkerArView object={object} onClose={() => setMarkerOpen(false)} />}
 
       {/* Android の AR 画面で、カメラの映像の上に出す文字とボタン */}
       {createPortal(

@@ -5,9 +5,10 @@
 //
 //   quickLook … iPad・iPhone(Safari・Chrome など)。Apple の「AR クイックルック」で USDZ を開く
 //   webxr     … Android の Chrome など。ブラウザの WebXR でカメラの映像に立体を重ねる
-//   none      … Chromebook・Windows など、AR が使えない端末
+//   marker    … Chromebook・パソコンなど。印刷したマーカーをカメラにうつし、その上に立体を乗せる(2026-11-20 追加)
+//   none      … カメラも使えない端末
 
-export type ArMethod = "quickLook" | "webxr" | "none";
+export type ArMethod = "quickLook" | "webxr" | "marker" | "none";
 
 /** AR クイックルックが使えるか(<a rel="ar"> がわかるブラウザか) */
 export function supportsQuickLook(): boolean {
@@ -27,9 +28,15 @@ export async function supportsWebXrAr(): Promise<boolean> {
   }
 }
 
+/** カメラの映像を使えるか(マーカーAR に使う) */
+export function supportsCamera(): boolean {
+  return typeof navigator !== "undefined" && !!navigator.mediaDevices?.getUserMedia && window.isSecureContext;
+}
+
 /** この端末で使う AR の方法。iPad を先に見る(iPad の WebXR は AR に使えないため) */
 export async function detectArMethod(): Promise<ArMethod> {
   if (supportsQuickLook()) return "quickLook";
   if (await supportsWebXrAr()) return "webxr";
+  if (supportsCamera()) return "marker";
   return "none";
 }

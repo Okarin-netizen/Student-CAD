@@ -39,7 +39,7 @@
 - **なぞる(スイープ)**: 断面の形を線(道すじ)にそって動かす(取っ手・パイプ・リング)
 
 2026-11-20 追加:
-- **ARで見る**: 作った立体を、タブレットのカメラごしに机の上へ実物大で置いて見る。iPad・iPhone は AR クイックルック、Android は Chrome の WebXR を使う。Chromebook・パソコンでは使えない(使える端末を案内する)
+- **ARで見る**: 作った立体を、タブレットのカメラごしに机の上へ実物大で置いて見る。iPad・iPhone は AR クイックルック、Android は Chrome の WebXR を使う。Chromebook・パソコンは、印刷したマーカー(A4、黒い四角 10cm)をカメラにうつす「マーカーAR」になる(前のカメラだけでも使える)
 
 ほかに、作業のれきし(あとから寸法をなおすと形が作り直される)、もどす/やりなおす、
 端末の中への自動保存、作品ファイル(.scad.json)の保存と読み込み、専門用語への切り替えがあります。
@@ -68,7 +68,7 @@
 | --- | --- |
 | `main.tsx` | 入り口。`?bench` をつけるとフェーズ0の計測ページ(`bench/`)になる |
 | `app/` | 画面(React)。`App.tsx` が全体、`store.ts` が画面の状態と「もどす」、ほかは部品(メニュー・パネル・ダイアログ) |
-| `app/ar/` | ARで見る: AR 用の立体と USDZ を作る(`arModel.ts`)、端末に合わせた開き方(`arSupport.ts`・`quickLook.ts`・`webxrAr.ts`) |
+| `app/ar/` | ARで見る: AR 用の立体と USDZ を作る(`arModel.ts`)、端末に合わせた開き方(`arSupport.ts`・`quickLook.ts`・`webxrAr.ts`)、マーカーAR(`aruco.ts`・`markerTracker.ts`・`markerSheet.ts`) |
 | `app/sketch/` | スケッチの画面(`SketchEditor.tsx`)と、画面の座標・下がきの計算 |
 | `doc/` | 設計図(作品ファイル)のデータの形(`types.ts`)、基準面、式と変数、課題とひな形、作業のつながり |
 | `sketch/` | スケッチの計算: 拘束の計算(planegcs)、線や寸法を足す、閉じた形をさがす |
