@@ -58,6 +58,7 @@ import { VariablesPanel } from "./VariablesPanel";
 import { DrawingView } from "./DrawingView";
 import { AssignmentCard, AssignmentEditor } from "./AssignmentPanel";
 import { SubmitDialog } from "./SubmitDialog";
+import { ArDialog } from "./ArDialog";
 import { ReplayBar } from "./ReplayBar";
 import { NewDialog } from "./NewDialog";
 import { Icon } from "./Icon";
@@ -83,7 +84,7 @@ export function App() {
   const [savedDoc, setSavedDoc] = useState<CadDocument | null>(null);
   const clientRef = useRef<CadClient | null>(null);
   const [showVariables, setShowVariables] = useState(false);
-  const [dialog, setDialog] = useState<"new" | "assignment" | "submit" | null>(null);
+  const [dialog, setDialog] = useState<"new" | "assignment" | "submit" | "ar" | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const pro = s.proTerms;
 
@@ -544,6 +545,10 @@ export function App() {
             <button type="button" className="step" onClick={() => setDialog("submit")} disabled={!hasBody || s.busy} data-testid="open-submit">
               <Icon name="submit" /> 提出
             </button>
+            {/* 作った立体を、カメラごしに机の上へ実物大で置いて見る(2026-11-20) */}
+            <button type="button" className="step" onClick={() => setDialog("ar")} disabled={!hasBody || s.busy} data-testid="open-ar">
+              <Icon name="ar" /> ARで見る
+            </button>
           </div>
         </nav>
       )}
@@ -561,6 +566,8 @@ export function App() {
       {dialog === "submit" && clientRef.current && (
         <SubmitDialog client={clientRef.current} doc={docForSave(s)} checks={checks} measure={s.result?.measure ?? null} onClose={() => setDialog(null)} />
       )}
+
+      {dialog === "ar" && s.result?.mesh && <ArDialog mesh={s.result.mesh} onClose={() => setDialog(null)} />}
 
       {mode === "drawing" && clientRef.current && (
         <DrawingView client={clientRef.current} title={s.doc.name} version={s.result} onClose={cancelMode} />

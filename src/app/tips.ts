@@ -24,6 +24,7 @@ export const TIPS: Record<string, string> = {
   "open-export": "3Dプリンターや ほかの CAD で使うファイル(STL・3MF・STEP)に書き出します",
   "open-drawing": "立体から図面(第三角法・等角図・キャビネット図)をかいて、印刷・PDF・DXF で出します",
   "open-submit": "作品・STL・図面・絵をまとめた提出用ファイル(ZIP)を作ります",
+  "open-ar": "カメラの画面に、作った立体を実物大で出します。机の上に置いて、まわりから見られます(iPad・Android)",
   // 作ったものの一覧
   "start-replay": "作った順に、形ができていく様子を再生します",
   "tree-edit": "えらんだ作業の数や形を直します",

@@ -1937,3 +1937,68 @@ input:focus-visible {
   outline: 3px solid var(--accent);
   outline-offset: 2px;
 }
+
+/* ---- ARで見る(2026-11-20) ---- */
+
+.ar-dialog {
+  width: min(460px, calc(100% - 24px));
+}
+
+.ar-size {
+  font-variant-numeric: tabular-nums;
+  font-weight: 700;
+  margin: 8px 0;
+}
+
+.ar-steps {
+  margin: 8px 0;
+  padding-left: 1.4em;
+  line-height: 1.7;
+}
+
+/* Android の AR 画面で、カメラの映像の上に出す文字とボタン */
+.ar-overlay {
+  position: fixed;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 16px;
+  pointer-events: none;
+  z-index: 60;
+}
+
+.ar-overlay[hidden] {
+  display: none;
+}
+
+.ar-hint {
+  align-self: center;
+  margin: 0;
+  padding: 10px 16px;
+  border-radius: var(--r);
+  background: #ffffffe6;
+  color: var(--text);
+  font-weight: 700;
+  text-align: center;
+}
+
+.ar-buttons {
+  display: flex;
+  justify-content: center;
+  gap: 12px;
+}
+
+.ar-buttons button {
+  pointer-events: auto;
+  min-width: 120px;
+  min-height: var(--touch);
+}
+
+/* スマホのようにせまい画面では、手順の中のボタンも折り返す(Android のスマホで AR を使うとき用) */
+@media (max-width: 600px) {
+  .step-group {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+}
