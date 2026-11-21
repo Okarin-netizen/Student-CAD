@@ -109,7 +109,7 @@ test("変数を作って寸法とあつさに使い、変数を変えると形�
   await page.getByTestId("numpad-var-幅").click();
   await expect(page.getByTestId("numpad-result")).toContainText("40");
   await page.getByTestId("numpad-ok").click();
-  await expect(page.getByTestId("dim-length")).toContainText("幅=40");
+  await expect(page.getByTestId("dim-length").filter({ hasText: "幅=40" })).toHaveCount(1);
 
   // あつさは 幅/4
   await page.getByTestId("sketch-done").click();

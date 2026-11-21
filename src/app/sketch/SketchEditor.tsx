@@ -18,10 +18,11 @@ import {
 import {
   addArc,
   addCircle,
-  addConstraint,
+  addConstraintOverAuto,
   addLine,
   addPolygon,
   addRectangle,
+  addSizeDimensions,
   addText,
   deleteItems,
   isCurve,
@@ -358,14 +359,18 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
         if (pts.length < 2) return setPending(pts);
         const [a, b] = pts;
         if (Math.abs(a.xy[0] - b.xy[0]) * vp.scale < 4 || Math.abs(a.xy[1] - b.xy[1]) * vp.scale < 4) return setPending([a]);
-        commit(addRectangle(data, a.spec, b.spec));
+        // 横と たての辺(新しく足した線の1本目と2本目)に、いまの大きさの寸法を入れる
+        const rect = addRectangle(data, a.spec, b.spec);
+        const sides = rect.entities.slice(data.entities.length).filter((e) => e.type === "line").slice(0, 2).map((e) => e.id);
+        commit(addSizeDimensions(gcs, rect, sides));
         return setPending([]);
       }
       case "circle": {
         if (pts.length < 2) return setPending(pts);
         // 中心と同じ所をもう一度タップしたときは、大きさ0の円を作らずに、次のタップを待つ
         if (tooClose(pts[0], pts[1])) return setPending([pts[0]]);
-        commit(addCircle(data, pts[0].spec, dist(pts[0].xy, pts[1].xy)));
+        const circle = addCircle(data, pts[0].spec, dist(pts[0].xy, pts[1].xy));
+        commit(addSizeDimensions(gcs, circle, [circle.entities[circle.entities.length - 1].id]));
         return setPending([]);
       }
       case "polygon": {
@@ -441,7 +446,7 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
       allowZero: c.type === "angle",
       submit: (v, expr) => {
         const value = c.type === "angle" && measured < 0 ? -v : v;
-        const r = addConstraint(gcs, data, { ...c, id: newId("d"), value, expr } as DimensionConstraint);
+        const r = addConstraintOverAuto(gcs, data, { ...c, id: newId("d"), value, expr } as DimensionConstraint);
         if (r.ok) onEdit(r.sketch, data);
         else onMessage(r.message!, "error");
         setNumpad(null);
@@ -476,6 +481,13 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
     }
     const e = ents.get(hit.id);
     const picks = [...dimPick, hit];
+    // もう寸法がついている線・円をタップしたときは、その寸法を直す(長方形・円には最初から寸法がつく)
+    const own = hit.kind === "curve" ? sketch.constraints.find((c) => (c.type === "length" && c.line === hit.id) || (c.type === "diameter" && c.circle === hit.id)) : undefined;
+    if (own && isDimension(own)) {
+      setDimPick([]);
+      editDimension(own);
+      return;
+    }
     if (hit.kind === "curve" && (e?.type === "circle" || e?.type === "arc")) {
       askDimension({ type: "diameter", circle: hit.id }, e.r * 2, "直径を入れる");
       return;
@@ -647,7 +659,7 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
   const apply = (cs: SketchConstraint[]) => {
     let cur = data;
     for (const c of cs) {
-      const r = addConstraint(gcs, cur, c);
+      const r = addConstraintOverAuto(gcs, cur, c);
       if (!r.ok) {
         onMessage(r.message!, "error");
         return;
@@ -891,7 +903,7 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
       ? "まだ何もかいていません"
       : status.dof === 0
         ? term("fullyDefined", pro)
-        : `あと ${status.dof} つで形が決まる`;
+        : `まだ決まっていない所: ${status.dof}`;
   // 長い説明は、マウスをのせる・長押しで出す(2026-11-10: 下の説明を短くした)
   const dofTip =
     status.ok && status.dof > 0 && sketch.entities.length > 0

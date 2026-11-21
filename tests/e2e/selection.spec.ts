@@ -213,8 +213,10 @@ test("図面: 寸法を消してまた出したら、えらびかけの点は残
   await page.getByTestId("dim-add").click();
   await sheet.locator(".snap-dot").nth(0).click({ force: true });
   await expect(sheet.locator(".snap-picked")).toBeAttached();
-  await page.getByTestId("drawing-dims").uncheck();
-  await page.getByTestId("drawing-dims").check();
+  await page.getByTestId("drawing-dims").click();
+  await expect(page.getByTestId("drawing-dims")).toHaveAttribute("aria-pressed", "false");
+  await page.getByTestId("drawing-dims").click();
+  await expect(page.getByTestId("drawing-dims")).toHaveAttribute("aria-pressed", "true");
   await expect(sheet.locator(".snap-picked")).toHaveCount(0);
   await expect(sheet.locator(".snap-dot")).toHaveCount(0);
 });

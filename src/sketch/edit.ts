@@ -13,7 +13,7 @@ import {
   type SketchFeature,
   type Vec2,
 } from "../doc/types";
-import { solveSketch, type DragTarget } from "./solver";
+import { measureLength, solveSketch, type DragTarget } from "./solver";
 
 /** 置く点: 既存の点にくっつける(id)か、新しい位置(xy) */
 export type PointSpec = { id: Id } | { xy: Vec2 };
@@ -184,12 +184,50 @@ export function addConstraint(gcs: GcsWrapper, s: SketchData, c: SketchConstrain
   return { ok: true, sketch: { entities: r.entities, constraints: next.constraints }, dof: r.dof };
 }
 
+/**
+ * かいたばかりの長方形・円に、いまの大きさの寸法を入れる。2026-11-21 追加(デザインの改善 段階3)。
+ * 寸法が最初から見えていれば、数字をタップするだけで大きさを直せる。
+ * targets は、寸法を入れる線(長方形の横と たての辺)と円の id。値は 0.1mm に丸める。
+ * もう大きさが決まっている所(ほかの点にくっつけた辺など)は、決まりすぎになるので入れない。
+ */
+export function addSizeDimensions(gcs: GcsWrapper, s: SketchData, targets: Id[]): SketchData {
+  let out = s;
+  for (const id of targets) {
+    const e = out.entities.find((x) => x.id === id);
+    let c: SketchConstraint | null = null;
+    if (e?.type === "line") c = { id: newId("d"), type: "length", line: id, value: round1(measureLength(out.entities, e)), auto: true };
+    if (e?.type === "circle") c = { id: newId("d"), type: "diameter", circle: id, value: round1(e.r * 2), auto: true };
+    if (!c) continue;
+    const r = addConstraint(gcs, out, c);
+    if (r.ok) out = r.sketch;
+  }
+  return out;
+}
+
+const round1 = (v: number) => Math.round(v * 10) / 10;
+
+/**
+ * 生徒が寸法を入れる。決まりすぎになるときは、自動で入れた寸法(auto)のうち じゃまになっている1つを外して入れかえる。
+ * 例: 長方形の上の辺に自動の寸法があるとき、下の辺に長さを入れると、上の辺の自動の寸法が外れる
+ */
+export function addConstraintOverAuto(gcs: GcsWrapper, s: SketchData, c: SketchConstraint): EditResult {
+  const r = addConstraint(gcs, s, c);
+  if (r.ok) return r;
+  for (const old of s.constraints) {
+    if (!("auto" in old) || !old.auto) continue;
+    const r2 = addConstraint(gcs, { entities: s.entities, constraints: s.constraints.filter((x) => x.id !== old.id) }, c);
+    if (r2.ok) return r2;
+  }
+  return r;
+}
+
 /** 寸法の値を変える */
 /** 寸法の数を変える。expr は変数を使った式(使わないときは undefined で、前の式も外す) */
 export function setDimension(gcs: GcsWrapper, s: SketchData, id: Id, value: number, expr?: string): EditResult {
   const next = {
     entities: s.entities,
-    constraints: s.constraints.map((c) => (c.id === id && "value" in c ? { ...c, value, expr } : c)),
+    // 生徒が数を直した寸法は、もう自動の寸法ではない(auto を外す)
+    constraints: s.constraints.map((c) => (c.id === id && "value" in c ? { ...c, value, expr, auto: undefined } : c)),
   };
   const r = solveSketch(gcs, next);
   if (!r.ok) return { ok: false, sketch: s, message: "この寸法では形が作れません。別の数字にしてみてください" };

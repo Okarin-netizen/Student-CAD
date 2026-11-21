@@ -1155,6 +1155,45 @@ button.danger:disabled {
   user-select: text;
 }
 
+/* 図面の道具は「図の種類 | 見せるもの | 寸法を直す」の3つにまとめ、間を線で区切る(2026-11-21 段階2) */
+.drawing-show {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+
+.drawing-show,
+.drawing-edit {
+  padding-left: 12px;
+  border-left: var(--bw) solid var(--border);
+}
+
+.show-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.show-toggle .show-box {
+  display: inline-grid;
+  place-items: center;
+  width: 22px;
+  height: 22px;
+  border: 1.5px solid var(--line);
+  border-radius: 3px;
+  background: var(--surface);
+}
+
+.show-toggle .show-box svg {
+  width: 18px;
+  height: 18px;
+}
+
+.show-toggle.active .show-box {
+  background: var(--line);
+  color: var(--surface);
+}
+
 /* 寸法を手で直すボタン */
 .drawing-edit {
   display: flex;
@@ -1205,7 +1244,7 @@ button.danger:disabled {
   min-height: 0;
   display: grid;
   place-items: center;
-  background: #cfd6df;
+  background: #c9d3ce; /* --border-soft と同じ。青みの灰色をやめ、三角定規の色にそろえた(2026-11-21) */
   border-radius: var(--r);
 }
 

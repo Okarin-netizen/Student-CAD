@@ -30,13 +30,15 @@ test("長方形をかいて寸法を入れ、押し出して STL を書き出せ
   await tapCanvas(page, 0.5, 0.65);
   await page.getByTestId("numpad-input").fill("100/2");
   await page.getByTestId("numpad-ok").click();
-  await expect(page.getByTestId("dim-length")).toContainText("50");
+  // 長方形には最初から横と たての寸法がつく。下の辺に入れると、上の辺の自動の寸法と入れかわる
+  await expect(page.getByTestId("dim-length")).toHaveCount(2);
+  await expect(page.getByTestId("dim-length").filter({ hasText: "50" })).toHaveCount(1);
 
   // もどす → やりなおす
   await page.getByTestId("undo").click();
-  await expect(page.locator('[data-testid="dim-length"]')).toHaveCount(0);
+  await expect(page.getByTestId("dim-length").filter({ hasText: "50" })).toHaveCount(0);
   await page.getByTestId("redo").click();
-  await expect(page.locator("g[data-testid=dim-length]")).toContainText("50");
+  await expect(page.getByTestId("dim-length").filter({ hasText: "50" })).toHaveCount(1);
 
   // 2. スケッチを終えると、押し出しのパネルが開く
   await page.getByTestId("sketch-done").click();
@@ -159,14 +161,14 @@ test("線をタップするとすぐ長さを入れられ、かいた絵は確�
   await tapCanvas(page, 0.3, 0.3);
   await expect(page.getByTestId("sketch-hint")).toContainText("反対の角");
   await tapCanvas(page, 0.7, 0.7);
-  await expect(page.getByTestId("sketch-dof")).toHaveText(/^あと \d+ つで形が決まる$/);
+  await expect(page.getByTestId("sketch-dof")).toHaveText(/^まだ決まっていない所: \d+$/);
 
   await page.getByTestId("tool-dimension").click();
   await tapCanvas(page, 0.5, 0.7);
   await expect(page.getByTestId("numpad-input")).toBeVisible();
   await page.getByTestId("numpad-input").fill("40");
   await page.getByTestId("numpad-ok").click();
-  await expect(page.locator("g[data-testid=dim-length]")).toContainText("40");
+  await expect(page.getByTestId("dim-length").filter({ hasText: "40" })).toHaveCount(1);
 
   // やめる → 確認が出る → かきつづける
   await page.getByTestId("sketch-cancel").click();
