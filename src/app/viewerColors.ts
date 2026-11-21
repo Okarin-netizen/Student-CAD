@@ -31,7 +31,7 @@ export interface ViewerColors {
   cubeText: string;
 }
 
-/** 案A「紙と墨」: 立体は紙の白、ふちは墨。図面と同じ見た目 */
+/** 「紙と墨」: 立体は紙の白、ふちは墨。図面と同じ見た目。2026-11-21 に おかだ さんが案A〜C から選んだ */
 const PAPER: ViewerColors = {
   body: 0xf4f1ea,
   hemiGround: 0x8f9c95,
@@ -47,14 +47,6 @@ const PAPER: ViewerColors = {
   cubeLine: "#14201b",
   cubeText: "#14201b",
 };
-
-/** 案B「うすいみどり」: 立体は画面のみどりをうすくした色 */
-const SAGE: ViewerColors = { ...PAPER, body: 0xa8cdbd, sketch: 0x14201b };
-
-/** 案C「木」: 技術科の木材のような色 */
-const WOOD: ViewerColors = { ...PAPER, body: 0xdcc29a };
-
-export const VIEWER_COLOR_OPTIONS = { paper: PAPER, sage: SAGE, wood: WOOD };
 
 export const viewerColors: ViewerColors = PAPER;
 
