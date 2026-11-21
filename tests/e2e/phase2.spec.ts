@@ -52,7 +52,7 @@ test("補助線を軸にして回すと、回転の立体ができる", async ({
 test("辺をタップして角を丸め、STEP で書き出せる", async ({ page }) => {
   await makeBox(page);
   await page.getByTestId("new-fillet").click();
-  await expect(page.getByTestId("op-edges")).toContainText("タップ");
+  await expect(page.getByTestId("op-edges")).toContainText(/タップ|クリック/);
 
   // 3D のまん中をたてに少しずつタップして、辺を1本えらぶ
   const view = (await page.getByTestId("viewer-3d").boundingBox())!;

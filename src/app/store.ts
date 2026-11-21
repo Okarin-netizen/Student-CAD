@@ -30,7 +30,7 @@ import type { RebuildReply } from "../worker/cad.worker";
 import type { SketchData } from "../sketch/edit";
 import { applyVariables, forgetName, renameInDoc } from "../doc/variables";
 import { dependents, usedSketchIds } from "../doc/links";
-import { easyWords } from "./terms";
+import { easyWords, pointerWords } from "./terms";
 
 export type Mode =
   | { kind: "model" }
@@ -557,6 +557,6 @@ let toastTimer: ReturnType<typeof setTimeout> | undefined;
 export function toast(text: string, kind: "info" | "error" = "info") {
   clearTimeout(toastTimer);
   // 「スケッチ」などの言葉は、画面の設定(ふだんの言葉 / 専門用語)に合わせる
-  setState({ toast: { text: easyWords(text, state.proTerms), kind } });
+  setState({ toast: { text: pointerWords(easyWords(text, state.proTerms)), kind } });
   toastTimer = setTimeout(() => setState({ toast: null }), kind === "error" ? 5000 : 2500);
 }

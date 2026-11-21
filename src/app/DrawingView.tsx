@@ -11,6 +11,7 @@ import { setAuthor, setDrawingNotes, toast, useStore } from "./store";
 import { authorLabel, emptyAuthor, fileBaseName, isStudentId } from "./author";
 import { Icon } from "./Icon";
 import { TitleBlockDialog } from "./TitleBlockDialog";
+import { pointerWords } from "./terms";
 
 interface Props {
   client: CadClient;
@@ -274,7 +275,7 @@ export function DrawingView({ client, title, version, onClose }: Props) {
               <Icon name="dimension" /> 寸法を足す
             </button>
             <button type="button" className={editing === "erase" ? "active" : ""} aria-pressed={editing === "erase"} onClick={() => toggleEdit("erase")} data-testid="dim-erase">
-              <Icon name="cut" /> 消す
+              <Icon name="cut" /> 寸法をけす
             </button>
             {(notes.added.length > 0 || notes.hidden.length > 0) && (
               <button type="button" onClick={() => setDrawingNotes({ hidden: [], added: [] })} data-testid="dim-reset" aria-label="寸法をもとにもどす">
@@ -286,13 +287,13 @@ export function DrawingView({ client, title, version, onClose }: Props) {
       </div>
 
       <p className="drawing-hint">
-        {editing === "add"
+        {pointerWords(editing === "add"
           ? pending
             ? "2つ目の点をタップしてください。横にはなれていれば横の長さ、たてにはなれていれば たての長さが入ります"
             : "図の点(●)を2つタップすると、その間の寸法が入ります"
           : editing === "erase"
             ? "消したい寸法の数字をタップしてください。消した寸法は「寸法をもとにもどす」で戻せます"
-            : `${KINDS.find((k) => k.kind === kind)!.hint}${whoReady ? "" : "。右下の表題欄をタップすると、学籍番号と氏名を入れられます"}`}
+            : `${KINDS.find((k) => k.kind === kind)!.hint}${whoReady ? "" : "。右下の表題欄をタップすると、学籍番号と氏名を入れられます"}`)}
       </p>
 
       <div className={`drawing-paper ${editing !== "none" ? "editing" : ""}`} data-testid="drawing-sheet" ref={paperRef} onPointerUp={onPaperTap}>

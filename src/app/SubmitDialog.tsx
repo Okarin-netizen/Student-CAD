@@ -11,6 +11,7 @@ import { downloadFile } from "./persist";
 import { setAuthor, toast, useStore } from "./store";
 import { authorLabel, digitsOnly, isStudentId, readDeviceAuthor } from "./author";
 import { snapshot3D } from "./Viewer3D";
+import { useEscape } from "./useEscape";
 
 interface Props {
   client: CadClient;
@@ -25,6 +26,7 @@ interface Props {
  * 2026-11-11 図面の表題欄と同じ「学籍番号・氏名」にした(前は組・番号・名前で、2回ちがう形で入れていた)。
  */
 export function SubmitDialog({ client, doc, checks, measure, onClose }: Props) {
+  useEscape(onClose);
   const saved = useStore((s) => s.meta.author);
   const [student, setStudent] = useState<Author>(() => (saved && saved.name ? saved : readDeviceAuthor()));
   const [working, setWorking] = useState(false);

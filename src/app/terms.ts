@@ -84,3 +84,15 @@ export function easyWords(text: string, pro: boolean): string {
   if (pro) return text;
   return EASY_WORDS.reduce((t, [from, to]) => t.split(from).join(to), text);
 }
+
+/** マウスが主な端末(Chromebook・パソコン)か。Viewer3D の操作の説明と同じ見分け方 */
+const mouseFirst = typeof window !== "undefined" && window.matchMedia?.("(pointer: fine)").matches === true;
+
+/**
+ * 案内の「タップ」を、マウスの端末では「クリック」と言いかえる(2026-11-21)。
+ * Chromebook でマウスを使う生徒に「タップして」と出ていたため。
+ */
+export function pointerWords(text: string, mouse = mouseFirst): string {
+  if (!mouse) return text;
+  return text.replace(/指を置いたまま/g, "ボタンを押したまま").replace(/タップ/g, "クリック");
+}

@@ -40,6 +40,8 @@
   --r: 4px;
   --r2: 6px;
   --touch: 56px;
+  /* 押せないボタンの文字(白の上で 4.5:1 以上) */
+  --disabled-text: #5b6963;
   --bw: 1px;
   color-scheme: light;
   /* 読みまちがえにくい UD 書体を先に使う(Windows は BIZ UDPゴシック、iPad はヒラギノ、Chromebook は Noto) */
@@ -97,9 +99,18 @@ button:active:not(:disabled) {
   transform: scale(0.97);
 }
 
+/* 押せないボタン(2026-11-21 見直し): うすくすると蛍光灯やプロジェクターで読めなかった(2.84:1)。
+   文字は読める濃さ(4.5:1 以上)のまま、わくを点線にして「まだ押せない」を形で見せる */
 button:disabled {
-  opacity: 0.45;
+  color: var(--disabled-text);
+  border-style: dashed;
+  border-color: var(--border);
+  background: var(--surface);
   cursor: default;
+}
+
+button:disabled svg {
+  opacity: 0.6;
 }
 
 button.primary {
@@ -113,6 +124,15 @@ button.danger {
   color: var(--danger);
   border-color: #f2b8b5;
   background: var(--danger-bg);
+}
+
+/* みどり・赤のボタンも、押せないときは ふつうの押せないボタンと同じ見た目にする */
+button.primary:disabled,
+button.danger:disabled {
+  color: var(--disabled-text);
+  background: var(--surface);
+  border-color: var(--border);
+  border-style: dashed;
 }
 
 .muted {
@@ -336,9 +356,15 @@ button.danger {
   color: var(--accent);
 }
 
-/* まだ使えないボタン。押せるが、押すと何を先にするかの案内が出る */
+/* まだ使えないボタン。押せるが、押すと何を先にするかの案内が出る。
+   押せないボタンと同じく、うすくせず点線のわくで見せる(2026-11-21) */
 .step.not-ready {
-  opacity: 0.45;
+  color: var(--disabled-text);
+  border-style: dashed;
+}
+
+.step.not-ready svg {
+  opacity: 0.6;
 }
 
 .step-num {
@@ -557,8 +583,8 @@ button.danger {
   gap: 6px;
 }
 
+/* 「ななめ」「全体」も、ほかのボタンと同じ大きさの文字にする(2026-11-21) */
 .viewer3d-buttons button {
-  font-size: 0.85rem;
   padding: 0 8px;
 }
 
@@ -1490,10 +1516,10 @@ button.danger {
   gap: 6px;
 }
 
+/* 指で押しやすいよう、ほかのボタンと同じ高さにする(2026-11-21。前は 36px) */
 .tree-replay {
-  font-size: 0.82rem;
-  min-height: 36px;
-  padding: 4px 10px;
+  font-size: 0.9rem;
+  padding: 4px 12px;
 }
 
 .tree li.replay-current {

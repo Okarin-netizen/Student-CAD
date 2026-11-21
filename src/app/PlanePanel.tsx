@@ -6,6 +6,7 @@ import { BASE_PLANE_LABELS } from "../doc/planes";
 import type { BasePlaneName } from "../doc/types";
 import { Icon } from "./Icon";
 import { NumberPad, type PadVariable } from "./NumberPad";
+import { useEscape } from "./useEscape";
 
 interface Props {
   /** 基準面をずらす量(mm)。0 ならそのままの基準面にかく */
@@ -20,6 +21,7 @@ interface Props {
 
 /** 「どこに絵をかきますか?」: スケッチをかく面をえらぶパネル */
 export function PlanePanel({ offset, onOffset, hasBody, variables, onPick, onCancel }: Props) {
+  useEscape(onCancel);
   const [pad, setPad] = useState(false);
   return (
     <div className="panel plane-panel" role="dialog" aria-label="かく面をえらぶ">

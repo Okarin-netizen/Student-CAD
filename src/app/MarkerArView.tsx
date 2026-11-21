@@ -10,6 +10,7 @@ import { useEffect, useRef, useState } from "react";
 import * as THREE from "three";
 import { MarkerTracker } from "./ar/markerTracker";
 import { Icon } from "./Icon";
+import { useEscape } from "./useEscape";
 
 interface Props {
   /** 乗せる立体(arModel.ts の buildArObject で作ったもの。単位 m・Y が上) */
@@ -81,12 +82,8 @@ export function MarkerArView({ object, onClose }: Props) {
     };
   }, [cameraIndex]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // パソコンでは Esc でも終われるようにする
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => e.key === "Escape" && onClose();
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [onClose]);
+  // パソコンでは Esc でも終われるようにする(うしろの「ARで見る」は とじない)
+  useEscape(onClose);
 
   const switchCamera = () => {
     setStatus("starting");

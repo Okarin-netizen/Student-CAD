@@ -144,7 +144,7 @@ test("角を丸める: できあがりを見たあと「ぜんぶはずす」を
   await pickOneEdge(page);
   await page.getByTestId("op-preview").click();
   await page.getByRole("button", { name: "ぜんぶはずす" }).click();
-  await expect(page.getByTestId("op-edges")).toContainText("タップ");
+  await expect(page.getByTestId("op-edges")).toContainText(/タップ|クリック/);
   // えらぶ画面にもどっているので、もう一度えらべる
   await pickOneEdge(page);
   await expect(page.getByTestId("op-preview")).toHaveText("できあがりを見る");

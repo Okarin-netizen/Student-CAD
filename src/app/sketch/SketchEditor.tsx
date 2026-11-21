@@ -35,7 +35,7 @@ import {
 } from "../../sketch/edit";
 import { measureAngle, measureLength, solveSketch } from "../../sketch/solver";
 import { findProfiles } from "../../sketch/profiles";
-import { term, type TermKey } from "../terms";
+import { pointerWords, term, type TermKey } from "../terms";
 import { NumberPad, type PadVariable } from "../NumberPad";
 import { referenceCorners } from "./references";
 import { arcPath, bounds, distToArc, distToSegment, fmt, gridStep, positions, textBox, toScreen, toWorld, type Viewport } from "./geometry";
@@ -169,12 +169,20 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
   }, [refs]);
   const defined = status.ok && status.dof === 0 && sketch.entities.length > 0;
 
-  // 画面の大きさに合わせる
+  // 画面の大きさに合わせる。
+  // 左上をずらさずに大きさだけ変える(下の「きまり」の段が出たり消えたりするたびに絵が上下に動き、
+  // ねらった線の横の記号をタップしてしまっていた。2026-11-21)
   useLayoutEffect(() => {
     const svg = svgRef.current!;
     const ro = new ResizeObserver(() => {
       const r = svg.getBoundingClientRect();
-      setVp((v) => ({ ...v, width: r.width, height: r.height }));
+      setVp((v) => ({
+        ...v,
+        cx: v.cx + (r.width - v.width) / 2 / v.scale,
+        cy: v.cy - (r.height - v.height) / 2 / v.scale,
+        width: r.width,
+        height: r.height,
+      }));
     });
     ro.observe(svg);
     return () => ro.disconnect();
@@ -1018,7 +1026,9 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
           {sketch.constraints.flatMap((c) =>
             glyph(c).map((g, i) => {
               const sel = selection.includes(c.id);
-              labels.push({ id: c.id, x: g.at[0], y: g.at[1], w: GLYPH_SIZE + 8, h: GLYPH_SIZE + 8 });
+              // 当たりの広さは記号の大きさと同じにする。前は 8px 大きく、線のすぐ上まで届いていたため、
+              // 記号の近くで線をタップすると線ではなく記号がえらばれることがあった(2026-11-21)
+              labels.push({ id: c.id, x: g.at[0], y: g.at[1], w: GLYPH_SIZE, h: GLYPH_SIZE });
               return (
                 <g key={`${c.id}-${i}`} className={sel ? "sk-glyph selected" : "sk-glyph"}>
                   <rect x={g.at[0] - GLYPH_SIZE / 2} y={g.at[1] - GLYPH_SIZE / 2} width={GLYPH_SIZE} height={GLYPH_SIZE} rx={6} />
@@ -1073,7 +1083,7 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
 
         <div className="sk-overlay-top">
           <p className="sk-hint" data-testid="sketch-hint">
-            {hint}
+            {pointerWords(hint)}
           </p>
           {selGlyph && (
             <button type="button" className="danger" onClick={deleteSelection} data-testid="glyph-delete">
