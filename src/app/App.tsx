@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 // Copyright (c) 2026 技術科　岡田
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 import { make_gcs_wrapper, type GcsWrapper } from "@salusoft89/planegcs";
 import gcsWasmUrl from "@salusoft89/planegcs/dist/planegcs_dist/planegcs.wasm?url";
 import { planeFromFace } from "../doc/planes";
@@ -67,6 +67,7 @@ import type { PadVariable } from "./NumberPad";
 import { DropMenu, type MenuItem } from "./DropMenu";
 import { ConfirmDialog } from "./ConfirmDialog";
 import { useDismiss } from "./useDismiss";
+import { useScrollHint } from "./useScrollHint";
 import { PlanePanel } from "./PlanePanel";
 import { nextStepAfterSketch } from "./nextStep";
 import { stepGuide, type StepButton } from "./stepGuide";
@@ -376,7 +377,7 @@ export function App() {
             <span className="topbar-title"><Icon name="sketch" /> {featureLabel(sketchFeature.name, pro)}</span>
             <div className="topbar-group">
               <button type="button" onClick={undo} disabled={!canUndo} aria-label="もどす" data-testid="undo">
-                <Icon name="undo" /> もどす
+                <Icon name="undo" /> <span className="btn-label">もどす</span>
               </button>
               <button type="button" onClick={redo} disabled={!canRedo} aria-label="やりなおす" data-testid="redo">
                 <Icon name="redo" />
@@ -409,11 +410,12 @@ export function App() {
             {/* 保存のようす。作品の名前のとなりに、しるしをつけて出す(2026-11-10) */}
             <span className={`save-state ${saveState}`} data-testid="save-state">
               {saveState === "saved" && <Icon name="check" size={18} />}
-              {saveState === "busy" ? "計算中…" : saveState === "saved" ? "保存ずみ" : "保存中…"}
+              {/* スマホでは文字をかくし、しるしだけにする(読み上げでは聞こえる) */}
+              <span className="save-text">{saveState === "busy" ? "計算中…" : saveState === "saved" ? "保存ずみ" : "保存中…"}</span>
             </span>
             <div className="topbar-group">
-              <button type="button" onClick={undo} disabled={!canUndo} data-testid="undo">
-                <Icon name="undo" /> もどす
+              <button type="button" onClick={undo} disabled={!canUndo} aria-label="もどす" data-testid="undo">
+                <Icon name="undo" /> <span className="btn-label">もどす</span>
               </button>
               <button type="button" onClick={redo} disabled={!canRedo} aria-label="やりなおす" data-testid="redo">
                 <Icon name="redo" />
@@ -520,7 +522,7 @@ export function App() {
       </main>
 
       {mode === "model" && (
-        <nav className="stepbar" aria-label="作り方の手順">
+        <StepBarRow nextKey={guide.next}>
           <button type="button" {...stepProps("sketch", startPickPlane)} data-testid="new-sketch">
             <span className="step-num">1</span><Icon name="sketch" /> {term("newSketch", pro)}
           </button>
@@ -563,7 +565,7 @@ export function App() {
               <Icon name="ar" /> ARで見る
             </button>
           </div>
-        </nav>
+        </StepBarRow>
       )}
 
       {s.mode.kind === "replay" && (
@@ -632,5 +634,18 @@ export function App() {
         </div>
       )}
     </div>
+  );
+}
+
+/**
+ * 手順バー。タブレットでは ふつうに ならべ、スマホでは1列にして横にスクロールする。
+ * 次に押すボタンが画面の外にあれば、見える所まで動かす(2026-11-21 スマホ対応)。
+ */
+function StepBarRow({ nextKey, children }: { nextKey: unknown; children: ReactNode }) {
+  const ref = useScrollHint<HTMLElement>(nextKey, ".step.next");
+  return (
+    <nav className="stepbar" aria-label="作り方の手順" ref={ref}>
+      {children}
+    </nav>
   );
 }
