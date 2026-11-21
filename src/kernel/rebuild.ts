@@ -19,7 +19,7 @@ import type {
   WorldAxis,
 } from "../doc/types";
 import { BASE_PLANES, resolvePlane, toWorld } from "../doc/planes";
-import { cross3, dot3, normalize3, scale3 } from "../math/vec";
+import { add3, cross3, dot3, normalize3, scale3 } from "../math/vec";
 import { pointPos, solveSketch } from "../sketch/solver";
 import { arcThrough, findProfiles, type Loop, type Region } from "../sketch/profiles";
 
@@ -44,6 +44,8 @@ export interface SketchDisplay {
   lines: Float32Array;
   /** 押し出しに使われているか(使われていれば 3D では隠す) */
   consumed: boolean;
+  /** 実際にかかれている平面(立体の面にかいた絵は、面が動くと一緒に動くので、保存した平面とちがうことがある) */
+  plane: Plane3;
 }
 
 export interface RebuildOutput {
@@ -88,7 +90,7 @@ export function rebuild(doc: CadDocument, gcs: GcsWrapper): RebuildOutput {
   for (const f of doc.features) {
     if (f.type === "sketch") {
       const res = solveSketch(gcs, f);
-      solvedSketches.set(f.id, res.ok ? { ...f, entities: res.entities } : f);
+      solvedSketches.set(f.id, followFace(res.ok ? { ...f, entities: res.entities } : f, body));
       statuses.push(res.ok ? { id: f.id, ok: true } : { id: f.id, ok: false, error: "スケッチの寸法や拘束が矛盾しています" });
       continue;
     }
@@ -245,8 +247,39 @@ export function rebuild(doc: CadDocument, gcs: GcsWrapper): RebuildOutput {
     featureId: s.id,
     lines: sketchLines(s),
     consumed: consumed.has(s.id),
+    plane: resolvePlane(s.plane),
   }));
   return { statuses, body, sketches };
+}
+
+/**
+ * 立体の面にかいた絵を、その面について動かす(2026-11-21)。
+ * 面にかいた絵は、かいたときの面の位置で保存している。あとから前の作業のあつさを変えたり
+ * 向きを反対にしたりすると面が動くのに、絵だけがもとの高さに残って、立体の中にうまったり
+ * 宙にういたりしていた。そこで、かいた場所の真上・真下にある、同じ向きの平らな面のうち
+ * いちばん近い面へ、絵を平行に動かす。見つからないときは、もとの位置のままにする。
+ */
+function followFace(sketch: SketchFeature, body: Shape3D | null): SketchFeature {
+  if (sketch.plane.kind !== "face" || !body) return sketch;
+  const plane = sketch.plane.plane;
+  const n = normalize3(plane.normal);
+  // 面までの距離(n の向きを +)。近い順に、かいた場所がその面の上にあるかを確かめる
+  const shifts: number[] = [];
+  for (const face of body.faces) {
+    if (face.geomType !== "PLANE") continue;
+    const c = face.center;
+    if (dot3(normalize3(face.normalAt(c).toTuple() as Vec3), n) < 0.9999) continue;
+    const ct = c.toTuple() as Vec3;
+    shifts.push(dot3([ct[0] - plane.origin[0], ct[1] - plane.origin[1], ct[2] - plane.origin[2]], n));
+  }
+  shifts.sort((a, b) => Math.abs(a) - Math.abs(b));
+  for (const d of shifts) {
+    const origin = add3(plane.origin, scale3(n, d));
+    if (new FaceFinder().atDistance(0, origin, 1e-3).find(body).length === 0) continue;
+    if (Math.abs(d) < 1e-6) return sketch;
+    return { ...sketch, plane: { ...sketch.plane, plane: { ...plane, origin } } };
+  }
+  return sketch;
 }
 
 /** スケッチの文字(スケッチの座標の、左下の位置と大きさ) */

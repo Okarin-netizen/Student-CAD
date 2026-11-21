@@ -84,7 +84,11 @@ test("えらんだ線が「もどす」で消えたら、えらんでいない�
   await drawTwoLines(page);
   await page.getByTestId("sketch-pending-stop").click();
   await page.getByTestId("tool-select").click();
+  // 線の位置は、画面の大きさが落ち着いてから読む(2026-11-21: CI で一度だけ、ちがう物をえらんで落ちたため)
+  await expect(page.getByTestId("sketch-pending-stop")).toHaveCount(0);
   await tapLine(page, 1);
+  // えらんだのが2本目の線であることを確かめる(ちがう物をえらんだときは、ここで分かるようにする)
+  await expect(page.locator(".sk-canvas line[data-id]").nth(1)).toHaveAttribute("stroke", "var(--sk-selected)");
   await expect(page.getByTestId("sk-delete")).toBeEnabled();
   await page.getByTestId("undo").click();
   await expect(page.locator(".sk-canvas line[data-id]")).toHaveCount(1);

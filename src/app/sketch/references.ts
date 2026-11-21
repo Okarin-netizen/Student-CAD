@@ -54,13 +54,14 @@ export function linesProjected(lines: Float32Array, plane: Plane3): Float32Array
  * - 平行な面にかいた、ほかのスケッチの線(「つなぐ」の下の形など)
  */
 export function sketchUnderlay(planeRef: PlaneRef, mesh: BodyMesh | null, sketches: SketchDisplay[], features: Feature[], draftId: Id | undefined): Float32Array {
-  const p = resolvePlane(planeRef);
+  // 面にかいた絵は、面が動くと一緒に動く(rebuild.ts の followFace)。計算で求めた、いまの平面を使う
+  const p = sketches.find((d) => d.featureId === draftId)?.plane ?? resolvePlane(planeRef);
   const parts: Float32Array[] = mesh ? [edgesOnPlane(mesh.edges, p)] : [];
   for (const d of sketches) {
     if (d.featureId === draftId) continue;
     const other = features.find((f) => f.id === d.featureId);
     if (other?.type !== "sketch") continue;
-    const q = resolvePlane(other.plane);
+    const q = d.plane ?? resolvePlane(other.plane);
     if (Math.abs(Math.abs(dot3(q.normal, p.normal)) - 1) > 1e-6) continue;
     parts.push(linesProjected(d.lines, p));
   }

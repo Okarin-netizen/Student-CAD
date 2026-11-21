@@ -67,5 +67,20 @@ export function featureLabel(name: string, pro: boolean): string {
 /** 計算のエラー文などに出てくる「スケッチ1」のような名前を、画面の言葉に読みかえる */
 export function withFeatureLabels(text: string, names: string[], pro: boolean): string {
   if (pro) return text;
-  return names.reduce((t, n) => t.split(`「${n}」`).join(`「${featureLabel(n, pro)}」`), text);
+  return easyWords(names.reduce((t, n) => t.split(`「${n}」`).join(`「${featureLabel(n, pro)}」`), text), pro);
+}
+
+/**
+ * エラーや案内の文に出てくる専門用語を、ふだんの言葉にする(2026-11-21)。
+ * 計算(kernel)のエラー文は画面の設定を知らないので「スケッチ」で書いてある。
+ * ふだんの言葉のときに、ボタンと同じ「絵」「きまり」に読みかえる。
+ */
+const EASY_WORDS: [string, string][] = [
+  ["スケッチ", "絵"],
+  ["拘束", "きまり"],
+];
+
+export function easyWords(text: string, pro: boolean): string {
+  if (pro) return text;
+  return EASY_WORDS.reduce((t, [from, to]) => t.split(from).join(to), text);
 }
