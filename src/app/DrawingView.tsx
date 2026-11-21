@@ -58,7 +58,13 @@ export function DrawingView({ client, title, version, onClose }: Props) {
   const [dims, setDims] = useState(true);
   const [withIso, setWithIso] = useState(true);
   const [material, setMaterial] = useState(() => readSaved(MATERIAL_KEY));
-  const [views, setViews] = useState<ProjectedView[] | null>(null);
+  /**
+   * Worker がかいた図と、そのときの「図の種類・かくれ線」。
+   * 図の種類を続けて切りかえると、新しい図がとどく前に前の種類の図で用紙を作ってしまい、
+   * 「うまく動かなくなりました」になっていた(第三角法なのに等角図1つ分しかない、など)。
+   * そこで、図をたのんだときの種類といっしょに持ち、今の種類と同じときだけ使う。(2026-11-21)
+   */
+  const [drawn, setDrawn] = useState<{ kind: DrawingKind; withHidden: boolean; views: ProjectedView[] | null } | null>(null);
   const [loading, setLoading] = useState(true);
   const notes = useStore((s) => s.drawing);
   const who = useStore((s) => s.meta.author) ?? emptyAuthor();
@@ -96,7 +102,7 @@ export function DrawingView({ client, title, version, onClose }: Props) {
     setLoading(true);
     client
       .drawing(kind, withHidden)
-      .then((v) => alive && setViews(v))
+      .then((v) => alive && setDrawn({ kind, withHidden, views: v }))
       .catch(() => alive && toast("図をかけませんでした", "error"))
       .finally(() => alive && setLoading(false));
     return () => {
@@ -104,6 +110,8 @@ export function DrawingView({ client, title, version, onClose }: Props) {
     };
   }, [client, kind, withHidden, version]);
 
+  // 今の種類・かくれ線でかいた図だけを使う(ちがう種類の図がのこっていたら、とどくまで待つ)
+  const views = drawn && drawn.kind === kind && drawn.withHidden === withHidden ? drawn.views : null;
   const sheet = useMemo(
     () =>
       views
@@ -289,7 +297,7 @@ export function DrawingView({ client, title, version, onClose }: Props) {
 
       <div className={`drawing-paper ${editing !== "none" ? "editing" : ""}`} data-testid="drawing-sheet" ref={paperRef} onPointerUp={onPaperTap}>
         {loading && !sheet && <p className="loading">図をかいています…</p>}
-        {!loading && !views && <p className="loading">先に立体を作ってください</p>}
+        {!loading && drawn && !drawn.views && <p className="loading">先に立体を作ってください</p>}
         {sheet && <div className="sheet-print" dangerouslySetInnerHTML={{ __html: displaySvg }} />}
       </div>
 

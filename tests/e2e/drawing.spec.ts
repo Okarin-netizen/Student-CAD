@@ -114,3 +114,31 @@ test("3MF で書き出せる", async ({ page }) => {
   await page.getByTestId("export-3mf").click();
   expect((await download).suggestedFilename()).toMatch(/\.3mf$/);
 });
+
+// 図の種類を続けて切りかえたり、かくれ線・寸法・等角図をつけたり外したりしても、
+// 「うまく動かなくなりました」にならない(前の種類の図で用紙を作っていた。2026-11-21)
+test("図面: 図の種類やチェックを続けて切りかえても止まらない", async ({ page }) => {
+  const errors: string[] = [];
+  page.on("pageerror", (e) => errors.push(e.message));
+  await makeBox(page);
+  await page.getByTestId("open-drawing").click();
+  const sheet = page.getByTestId("drawing-sheet");
+  await expect(sheet.locator("svg")).toBeVisible();
+
+  for (const k of ["isometric", "thirdAngle", "cabinet", "thirdAngle", "isometric", "cabinet", "thirdAngle"]) {
+    await page.getByTestId(`drawing-${k}`).click();
+  }
+  await page.getByTestId("drawing-hidden").click();
+  await page.getByTestId("drawing-with-iso").click();
+  await page.getByTestId("drawing-dims").click();
+  await page.getByTestId("drawing-dims").click();
+  await page.getByTestId("drawing-hidden").click();
+  await page.getByTestId("drawing-cabinet").click();
+  await page.getByTestId("drawing-thirdAngle").click();
+
+  // 最後にえらんだ第三角法の図が出て、保存もできる
+  await expect(sheet).toContainText("正面図");
+  await expect(sheet).toContainText("右側面図");
+  await expect(page.getByTestId("drawing-svg")).toBeEnabled();
+  expect(errors).toEqual([]);
+});
