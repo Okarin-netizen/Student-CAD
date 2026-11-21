@@ -98,12 +98,19 @@ export type GeometricConstraint =
  * 寸法。expr があれば、それは変数を使った式(例: "幅/2")で、value はその計算結果。
  * 変数を変えると value が計算し直される。
  */
-export type DimensionConstraint =
+export type DimensionConstraint = (
   | { id: Id; type: "length"; line: Id; value: number; expr?: string }
   | { id: Id; type: "distance"; a: Id; b: Id; value: number; expr?: string }
   | { id: Id; type: "diameter"; circle: Id; value: number; expr?: string }
   /** 2本の線の角度(度) */
-  | { id: Id; type: "angle"; a: Id; b: Id; value: number; expr?: string };
+  | { id: Id; type: "angle"; a: Id; b: Id; value: number; expr?: string }
+) & {
+  /**
+   * 長方形・円をかいたときに自動で入れた寸法(2026-11-21 追加)。
+   * 生徒が別の所に寸法を入れて決まりすぎになるときは、こちらを外して入れかえる。数を直すと auto ではなくなる
+   */
+  auto?: boolean;
+};
 
 export type SketchConstraint = GeometricConstraint | DimensionConstraint;
 

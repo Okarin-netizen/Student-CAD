@@ -10,6 +10,7 @@ import { LineMaterial } from "three/examples/jsm/lines/LineMaterial.js";
 import type { BodyMesh, SketchDisplay } from "../kernel/rebuild";
 import { BASE_PLANE_LABELS, BASE_PLANES } from "../doc/planes";
 import type { BasePlaneName, Vec3 } from "../doc/types";
+import { viewerColors as C, cssColor } from "./viewerColors";
 
 export type PickResult = { kind: "base"; name: BasePlaneName } | { kind: "face"; origin: Vec3; normal: Vec3 };
 
@@ -115,13 +116,13 @@ export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, edgePick,
     const scene = new THREE.Scene();
     const camera = new THREE.PerspectiveCamera(40, 1, 0.5, 10000);
     camera.up.set(0, 0, 1);
-    scene.add(new THREE.HemisphereLight(0xffffff, 0x8899aa, 1.5));
+    scene.add(new THREE.HemisphereLight(0xffffff, C.hemiGround, 1.5));
     const sun = new THREE.DirectionalLight(0xffffff, 1.5);
     sun.position.set(80, -120, 200);
     camera.add(sun);
     scene.add(camera);
 
-    const grid = new THREE.GridHelper(400, 40, 0xb5bdc8, 0xdde2e8);
+    const grid = new THREE.GridHelper(400, 40, C.gridMajor, C.grid);
     grid.rotation.x = Math.PI / 2;
     scene.add(grid);
 
@@ -319,7 +320,7 @@ export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, edgePick,
       const body = new THREE.Mesh(
         geom,
         new THREE.MeshStandardMaterial({
-          color: 0x4f8fe6,
+          color: C.body,
           roughness: 0.55,
           metalness: 0.05,
           transparent: !!ghost,
@@ -332,7 +333,7 @@ export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, edgePick,
       body.name = "body";
       const eg = new THREE.BufferGeometry();
       eg.setAttribute("position", new THREE.BufferAttribute(mesh.edges, 3));
-      stage.part.add(body, new THREE.LineSegments(eg, new THREE.LineBasicMaterial({ color: 0x1b2a41 })));
+      stage.part.add(body, new THREE.LineSegments(eg, new THREE.LineBasicMaterial({ color: C.edge })));
       // はじめて立体ができたとき、立体が一度なくなってまたできたとき、ずっと大きくなったときは、全体が見えるようにする
       const size = new THREE.Box3().setFromBufferAttribute(geom.getAttribute("position") as THREE.BufferAttribute).getSize(new THREE.Vector3()).length();
       if (!stage.fitted || !hadMesh || size > stage.fittedSize * 1.6) {
@@ -369,7 +370,7 @@ export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, edgePick,
       }
       if (pts.length) {
         const geom = new LineSegmentsGeometry().setPositions(pts);
-        const mat = new LineMaterial({ color: 0xf08c00, linewidth: 6, depthTest: false });
+        const mat = new LineMaterial({ color: C.pick, linewidth: 6, depthTest: false });
         mat.resolution.set(stage.renderer.domElement.width, stage.renderer.domElement.height);
         const line = new LineSegments2(geom, mat);
         line.renderOrder = 10;
@@ -394,7 +395,7 @@ export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, edgePick,
         geom.setAttribute("position", new THREE.BufferAttribute(mesh.vertices, 3));
         geom.setIndex(new THREE.BufferAttribute(mesh.triangles.slice(g.start, g.start + g.count), 1));
         stage.faceMarks.add(
-          new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ color: 0xf08c00, transparent: true, opacity: 0.75, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 })),
+          new THREE.Mesh(geom, new THREE.MeshBasicMaterial({ color: C.pick, transparent: true, opacity: 0.75, polygonOffset: true, polygonOffsetFactor: -3, polygonOffsetUnits: -3 })),
         );
       }
     }
@@ -410,7 +411,7 @@ export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, edgePick,
       if (s.consumed) continue;
       const g = new THREE.BufferGeometry();
       g.setAttribute("position", new THREE.BufferAttribute(s.lines, 3));
-      stage.sketchGroup.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: 0xd9480f })));
+      stage.sketchGroup.add(new THREE.LineSegments(g, new THREE.LineBasicMaterial({ color: C.sketch })));
     }
     stage.render();
   }, [sketches]);
@@ -464,10 +465,9 @@ function makePlane(name: BasePlaneName): THREE.Mesh {
   const p = BASE_PLANES[name];
   const geom = new THREE.PlaneGeometry(PLANE_SIZE, PLANE_SIZE);
   geom.translate(PLANE_SIZE / 2, PLANE_SIZE / 2, 0);
-  const colors: Record<BasePlaneName, number> = { top: 0x1f6feb, front: 0x2e7d32, right: 0xd9480f };
   const mesh = new THREE.Mesh(
     geom,
-    new THREE.MeshBasicMaterial({ color: colors[name], transparent: true, opacity: 0.07, side: THREE.DoubleSide, depthWrite: false }),
+    new THREE.MeshBasicMaterial({ color: C.plane, transparent: true, opacity: C.planeOpacity, side: THREE.DoubleSide, depthWrite: false }),
   );
   const x = new THREE.Vector3(...p.xDir);
   const n = new THREE.Vector3(...p.normal);
@@ -476,7 +476,7 @@ function makePlane(name: BasePlaneName): THREE.Mesh {
   mesh.matrix.makeBasis(x, y, n);
   mesh.userData.plane = name;
   // 板の角に名前を出す(何の板か分かるように)
-  const label = textSprite(BASE_PLANE_LABELS[name], colors[name]);
+  const label = textSprite(BASE_PLANE_LABELS[name], C.plane);
   label.position.set(PLANE_SIZE - 4, PLANE_SIZE - 4, 0);
   mesh.add(label);
   return mesh;
@@ -510,7 +510,7 @@ function textSprite(text: string, color: number): THREE.Sprite {
   g.font = "bold 40px sans-serif";
   g.textAlign = "center";
   g.textBaseline = "middle";
-  g.fillStyle = "#" + color.toString(16).padStart(6, "0");
+  g.fillStyle = cssColor(color);
   g.fillText(text, 128, 34);
   const tex = new THREE.CanvasTexture(c);
   tex.colorSpace = THREE.SRGBColorSpace;
@@ -524,12 +524,12 @@ function labelMaterial(text: string): THREE.MeshBasicMaterial {
   const c = document.createElement("canvas");
   c.width = c.height = 128;
   const g = c.getContext("2d")!;
-  g.fillStyle = "#f3f6fa";
+  g.fillStyle = C.cubeFace;
   g.fillRect(0, 0, 128, 128);
-  g.strokeStyle = "#9aa4b2";
+  g.strokeStyle = C.cubeLine;
   g.lineWidth = 6;
   g.strokeRect(3, 3, 122, 122);
-  g.fillStyle = "#14201b";
+  g.fillStyle = C.cubeText;
   g.font = "bold 64px sans-serif";
   g.textAlign = "center";
   g.textBaseline = "middle";
@@ -668,7 +668,7 @@ function highlightFace(stage: Stage, face: number | null, ok: boolean) {
       geom.setIndex(new THREE.BufferAttribute(mesh.triangles.slice(g.start, g.start + g.count), 1));
       const m = new THREE.Mesh(
         geom,
-        new THREE.MeshBasicMaterial({ color: ok ? 0xf08c00 : 0x9aa4b2, transparent: true, opacity: 0.6, depthTest: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }),
+        new THREE.MeshBasicMaterial({ color: ok ? C.pick : C.pickNg, transparent: true, opacity: 0.6, depthTest: true, polygonOffset: true, polygonOffsetFactor: -2, polygonOffsetUnits: -2 }),
       );
       stage.highlight.add(m);
     }

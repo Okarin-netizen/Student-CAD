@@ -252,21 +252,13 @@ export function DrawingView({ client, title, version, onClose }: Props) {
             </button>
           ))}
         </div>
+        {/* 見せるものは、チェックボックスではなく 56px の切りかえボタンにする(2026-11-21 段階2) */}
         {kind === "thirdAngle" && (
-          <>
-            <label className="check">
-              <input type="checkbox" checked={hidden} onChange={(e) => setHidden(e.target.checked)} data-testid="drawing-hidden" />
-              かくれ線
-            </label>
-            <label className="check">
-              <input type="checkbox" checked={dims} onChange={(e) => setDims(e.target.checked)} data-testid="drawing-dims" />
-              寸法
-            </label>
-            <label className="check">
-              <input type="checkbox" checked={withIso} onChange={(e) => setWithIso(e.target.checked)} data-testid="drawing-with-iso" />
-              等角図
-            </label>
-          </>
+          <div className="drawing-show" role="group" aria-label="見せるもの">
+            <ShowToggle label="かくれ線" on={hidden} onChange={setHidden} testId="drawing-hidden" />
+            <ShowToggle label="寸法" on={dims} onChange={setDims} testId="drawing-dims" />
+            <ShowToggle label="等角図" on={withIso} onChange={setWithIso} testId="drawing-with-iso" />
+          </div>
         )}
         {/* 寸法を足す・消すも同じ段にならべ、紙を大きくうつす(2026-11-10) */}
         {canEdit && (
@@ -331,5 +323,17 @@ export function DrawingView({ client, title, version, onClose }: Props) {
         </button>
       </div>
     </div>
+  );
+}
+
+/** 図面に「見せる・見せない」を切りかえるボタン。左の四角にチェックが入っているときが「見せる」 */
+function ShowToggle({ label, on, onChange, testId }: { label: string; on: boolean; onChange: (on: boolean) => void; testId: string }) {
+  return (
+    <button type="button" className={`show-toggle ${on ? "active" : ""}`} aria-pressed={on} onClick={() => onChange(!on)} data-testid={testId}>
+      <span className="show-box" aria-hidden="true">
+        {on && <Icon name="check" stroke={3} />}
+      </span>
+      {label}
+    </button>
   );
 }
