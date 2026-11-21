@@ -1775,6 +1775,14 @@ button.primary .icon,
     display: none;
   }
 
+  /* 操作の説明は「作業のれきし」ボタンの下に出す(同じ高さだと重なっていた。2026-11-21) */
+  .howto {
+    top: 76px;
+    width: max-content;
+    white-space: normal;
+    text-align: center;
+  }
+
   .tree-wrap.open .tree {
     display: block;
     width: 280px;

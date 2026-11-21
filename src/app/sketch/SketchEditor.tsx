@@ -129,7 +129,9 @@ function nextStepHint(tool: Tool, placed: number): string | null {
 export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, onMessage, variables = [] }: Props) {
   const svgRef = useRef<SVGSVGElement>(null);
   const [vp, setVp] = useState<Viewport>({ cx: 30, cy: 20, scale: 6, width: 800, height: 600 });
-  const [tool, setTool] = useState<Tool>("line");
+  // かいてある絵をなおすときは「えらぶ」から始める(寸法を直したり点を動かしたりすることが多いため。
+  // 「線」から始めると、線をタップしたつもりで新しい線をかき始めてしまっていた。2026-11-21)
+  const [tool, setTool] = useState<Tool>(() => (sketch.entities.length > 0 ? "select" : "line"));
   const [selection, setSelection] = useState<Id[]>([]);
   const [pending, setPending] = useState<Snap[]>([]);
   const [cursor, setCursor] = useState<Snap | null>(null);

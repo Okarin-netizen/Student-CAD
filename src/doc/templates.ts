@@ -72,7 +72,7 @@ export const TEMPLATES: Template[] = [
         {
           title: "名札を作ろう",
           instructions:
-            "用意してある板の上の面に、スケッチの「文字」で自分の名前をかき、1mm 押し出して浮き出させましょう。\n板の角を丸めると、手にやさしい名札になります。",
+            "用意してある板の上の面に、「絵をかく」の「文字」で自分の名前をかき、1mm の立体にして浮き出させましょう。\n板の角を丸めると、手にやさしい名札になります。",
           checks: [
             { id: cid(), kind: "size", axis: "x", min: 50, max: 80 },
             { id: cid(), kind: "size", axis: "y", min: 15, max: 30 },

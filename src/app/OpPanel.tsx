@@ -14,7 +14,7 @@ import type {
 } from "../doc/types";
 import { NumberPad, type PadVariable } from "./NumberPad";
 import { defaultRevolveAxis, isCopyable, type OpFeature } from "./store";
-import { featureLabel, term, withFeatureLabels } from "./terms";
+import { easyWords, featureLabel, term, withFeatureLabels } from "./terms";
 import { planeLabel } from "../doc/planes";
 
 interface Props {
@@ -204,7 +204,7 @@ export function OpPanel({ doc, draft, pro, error, warning, busy, preview, variab
       {draft.type === "sweep" && (
         <>
           <label className="field">
-            <span>道すじ(閉じていない線のスケッチ)</span>
+            <span>{easyWords("道すじ(閉じていない線のスケッチ)", pro)}</span>
             <select value={draft.pathId} onChange={(e) => onChange({ pathId: e.target.value })} data-testid="op-path">
               {sketches.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -214,7 +214,7 @@ export function OpPanel({ doc, draft, pro, error, warning, busy, preview, variab
             </select>
           </label>
           <label className="field">
-            <span>断面(動かす形のスケッチ)</span>
+            <span>{easyWords("断面(動かす形のスケッチ)", pro)}</span>
             <select value={draft.profileId} onChange={(e) => onChange({ profileId: e.target.value })} data-testid="op-profile">
               {sketches.map((s) => (
                 <option key={s.id} value={s.id}>
@@ -223,7 +223,7 @@ export function OpPanel({ doc, draft, pro, error, warning, busy, preview, variab
               ))}
             </select>
           </label>
-          <p className="plane-hint">断面は、スケッチの原点(赤い点)のまわりにかきます。道すじのはじめの点に、道すじと直角になるように置きます</p>
+          <p className="plane-hint">{easyWords("断面は、スケッチの原点(赤い点)のまわりにかきます。道すじのはじめの点に、道すじと直角になるように置きます", pro)}</p>
           {operation(draft.operation)}
         </>
       )}
@@ -339,7 +339,7 @@ function panelTitle(draft: OpFeature, pro: boolean): string {
 function LoftSketches({ sketches, value, pro, onChange }: { sketches: SketchFeature[]; value: string[]; pro: boolean; onChange: (ids: string[]) => void }) {
   return (
     <div className="field">
-      <span>つなぐスケッチ(タップした順につなぎます)</span>
+      <span>{easyWords("つなぐスケッチ(タップした順につなぎます)", pro)}</span>
       <div className="loft-list" data-testid="op-loft-sketches">
         {sketches.map((s) => {
           const n = value.indexOf(s.id);

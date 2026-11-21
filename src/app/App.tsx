@@ -264,16 +264,27 @@ export function App() {
   // 課題の条件(形が計算し直されるたびに確かめ直す)
   const checks = useMemo(() => evaluateChecks(s.doc, s.result?.measure ?? null), [s.doc, s.result]);
 
+  /** 開こうとしているファイルの作品(いまの作品が消えてよいか確かめている間だけ入る) */
+  const [pendingOpen, setPendingOpen] = useState<CadDocument | null>(null);
+
   const openFile = async (file: File) => {
+    let doc: unknown;
     try {
-      const doc = JSON.parse(await file.text()) as unknown;
-      if (!isDoc(doc)) throw new Error();
-      replaceDoc(doc as CadDocument);
-      const a = (doc as CadDocument).assignment;
-      toast(a ? `課題「${a.title}」を開きました。右上の課題カードを見ながら作りましょう` : `「${(doc as CadDocument).name}」を開きました`);
+      doc = JSON.parse(await file.text());
     } catch {
-      toast("このファイルは開けませんでした", "error");
+      doc = null;
     }
+    if (!isDoc(doc)) return toast("このファイルは開けませんでした", "error");
+    // いまの作品に作業があれば、閉じてよいか確かめる(だまって入れかわり、「もどす」でももどせなかった。2026-11-21)
+    if (getState().doc.features.length > 0) setPendingOpen(doc as CadDocument);
+    else applyOpen(doc as CadDocument);
+  };
+
+  const applyOpen = (doc: CadDocument) => {
+    setPendingOpen(null);
+    replaceDoc(doc);
+    const a = doc.assignment;
+    toast(a ? `課題「${a.title}」を開きました。右上の課題カードを見ながら作りましょう` : `「${doc.name}」を開きました`);
   };
 
   const startFrom = (t: Template) => {
@@ -334,6 +345,8 @@ export function App() {
 
   const sketchFeature = s.draftSketch;
   const [confirmDiscard, setConfirmDiscard] = useState(false);
+  /** かいてある絵をなおしているところか(新しくかいているのではない) */
+  const editingOld = s.mode.kind === "sketch" && !s.mode.isNew;
   // かいたものがあれば、捨てる前に確認する(「かけた!」のとなりなので押しまちがえやすい)
   const cancelSketch = () => {
     const changed = s.sketchPast.length > 0 || (s.mode.kind === "sketch" && s.mode.isNew && (sketchFeature?.entities.length ?? 0) > 0);
@@ -578,7 +591,7 @@ export function App() {
       {confirmDiscard && (
         <ConfirmDialog
           label="かいた絵を捨てる確認"
-          title="かいた絵を捨てますか?"
+          title={editingOld ? "なおしたところを捨てますか?" : "かいた絵を捨てますか?"}
           cancelText="かきつづける"
           okText="捨てる"
           cancelTestId="discard-keep"
@@ -589,7 +602,27 @@ export function App() {
             cancelMode();
           }}
         >
-          <p className="muted">捨てると、このスケッチでかいたものは元にもどせません。</p>
+          {/* なおしている途中なら、捨てるのは今回なおしたところだけ(前の絵は残る)。2026-11-21 */}
+          <p className="muted">
+            {editingOld
+              ? `今回なおしたところは元にもどせません。前の${term("sketch", pro)}はそのまま残ります。`
+              : `捨てると、この${term("sketch", pro)}でかいたものは元にもどせません。`}
+          </p>
+        </ConfirmDialog>
+      )}
+
+      {pendingOpen && (
+        <ConfirmDialog
+          label="ファイルをひらく確認"
+          title={`「${pendingOpen.name}」を開きますか?`}
+          cancelText="やめる"
+          okText="ひらく"
+          cancelTestId="open-cancel"
+          okTestId="open-ok"
+          onCancel={() => setPendingOpen(null)}
+          onOk={() => applyOpen(pendingOpen)}
+        >
+          <p className="panel-warning">いまの作品「{s.doc.name}」は閉じます。「もどす」ではもどせないので、残したいときは先に「ファイルに保存」してください。</p>
         </ConfirmDialog>
       )}
 

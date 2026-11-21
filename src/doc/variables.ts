@@ -97,9 +97,14 @@ export function countUses(doc: CadDocument, name: string): number {
   return n;
 }
 
-/** 変数を消したとき、それを使っていた式を外す(数はそのまま残す) */
+/**
+ * 変数を消したとき、それを使っていた式を外す(数はそのまま残す)。
+ * ほかの変数の式で使っていたときは、その変数を いまの数にする
+ * (式のままだと「この変数より上にありません」となり、使っている寸法も変えられなくなっていた。2026-11-21)
+ */
 export function forgetName(doc: CadDocument, name: string): CadDocument {
   const keep = (expr?: string) => (expr && namesIn(expr).includes(name) ? undefined : expr);
+  const variables = doc.variables?.map((v) => (keep(v.expr) === undefined ? { ...v, expr: String(Math.round(v.value * 1000) / 1000) } : v));
   const features = doc.features.map((f): Feature => {
     if (f.type === "sketch") {
       return { ...f, constraints: f.constraints.map((c) => (isDimension(c) && c.expr && !keep(c.expr) ? { ...c, expr: undefined } : c)) };
@@ -109,7 +114,7 @@ export function forgetName(doc: CadDocument, name: string): CadDocument {
     for (const [k, e] of Object.entries(f.exprs)) if (keep(e)) exprs[k] = e;
     return { ...f, exprs } as Feature;
   });
-  return { ...doc, features };
+  return { ...doc, variables, features };
 }
 
 function replaceName(expr: string, from: string, to: string): string {
