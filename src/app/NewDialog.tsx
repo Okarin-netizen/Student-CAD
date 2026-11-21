@@ -3,6 +3,7 @@
 
 import { TEMPLATES, type Template } from "../doc/templates";
 import { Icon, type IconName } from "./Icon";
+import { useEscape } from "./useEscape";
 
 interface Props {
   /** いまの作品に作業があるか(あれば、閉じてよいか注意を出す) */
@@ -23,6 +24,7 @@ const TEMPLATE_ICONS: Record<string, IconName> = {
 };
 
 export function NewDialog({ hasWork, onPick, onClose }: Props) {
+  useEscape(onClose);
   return (
     <div className="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="dialog new-dialog" role="dialog" aria-label="新しく始める">

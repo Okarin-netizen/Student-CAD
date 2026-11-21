@@ -10,6 +10,7 @@ import { NumberPad } from "./NumberPad";
 import { addVariable, deleteVariable, updateVariable } from "./store";
 import { term } from "./terms";
 import { ConfirmDialog } from "./ConfirmDialog";
+import { useEscape } from "./useEscape";
 
 interface Props {
   doc: CadDocument;
@@ -22,6 +23,7 @@ interface Props {
  * 例:「幅」を 40 → 60 にすると、幅を使った長方形も穴の位置も一緒に変わる。
  */
 export function VariablesPanel({ doc, pro, onClose }: Props) {
+  useEscape(onClose);
   const variables = doc.variables ?? [];
   const { values, errors } = evaluateVariables(variables);
   const [editing, setEditing] = useState<Variable | null>(null);

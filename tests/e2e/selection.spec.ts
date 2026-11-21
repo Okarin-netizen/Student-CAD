@@ -138,7 +138,7 @@ test("「辺をえらびなおす」の直後、計算が終わる前のタッ�
     await expect(page.getByTestId("toast")).toContainText("計算しています");
     await page.mouse.click(view.x + view.width * 0.5, view.y + view.height * hitY);
   }
-  await expect(page.getByTestId("op-edges")).toContainText("タップ");
+  await expect(page.getByTestId("op-edges")).toContainText(/タップ|クリック/);
 });
 
 test("面をずらす量は、パネルを閉じたら 0 にもどる", async ({ page }) => {
@@ -217,4 +217,19 @@ test("図面: 寸法を消してまた出したら、えらびかけの点は残
   await page.getByTestId("drawing-dims").check();
   await expect(sheet.locator(".snap-picked")).toHaveCount(0);
   await expect(sheet.locator(".snap-dot")).toHaveCount(0);
+});
+
+test("きまりの記号の近くで線をタップしても、線がえらばれる(記号の当たりが線まで届いていた)", async ({ page }) => {
+  await page.goto("/");
+  await drawTwoLines(page);
+  await page.getByTestId("sketch-pending-stop").click();
+  await page.getByTestId("tool-select").click();
+  // 2本目(たての線)の、垂直の記号がある側へ 3px ずれた所をタップする
+  const r = (await page.getByTestId("sketch-canvas").boundingBox())!;
+  const l = page.locator(".sk-canvas line[data-id]").nth(1);
+  const [x1, y1, y2] = await Promise.all(["x1", "y1", "y2"].map(async (a) => Number(await l.getAttribute(a))));
+  const glyph = (await page.locator(".sk-glyph rect").nth(1).boundingBox())!;
+  const side = glyph.x > r.x + x1 ? 3 : -3;
+  await page.mouse.click(r.x + x1 + side, r.y + y1 + (y2 - y1) * 0.4);
+  await expect(l).toHaveAttribute("stroke", "var(--sk-selected)");
 });

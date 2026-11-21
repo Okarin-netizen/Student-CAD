@@ -22,9 +22,9 @@ export interface StepGuide {
 
 /** 押したボタンが まだ使えないときの案内(ボタンの名前は、画面の言葉にあわせる) */
 const hints = (pro: boolean) => ({
-  sketch: `先に 1 の「${term("newSketch", pro)}」をおしてね`,
-  shape: `先に 1 の「${term("newSketch", pro)}」で、閉じた形(長方形や円など)をかいてね`,
-  body: `先に 2 の「${term("extrude", pro)}」で立体を作ってね`,
+  sketch: `先に 1 の「${term("newSketch", pro)}」を押してください`,
+  shape: `先に 1 の「${term("newSketch", pro)}」で、閉じた形(長方形や円など)をかいてください`,
+  body: `先に 2 の「${term("extrude", pro)}」で立体を作ってください`,
 });
 
 /**

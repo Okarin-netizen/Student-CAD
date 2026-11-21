@@ -3,6 +3,7 @@
 
 import { useEffect, useRef, useState } from "react";
 import { evaluate, namesIn } from "../doc/expr";
+import { useEscape } from "./useEscape";
 
 /** 数字キーパッドで使える変数 */
 export interface PadVariable {
@@ -31,6 +32,7 @@ const KEYS = ["7", "8", "9", "÷", "4", "5", "6", "×", "1", "2", "3", "−", "0
 export function NumberPad({ title, unit, initial, initialExpr, onSubmit, onCancel, allowZero, variables = [] }: Props) {
   const [text, setText] = useState(initialExpr ?? String(Math.round(initial * 100) / 100));
   const [fresh, setFresh] = useState(true);
+  useEscape(onCancel);
   const inputRef = useRef<HTMLInputElement>(null);
   const vars = Object.fromEntries(variables.map((v) => [v.name, v.value]));
   const normalized = text.replace(/−/g, "-").replace(/＋/g, "+").trim();
@@ -77,7 +79,6 @@ export function NumberPad({ title, unit, initial, initialExpr, onSubmit, onCance
             }}
             onKeyDown={(e) => {
               if (e.key === "Enter") submit();
-              if (e.key === "Escape") onCancel();
             }}
           />
           <span>{unit}</span>

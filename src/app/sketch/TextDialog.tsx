@@ -2,6 +2,7 @@
 // Copyright (c) 2026 技術科　岡田
 
 import { useEffect, useRef, useState } from "react";
+import { useEscape } from "../useEscape";
 
 interface Props {
   /** 新しく置くときは「文字を入れる」、なおすときは「文字をなおす」 */
@@ -19,6 +20,7 @@ const SIZES = [5, 8, 10, 15, 20, 30];
 export function TextDialog({ title, initialText, initialSize, onSubmit, onCancel }: Props) {
   const [text, setText] = useState(initialText);
   const [size, setSize] = useState(initialSize);
+  useEscape(onCancel);
   const inputRef = useRef<HTMLInputElement>(null);
   const valid = text.trim() !== "" && size > 0;
 
@@ -44,7 +46,6 @@ export function TextDialog({ title, initialText, initialSize, onSubmit, onCancel
             onChange={(e) => setText(e.target.value)}
             onKeyDown={(e) => {
               if (e.key === "Enter" && !e.nativeEvent.isComposing) submit();
-              if (e.key === "Escape") onCancel();
             }}
           />
         </label>

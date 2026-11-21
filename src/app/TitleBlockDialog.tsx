@@ -6,6 +6,7 @@
 
 import type { Author } from "../doc/types";
 import { digitsOnly, isStudentId } from "./author";
+import { useEscape } from "./useEscape";
 
 interface Props {
   who: Author;
@@ -16,6 +17,7 @@ interface Props {
 }
 
 export function TitleBlockDialog({ who, material, onAuthor, onMaterial, onClose }: Props) {
+  useEscape(onClose);
   return (
     <div className="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && onClose()}>
       <div className="dialog title-block-dialog" role="dialog" aria-label="表題欄に入れること">

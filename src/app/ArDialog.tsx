@@ -19,6 +19,7 @@ import { MarkerArView } from "./MarkerArView";
 import { startWebXrAr, type XrArControl, type XrPhase } from "./ar/webxrAr";
 import { Icon } from "./Icon";
 import { toast } from "./store";
+import { useEscape } from "./useEscape";
 
 interface Props {
   mesh: BodyMesh;
@@ -33,6 +34,7 @@ const PHASE_TEXT: Record<XrPhase, string> = {
 };
 
 export function ArDialog({ mesh, onClose }: Props) {
+  useEscape(onClose);
   const [method, setMethod] = useState<ArMethod | null>(null);
   const object = useMemo(() => buildArObject(mesh), [mesh]);
   const size = useMemo(() => arSize(mesh), [mesh]);

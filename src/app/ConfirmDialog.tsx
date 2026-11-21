@@ -2,6 +2,7 @@
 // Copyright (c) 2026 技術科　岡田
 
 import type { ReactNode } from "react";
+import { useEscape } from "./useEscape";
 
 interface Props {
   /** 読み上げ用の名前 */
@@ -19,6 +20,7 @@ interface Props {
 
 /** 「けしますか?」「捨てますか?」のような、やり直せない操作の前の確認。外をタップするとやめる */
 export function ConfirmDialog({ label, title, children, cancelText, okText, cancelTestId, okTestId, onCancel, onOk }: Props) {
+  useEscape(onCancel);
   return (
     <div className="dialog-backdrop" onPointerDown={(e) => e.target === e.currentTarget && onCancel()}>
       <div className="dialog" role="dialog" aria-label={label}>

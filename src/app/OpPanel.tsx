@@ -14,8 +14,9 @@ import type {
 } from "../doc/types";
 import { NumberPad, type PadVariable } from "./NumberPad";
 import { defaultRevolveAxis, isCopyable, type OpFeature } from "./store";
-import { easyWords, featureLabel, term, withFeatureLabels } from "./terms";
+import { easyWords, featureLabel, pointerWords, term, withFeatureLabels } from "./terms";
 import { planeLabel } from "../doc/planes";
+import { useEscape } from "./useEscape";
 
 interface Props {
   doc: CadDocument;
@@ -65,6 +66,7 @@ const MIRROR_PLANES: { plane: BasePlaneName; label: string }[] = [
 /** 押し出し・回転・角を丸める・対称・ならべるの設定パネル。変えるとすぐ 3D に反映される */
 export function OpPanel({ doc, draft, pro, error, warning, busy, preview, variables, onPreview, onChange, onOk, onCancel }: Props) {
   const [pad, setPad] = useState<Pad | null>(null);
+  useEscape(onCancel);
   const idx = doc.features.findIndex((f) => f.id === draft.id);
   const before = doc.features.slice(0, idx < 0 ? undefined : idx);
   // 自分より前にあるスケッチと、形を作った作業だけ使える
@@ -175,7 +177,7 @@ export function OpPanel({ doc, draft, pro, error, warning, busy, preview, variab
           />
           {stepper({ label: draft.kind === "fillet" ? "丸める大きさ(半径)" : "落とす大きさ", field: "radius", unit: "mm", step: 0.5, min: 0.1, max: 1000, testid: "op-radius" })}
           <p className={draft.edges.length ? "op-edges" : "plane-hint"} data-testid="op-edges">
-            {draft.edges.length === 0 ? "3D の辺(線)をタップしてえらびます。もう一度タップするとはずせます" : `えらんだ辺: ${draft.edges.length} 本`}
+            {draft.edges.length === 0 ? pointerWords("3D の辺(線)をタップしてえらびます。もう一度タップするとはずせます") : `えらんだ辺: ${draft.edges.length} 本`}
           </p>
           {draft.edges.length > 0 && (
             <div className="op-row">
@@ -232,7 +234,7 @@ export function OpPanel({ doc, draft, pro, error, warning, busy, preview, variab
         <>
           {stepper({ label: "のこすあつさ", field: "thickness", unit: "mm", step: 0.5, min: 0.2, max: 1000, testid: "op-thickness" })}
           <p className={draft.faces.length ? "op-edges" : "plane-hint"} data-testid="op-faces">
-            {draft.faces.length === 0 ? "取りのぞく面(ペン立てなら上の面)を 3D でタップしてえらびます" : `取りのぞく面: ${draft.faces.length} こ`}
+            {draft.faces.length === 0 ? pointerWords("取りのぞく面(ペン立てなら上の面)を 3D でタップしてえらびます") : `取りのぞく面: ${draft.faces.length} こ`}
           </p>
           {draft.faces.length > 0 && (
             <div className="op-row">
@@ -339,7 +341,7 @@ function panelTitle(draft: OpFeature, pro: boolean): string {
 function LoftSketches({ sketches, value, pro, onChange }: { sketches: SketchFeature[]; value: string[]; pro: boolean; onChange: (ids: string[]) => void }) {
   return (
     <div className="field">
-      <span>{easyWords("つなぐスケッチ(タップした順につなぎます)", pro)}</span>
+      <span>{pointerWords(easyWords("つなぐスケッチ(タップした順につなぎます)", pro))}</span>
       <div className="loft-list" data-testid="op-loft-sketches">
         {sketches.map((s) => {
           const n = value.indexOf(s.id);

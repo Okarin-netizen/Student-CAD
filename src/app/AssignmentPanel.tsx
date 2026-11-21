@@ -6,6 +6,7 @@ import type { Assignment, AssignmentCheck, WorldAxis } from "../doc/types";
 import { AXIS_WORDS, USE_WORDS, type CheckResult } from "../doc/assignment";
 import { newId } from "../doc/ids";
 import { Icon } from "./Icon";
+import { useEscape } from "./useEscape";
 
 /** 生徒が見る課題のカード。説明と、条件ができたかどうか(自動で確かめる) */
 export function AssignmentCard({ assignment, results }: { assignment: Assignment; results: CheckResult[] }) {
@@ -67,6 +68,7 @@ const USE_KEYS = Object.keys(USE_WORDS) as (keyof typeof USE_WORDS)[];
  * 条件の数は空欄にすると「制限なし」。
  */
 export function AssignmentEditor({ initial, onSave, onExport, onClose }: EditorProps) {
+  useEscape(onClose);
   const [title, setTitle] = useState(initial?.title ?? "");
   const [instructions, setInstructions] = useState(initial?.instructions ?? "");
   const [checks, setChecks] = useState<AssignmentCheck[]>(initial?.checks ?? []);
