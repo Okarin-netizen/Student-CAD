@@ -2,6 +2,7 @@
 // Copyright (c) 2026 技術科　岡田
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
+import { useScrollHint } from "../useScrollHint";
 import type { GcsWrapper } from "@salusoft89/planegcs";
 import { newId } from "../../doc/ids";
 import {
@@ -133,6 +134,8 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
   // かいてある絵をなおすときは「えらぶ」から始める(寸法を直したり点を動かしたりすることが多いため。
   // 「線」から始めると、線をタップしたつもりで新しい線をかき始めてしまっていた。2026-11-21)
   const [tool, setTool] = useState<Tool>(() => (sketch.entities.length > 0 ? "select" : "line"));
+  // スマホでは道具の列が横にスクロールするので、はしをぼかして「まだある」と見せる(2026-11-21)
+  const toolbarRef = useScrollHint<HTMLDivElement>(tool, ".tool.active");
   const [selection, setSelection] = useState<Id[]>([]);
   const [pending, setPending] = useState<Snap[]>([]);
   const [cursor, setCursor] = useState<Snap | null>(null);
@@ -920,7 +923,7 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
 
   return (
     <div className="sketch-editor">
-      <div className="sk-toolbar" role="toolbar" aria-label="スケッチの道具">
+      <div className="sk-toolbar" role="toolbar" aria-label="スケッチの道具" ref={toolbarRef}>
         {TOOLS.map((t) => (
           <button
             key={t.tool}

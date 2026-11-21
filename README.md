@@ -1,6 +1,6 @@
 # Student-CAD
 
-中学生がタブレット(iPad / Chromebook / Windows タブレット)のブラウザだけで使える、2D・3D CAD を目指すプロジェクトです。
+中学生がタブレット(iPad / Chromebook / Windows タブレット)やスマホのブラウザだけで使える、2D・3D CAD を目指すプロジェクトです。
 操作の考え方は Onshape や SolidWorks と同じ「スケッチ → 寸法と拘束 → 押し出し → 作業のれきし」にして、
 将来プロ向けの CAD にそのまま移れるようにします。
 
@@ -85,7 +85,7 @@
 npm install
 npm run dev        # http://localhost:5173
 npm test           # 単体テスト(拘束計算・立体化・STL)
-npm run test:e2e   # iPad 横向き・Chromebook の画面サイズでの操作テスト
+npm run test:e2e   # iPad 横向き・Chromebook・スマホ(たて・横)の画面サイズでの操作テスト
 npm run build
 ```
 

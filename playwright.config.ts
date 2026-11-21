@@ -24,6 +24,7 @@ export default defineConfig({
   projects: [
     {
       name: "ipad-landscape",
+      testIgnore: "phone.spec.ts",
       use: {
         browserName: "chromium",
         viewport: { width: 1180, height: 820 },
@@ -34,7 +35,19 @@ export default defineConfig({
     },
     {
       name: "chromebook",
+      testIgnore: "phone.spec.ts",
       use: { ...devices["Desktop Chrome"], viewport: { width: 1366, height: 768 } },
+    },
+    // スマホ(2026-11-21 追加)。たて向き・横向きで、画面の外にはみ出さないかだけを確かめる
+    {
+      name: "phone-portrait",
+      testMatch: "phone.spec.ts",
+      use: { browserName: "chromium", viewport: { width: 390, height: 844 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
+    },
+    {
+      name: "phone-landscape",
+      testMatch: "phone.spec.ts",
+      use: { browserName: "chromium", viewport: { width: 844, height: 390 }, deviceScaleFactor: 3, isMobile: true, hasTouch: true },
     },
   ],
 });

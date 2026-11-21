@@ -2129,3 +2129,457 @@ input:focus-visible {
 .ar-dialog .dialog-actions {
   flex-wrap: wrap;
 }
+
+/* ======================================================================
+   スマホ対応(2026-11-21 おかだ さんの依頼「スマホでもできる様に」)
+   ----------------------------------------------------------------------
+   iPad・Chromebook の見た目は変えず、次の2つの画面だけ つくりを変える。
+     ・たて向きのスマホ … はばが 600px 以下
+     ・横向きのスマホ   … 高さが 500px 以下(タブレットは横向きでも 700px 以上ある)
+   方針: 3D と絵をかく所を できるだけ広くする。ボタンは 44px(指で押せる大きさ)にして、
+         上のバーは1〜2段、手順バーは1段にして横にスクロールする。
+   ====================================================================== */
+
+/* ダイアログは、どの画面でも画面の中におさめる(中身が多いときはダイアログの中だけスクロール)。
+   これまでは、スマホで数字キーが右にはみ出していた */
+.dialog-backdrop {
+  grid-template-columns: minmax(0, 1fr);
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+.dialog {
+  max-height: calc(100dvh - 24px);
+  overflow-y: auto;
+  justify-self: center;
+}
+
+/* iPhone の上の切りかき(ホーム画面に追加して全画面で使うとき)に重ならないようにする */
+.topbar {
+  padding-top: calc(8px + env(safe-area-inset-top));
+}
+
+@media (max-width: 600px), (max-height: 500px) {
+  :root {
+    /* 指で押すボタンの大きさ。タブレットの 56px のままだと、ボタンだけで画面がうまってしまう */
+    --touch: 44px;
+    font-size: 16px;
+  }
+
+  .topbar {
+    gap: 6px;
+    padding: calc(6px + env(safe-area-inset-top)) 8px 6px;
+  }
+
+  .topbar-group {
+    gap: 4px;
+  }
+
+  .topbar button {
+    padding: 0 10px;
+  }
+
+  .doc-name {
+    flex: 1 1 8em;
+    width: auto;
+    min-width: 0;
+    font-size: 1rem;
+    padding: 0 6px;
+  }
+
+  .save-state {
+    min-width: 0;
+  }
+
+  /* 「もどす」は ⟲ のしるしだけにする(長押しで説明が出る) */
+  .topbar .btn-label {
+    display: none;
+  }
+
+  /* ---- 手順バー: 1段にして横にスクロールする ---- */
+  .stepbar {
+    flex-wrap: nowrap;
+    justify-content: flex-start;
+    gap: 6px;
+    padding: 6px 8px calc(6px + env(safe-area-inset-bottom));
+    overflow-x: auto;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .stepbar::-webkit-scrollbar,
+  .sk-toolbar::-webkit-scrollbar {
+    display: none;
+  }
+
+  .step-group {
+    flex-wrap: nowrap;
+    gap: 6px;
+  }
+
+  .step,
+  .stepbar .step {
+    min-height: var(--touch);
+    font-size: 0.95rem;
+    padding: 0 10px;
+    gap: 6px;
+  }
+
+  .step-num {
+    width: 22px;
+    height: 22px;
+    font-size: 0.8rem;
+  }
+
+  /* 横にまだボタンがあるときは、はしを うすくして「スクロールできる」と分かるようにする
+     (class は useScrollHint.ts が付ける) */
+  .stepbar.more-right,
+  .sk-toolbar.more-right {
+    mask-image: linear-gradient(to right, #000 calc(100% - 40px), transparent);
+  }
+
+  .stepbar.more-left,
+  .sk-toolbar.more-left {
+    mask-image: linear-gradient(to right, transparent, #000 40px);
+  }
+
+  .stepbar.more-left.more-right,
+  .sk-toolbar.more-left.more-right {
+    mask-image: linear-gradient(to right, transparent, #000 40px, #000 calc(100% - 40px), transparent);
+  }
+
+  /* メニューをひらいている間は、ぼかしをやめる(ぼかしがメニューまで うすくしてしまうため) */
+  .stepbar.more-left:has([aria-expanded="true"]),
+  .stepbar.more-right:has([aria-expanded="true"]) {
+    mask-image: none;
+  }
+
+  /* パネルを出している間は「作業のれきし」ボタンをかくす(せまい画面ではパネルと重なるため) */
+  .mode-op .tree-wrap,
+  .mode-pickPlane .tree-wrap {
+    display: none;
+  }
+
+  /* ---- 下からひらくメニュー(書き出す・そのほか・ファイル) ----
+     ボタンの位置によっては画面の外に出ていたので、スマホでは画面の下にまとめて出す */
+  .export-menu,
+  .more-menu,
+  .file-menu {
+    position: fixed;
+    top: auto;
+    bottom: calc(8px + env(safe-area-inset-bottom));
+    left: max(8px, calc(50% - 210px));
+    right: max(8px, calc(50% - 210px));
+    width: auto;
+    max-height: calc(100dvh - 16px);
+    overflow-y: auto;
+    z-index: 45;
+    box-shadow: 0 -2px 0 var(--line), 0 6px 24px #0004;
+  }
+
+  /* ---- 3D ---- */
+  .viewcube {
+    top: 8px;
+    right: 8px;
+    width: 72px;
+    height: 72px;
+  }
+
+  .viewcube canvas {
+    width: 100% !important;
+    height: 100% !important;
+  }
+
+  .viewer3d-buttons {
+    top: 86px;
+    right: 8px;
+  }
+
+  .howto {
+    max-width: calc(100% - 100px);
+    font-size: 0.85rem;
+    padding: 6px 10px;
+  }
+
+  .tree-wrap {
+    top: 8px;
+    left: 8px;
+  }
+
+  .tree-wrap.open .tree {
+    width: min(280px, calc(100vw - 110px));
+    overflow-y: auto;
+  }
+
+  /* 課題カードは 3D の下に、はばいっぱいで出す */
+  .assignment-card {
+    top: auto;
+    bottom: 8px;
+    left: 8px;
+    right: 8px;
+    width: auto;
+    max-height: 45%;
+  }
+
+  /* ---- パネル(面をえらぶ・立体にする など) ---- */
+  .panel {
+    padding: 10px;
+    gap: 8px;
+  }
+
+  /* 「OK」「やめる」はパネルの下に いつも見えるようにする(パネルの中をスクロールしても) */
+  .panel > .dialog-actions {
+    position: sticky;
+    bottom: -10px;
+    margin: 0 -10px -10px;
+    padding: 8px 10px 10px;
+    background: var(--surface);
+    border-top: 1px solid var(--border-soft);
+  }
+
+  .dialog {
+    padding: 14px;
+  }
+
+  .numpad-keys {
+    gap: 6px;
+    margin-top: 8px;
+  }
+
+  .numpad-keys button {
+    min-height: 48px;
+  }
+
+  /* ---- 絵をかく ---- */
+  .sk-toolbar,
+  .sk-actions {
+    padding: 6px 8px;
+    gap: 4px;
+  }
+
+  .tool {
+    min-height: var(--touch);
+    padding: 0 8px;
+    gap: 4px;
+    font-size: 0.9rem;
+  }
+
+  .tool-icon svg {
+    width: 20px;
+    height: 20px;
+  }
+
+  /* ---- 図面 ---- */
+  .drawing-view {
+    padding: calc(6px + env(safe-area-inset-top)) calc(8px + env(safe-area-inset-right)) calc(6px + env(safe-area-inset-bottom)) calc(8px + env(safe-area-inset-left));
+    gap: 6px;
+  }
+
+  .drawing-toolbar,
+  .drawing-actions {
+    gap: 6px;
+  }
+
+  .drawing-hint {
+    font-size: 0.85rem;
+    margin: 0;
+  }
+
+  .sheet-print {
+    inset: 4px;
+  }
+}
+
+/* たて向きのスマホだけ */
+@media (max-width: 600px) {
+  /* 操作の説明は 3D の下のほうに出す(上だと「ななめ」ボタンと重なっていた) */
+  .howto {
+    top: auto;
+    bottom: 8px;
+    max-width: calc(100% - 16px);
+    width: max-content;
+  }
+
+  /* 上のバーは2段: 1段目に作品の名前と保存のようす、2段目にボタン */
+  .doc-name {
+    flex-basis: 60%;
+  }
+
+  /* 絵の道具は2段にならべる(8つ全部が見える。たて向きは高さに余裕がある) */
+  .sk-toolbar {
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+
+  .sk-toolbar.more-left,
+  .sk-toolbar.more-right {
+    mask-image: none;
+  }
+
+  /* パネルは画面の下に、はばいっぱいで出す(3D を上に見ながら操作できる) */
+  .panel {
+    left: 8px;
+    right: 8px;
+    bottom: 8px;
+    top: auto;
+    width: auto;
+    max-height: 60%;
+  }
+
+  /* 図面の上のボタンは、図の種類で1段・見せるもので1段・寸法で1段にそろえる */
+  .drawing-toolbar > button {
+    flex: none;
+  }
+
+  .drawing-kinds,
+  .drawing-show,
+  .drawing-edit {
+    flex: 1 1 100%;
+  }
+
+  .drawing-show,
+  .drawing-edit {
+    display: flex;
+    gap: 6px;
+  }
+
+  .drawing-show > *,
+  .drawing-edit > * {
+    flex: 1;
+    padding: 0 6px;
+  }
+
+  .drawing-actions .muted {
+    flex: 1 1 100%;
+    font-size: 0.85rem;
+  }
+}
+
+/* 横向きのスマホだけ */
+@media (max-height: 500px) {
+  /* 上のバーは1段にする */
+  .topbar {
+    flex-wrap: nowrap;
+  }
+
+  .doc-name {
+    flex-basis: 10em;
+  }
+
+  /* 作業のれきしは、たて向きのタブレットと同じく、ボタン1つにたたむ */
+  .tree-wrap {
+    position: absolute;
+    z-index: 7;
+    display: flex;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 6px;
+    max-height: calc(100% - 16px);
+  }
+
+  .tree-toggle {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-weight: 700;
+  }
+
+  .tree-wrap .tree {
+    display: none;
+  }
+
+  .tree-wrap.open .tree {
+    display: block;
+    min-height: 0;
+    border: 1px solid var(--line);
+    border-radius: var(--r2);
+  }
+
+  .howto {
+    top: 8px;
+    left: calc(50% + 40px);
+    max-width: calc(100% - 330px);
+    white-space: normal;
+    text-align: center;
+  }
+
+  /* パネルは左に、高さいっぱいで出す(右に立体が見える) */
+  .panel {
+    top: 8px;
+    left: 8px;
+    bottom: auto;
+    right: auto;
+    width: min(320px, calc(100% - 100px));
+    max-height: calc(100% - 16px);
+  }
+
+  /* 数字キーは右、入れた数と OK は左にならべる(たてに積むと OK が画面の下にかくれていた) */
+  .dialog.numpad {
+    width: min(620px, calc(100vw - 24px));
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) minmax(0, 1.1fr);
+    column-gap: 14px;
+    align-content: start;
+  }
+
+  .dialog.numpad > * {
+    grid-column: 1;
+  }
+
+  .dialog.numpad > .numpad-keys {
+    grid-column: 2;
+    grid-row: 1 / span 6;
+    margin-top: 0;
+  }
+
+  .dialog.numpad > .dialog-actions {
+    align-self: end;
+  }
+
+  .numpad-keys button {
+    min-height: 44px;
+  }
+
+  /* 図面: 左にボタン、右に紙をならべる(紙を大きく見せる) */
+  .drawing-view {
+    display: grid;
+    grid-template-columns: minmax(300px, 40%) 1fr;
+    grid-template-rows: auto auto minmax(0, 1fr);
+  }
+
+  .drawing-toolbar,
+  .drawing-hint,
+  .drawing-actions {
+    grid-column: 1;
+  }
+
+  .drawing-actions {
+    justify-content: flex-start;
+    align-content: flex-start;
+    overflow-y: auto;
+  }
+
+  .drawing-actions .muted {
+    flex: 1 1 100%;
+    font-size: 0.8rem;
+  }
+
+  .drawing-paper {
+    grid-column: 2;
+    grid-row: 1 / -1;
+  }
+
+  .drawing-show,
+  .drawing-edit {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 6px;
+  }
+
+  .drawing-show button,
+  .drawing-edit button,
+  .drawing-kinds button,
+  .drawing-actions button {
+    padding: 0 8px;
+    font-size: 0.9rem;
+  }
+}
