@@ -67,9 +67,9 @@
 | フォルダ | 中身 |
 | --- | --- |
 | `main.tsx` | 入り口。`?bench` をつけるとフェーズ0の計測ページ(`bench/`)になる |
-| `app/` | 画面(React)。`App.tsx` が全体、`store.ts` が画面の状態と「もどす」、ほかは部品(メニュー・パネル・ダイアログ) |
+| `app/` | 画面(React)。`App.tsx` が全体、`store.ts` が画面の状態と「もどす」、`useCadEngine.ts` が起動の準備、`useAutoSave.ts` が自動保存、ほかは部品(メニュー・パネル・ダイアログ) |
 | `app/ar/` | ARで見る: AR 用の立体と USDZ を作る(`arModel.ts`)、端末に合わせた開き方(`arSupport.ts`・`quickLook.ts`・`webxrAr.ts`)、マーカーAR(`aruco.ts`・`markerTracker.ts`・`markerSheet.ts`) |
-| `app/sketch/` | スケッチの画面(`SketchEditor.tsx`)と、画面の座標・下がきの計算 |
+| `app/sketch/` | スケッチの画面(`SketchEditor.tsx`)、道具の一覧と案内の言葉(`tools.ts`)、画面の座標・下がきの計算 |
 | `doc/` | 設計図(作品ファイル)のデータの形(`types.ts`)、基準面、式と変数、課題とひな形、作業のつながり |
 | `sketch/` | スケッチの計算: 拘束の計算(planegcs)、線や寸法を足す、閉じた形をさがす |
 | `kernel/` | 立体の計算(OpenCascade): 設計図から立体を作り直す(`rebuild.ts`)、図面用に立体を見た線(`projection.ts`) |
@@ -91,7 +91,7 @@ npm run build
 
 `main` に入ると GitHub Actions で GitHub Pages に公開されます(初回のみ、Settings → Pages の Source を「GitHub Actions」にしてください)。
 
-変更履歴は [CHANGELOG.md](CHANGELOG.md) にあります。
+変更履歴は [CHANGELOG.md](CHANGELOG.md) にあります。使っているライブラリと、これからの見通しは [docs/dependencies.md](docs/dependencies.md) にあります。
 
 
 

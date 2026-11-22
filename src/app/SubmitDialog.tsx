@@ -5,7 +5,7 @@ import { useState } from "react";
 import type { CheckResult, Measure } from "../doc/assignment";
 import type { Author, CadDocument } from "../doc/types";
 import { buildSheet, sheetToSVG } from "../drawing/sheet";
-import { makeSubmission, submissionName, } from "../export/submission";
+import { makeSubmission, submissionName } from "../export/submission";
 import type { CadClient } from "./cadClient";
 import { downloadFile } from "./persist";
 import { setAuthor, toast, useStore } from "./store";
@@ -41,7 +41,10 @@ export function SubmitDialog({ client, doc, checks, measure, onClose }: Props) {
     try {
       const [stl, views] = await Promise.all([client.exportSTL(), client.drawing("thirdAngle", true)]);
       const drawingSvg = views ? sheetToSVG(buildSheet(views, { kind: "thirdAngle", title: doc.name, author: authorLabel(student), dimensions: true })) : null;
-      const bytes = makeSubmission({ doc, student, stl, drawingSvg, image: snapshot3D(), checks, measure });
+      // doc はこの画面を開いたときのもの。いま入れた学籍番号・氏名を、作品の記録にも入れる
+      // (初めて提出するとき、ZIP の中の作品ファイルの「作った人」が空のままだった。2026-11-22)
+      const withAuthor: CadDocument = doc.meta ? { ...doc, meta: { ...doc.meta, author: student } } : doc;
+      const bytes = makeSubmission({ doc: withAuthor, student, stl, drawingSvg, image: snapshot3D(), checks, measure });
       downloadFile(bytes as BlobPart, submissionName(student, doc.name), "application/zip");
       toast("提出用ファイルを作りました。先生の言う場所(Classroom など)に出してください");
       onClose();

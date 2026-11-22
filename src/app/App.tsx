@@ -2,18 +2,16 @@
 // Copyright (c) 2026 技術科　岡田
 
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
-import { make_gcs_wrapper, type GcsWrapper } from "@salusoft89/planegcs";
-import gcsWasmUrl from "@salusoft89/planegcs/dist/planegcs_dist/planegcs.wasm?url";
 import { planeFromFace } from "../doc/planes";
 import { sketchUnderlay } from "./sketch/references";
 import type { BasePlaneName, CadDocument, EdgeRef, Vec3 } from "../doc/types";
 import { evaluateChecks } from "../doc/assignment";
 import type { Template } from "../doc/templates";
 import { dist3 } from "../math/vec";
-import { CadClient } from "./cadClient";
+import type { CadClient } from "./cadClient";
 import { OpPanel } from "./OpPanel";
 import { FeatureTree } from "./FeatureTree";
-import { downloadFile, isDoc, loadDoc, saveDoc } from "./persist";
+import { downloadFile, isDoc } from "./persist";
 import { SketchEditor } from "./sketch/SketchEditor";
 import {
   cancelMode,
@@ -72,45 +70,23 @@ import { PlanePanel } from "./PlanePanel";
 import { nextStepAfterSketch } from "./nextStep";
 import { stepGuide, type StepButton } from "./stepGuide";
 import { usePanelCover } from "./usePanelCover";
+import { useCadEngine } from "./useCadEngine";
+import { useAutoSave } from "./useAutoSave";
+import { useUndoShortcuts } from "./useUndoShortcuts";
 import "./app.css";
 
 const EMPTY = new Float32Array(0);
 
 export function App() {
   const s = useStore((x) => x);
-  const [gcs, setGcs] = useState<GcsWrapper | null>(null);
-  const [ready, setReady] = useState(false);
-  const [loaded, setLoaded] = useState(false);
-  /** 最後に保存できた設計図(いまの設計図と同じなら「保存ずみ」) */
-  const [savedDoc, setSavedDoc] = useState<CadDocument | null>(null);
-  const clientRef = useRef<CadClient | null>(null);
+  // 起動の準備(Worker・拘束計算・保存してあった作品)と、自動保存・キーボードは、それぞれのファイルに分けてある
+  const { clientRef, gcs, ready, loaded } = useCadEngine();
+  const savedDoc = useAutoSave(s, loaded);
+  useUndoShortcuts();
   const [showVariables, setShowVariables] = useState(false);
   const [dialog, setDialog] = useState<"new" | "assignment" | "submit" | "ar" | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const pro = s.proTerms;
-
-  // ---- 起動: 計算用の Worker、拘束計算、保存してあった作品 ----
-  useEffect(() => {
-    const client = new CadClient();
-    clientRef.current = client;
-    client.onResult = (r, doc) => setState({ result: r, resultDoc: doc });
-    client.onBusy = (busy) => setState({ busy });
-    client
-      .init()
-      .then(() => setReady(true))
-      .catch(() => toast("計算の準備に失敗しました。ページを読み込み直してください", "error"));
-    let alive = true;
-    make_gcs_wrapper(gcsWasmUrl).then((g) => alive && setGcs(g));
-    loadDoc().then((doc) => {
-      if (!alive) return;
-      if (doc) replaceDoc(doc);
-      setLoaded(true);
-    });
-    return () => {
-      alive = false;
-      client.terminate();
-    };
-  }, []);
 
   // ---- 形の計算: 設計図(編集中のものを含む)が変わるたびに Worker へ ----
   // 角を丸める辺・くりぬく面をえらんでいる間は、えらんだものが変わっても見せる形は同じなので、計算し直さない
@@ -121,42 +97,7 @@ export function App() {
   const resultIsCurrent = s.resultDoc === preview;
   useEffect(() => {
     clientRef.current?.request(preview);
-  }, [preview]);
-
-  // ---- 自動保存(少し待ってから) ----
-  useEffect(() => {
-    if (!loaded) return;
-    const doc = s.doc;
-    const save = () => saveDoc(docForSave(getState())).then((ok) => ok && setSavedDoc(doc));
-    const t = setTimeout(save, 300);
-    // タブを閉じる・アプリを切り替えるときは、待たずに保存する
-    const now = () => document.visibilityState === "hidden" && save();
-    document.addEventListener("visibilitychange", now);
-    return () => {
-      clearTimeout(t);
-      document.removeEventListener("visibilitychange", now);
-    };
-  }, [s.doc, s.drawing, s.meta.author, loaded]);
-
-  // ---- キーボード(Chromebook 用) ----
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.target as HTMLElement).closest("input, select, textarea")) return;
-      // 数字キーパッドなどの小さな画面が出ている間は、うしろの作品を変えない(2026-11-13)
-      if (document.querySelector(".dialog-backdrop")) return;
-      if (!(e.ctrlKey || e.metaKey)) return;
-      const k = e.key.toLowerCase();
-      if (k === "z" && !e.shiftKey) {
-        e.preventDefault();
-        undo();
-      } else if ((k === "z" && e.shiftKey) || k === "y") {
-        e.preventDefault();
-        redo();
-      }
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, []);
+  }, [clientRef, preview]);
 
   // 数字キーパッドで使える変数(計算できたものだけ)
   const padVariables = useMemo<PadVariable[]>(() => (s.doc.variables ?? []).map((v) => ({ name: v.name, value: v.value })), [s.doc.variables]);
@@ -245,7 +186,14 @@ export function App() {
   /** 立体をファイルに書き出す。make は Worker に作らせる関数、done は書き出せたときの案内 */
   const exportBody = async (make: (c: CadClient) => Promise<ArrayBuffer | null | undefined>, ext: string, mime: string, done: string) => {
     const client = clientRef.current;
-    const buf = client && (await make(client));
+    let buf: ArrayBuffer | null | undefined;
+    try {
+      buf = client && (await make(client));
+    } catch (err) {
+      // 書き出しの計算が失敗しても、だまって何も起きないままにしない(2026-11-22)
+      console.error(err);
+      return toast(`${ext.toUpperCase()} を書き出せませんでした。形を少し変えてから、もう一度ためしてください`, "error");
+    }
     if (!buf) return toast("書き出す立体がありません", "error");
     downloadFile(buf, `${s.doc.name || "作品"}.${ext}`, mime);
     toast(done);

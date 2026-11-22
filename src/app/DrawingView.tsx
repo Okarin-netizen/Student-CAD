@@ -233,7 +233,9 @@ export function DrawingView({ client, title, version, onClose }: Props) {
   };
 
   const exportLaser = async () => {
-    const v = await client.drawing("thirdAngle", false);
+    // 計算に失敗しても、画面が何も言わないままにならないようにする(2026-11-22)
+    const v = await client.drawing("thirdAngle", false).catch(() => undefined);
+    if (v === undefined) return toast("DXF を作れませんでした", "error");
     if (!v) return toast("書き出す立体がありません", "error");
     downloadFile(laserDXF(v[1]), `${fileBaseName(who, title, "レーザー用")}.dxf`, "application/dxf");
     toast("上から見た形を 1:1 の DXF にしました。レーザー加工機のソフトで開けます");
