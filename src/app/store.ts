@@ -325,10 +325,12 @@ const usedSketches = () => usedSketchIds(state.doc);
  */
 export function startSweep() {
   const used = usedSketches();
-  const sketches = [...sketchesOf()].reverse();
-  const free = sketches.filter((s) => !used.has(s.id));
-  const path = free.find((s) => findProfiles(s).paths.length > 0) ?? sketches.find((s) => findProfiles(s).paths.length > 0);
-  const profile = free.find((s) => s.id !== path?.id && findProfiles(s).regions.length > 0) ?? sketches.find((s) => s.id !== path?.id && findProfiles(s).regions.length > 0);
+  const newestFirst = [...sketchesOf()].reverse();
+  /** まだ使っていないスケッチから探し、なければ使ったものからも探す */
+  const findSketch = (ok: (s: SketchFeature) => boolean) =>
+    newestFirst.find((s) => !used.has(s.id) && ok(s)) ?? newestFirst.find(ok);
+  const path = findSketch((s) => findProfiles(s).paths.length > 0);
+  const profile = findSketch((s) => s.id !== path?.id && findProfiles(s).regions.length > 0);
   if (!path || !profile) {
     toast("道すじ(閉じていない線)のスケッチと、断面(閉じた形)のスケッチを、べつべつにかいてください", "error");
     return;
@@ -344,8 +346,8 @@ export function startLoft() {
     toast("つなぐには、高さのちがう面にかいたスケッチが2つ以上いります", "error");
     return;
   }
-  const pick = (free.length >= 2 ? free : sketchesOf().slice(-2)).map((s) => s.id);
-  startOp({ id: newId("lf"), type: "loft", name: nextName("ロフト", names()), sketchIds: pick, operation: "add", ruled: false });
+  const sketchIds = (free.length >= 2 ? free : sketchesOf().slice(-2)).map((s) => s.id);
+  startOp({ id: newId("lf"), type: "loft", name: nextName("ロフト", names()), sketchIds, operation: "add", ruled: false });
 }
 
 /** くりぬく。取りのぞく面は 3D でタップしてえらぶ */

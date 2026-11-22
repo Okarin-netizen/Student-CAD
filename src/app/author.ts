@@ -5,6 +5,7 @@
 // 端末に覚えておき(次の作品にも使う)、作品にも保存する(図面の表題欄・提出に使う)。
 
 import type { Author } from "../doc/types";
+import { toAscii } from "../doc/expr";
 
 const STUDENT_KEY = "student-cad:student";
 /** 前の版で図面の名前だけを覚えていた所(古い端末のために読む) */
@@ -39,7 +40,7 @@ export function authorLabel(a: Author | undefined): string {
 }
 
 /** 全角の数字を半角にし、数字でない文字をのぞく(学籍番号の入力用。図面と提出で使う) */
-export const digitsOnly = (v: string) => v.replace(/[０-９]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0)).replace(/[^0-9]/g, "");
+export const digitsOnly = (v: string) => toAscii(v).replace(/[^0-9]/g, "");
 
 /** 学籍番号が 4 けたの数字か */
 export const isStudentId = (v: string) => /^[0-9]{4}$/.test(v.trim());

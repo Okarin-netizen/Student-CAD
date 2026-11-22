@@ -10,12 +10,22 @@ export function isValidName(name: string): boolean {
 }
 
 /**
+ * 全角で入れた数字・記号を半角にする(「２５／２」→「25/2」、「（」→「(」)。
+ * 日本語入力のまま数字を打つ生徒が多いので、全角でも計算できるようにする。
+ * NFKC は全角の英数字・記号をまとめて半角にする(2026-11-22。前は全角の数字と「．」だけを直していて、
+ * 全角の「＋」「／」「（」などが入ると計算できなかった)。マイナス記号「−」(U+2212)も「-」にする。
+ */
+export function toAscii(input: string): string {
+  return input.normalize("NFKC").replace(/\u2212/g, "-");
+}
+
+/**
  * 寸法の入力欄で使う、かんたんな計算式(+ - × ÷ とかっこ、変数の名前)。
  * 例: "25/2" → 12.5、vars に { 幅: 40 } があれば "幅/2" → 20。eval は使わない。
  * 計算できないとき(知らない名前、0 で割る など)は null。
  */
 export function evaluate(input: string, vars: Record<string, number> = {}): number | null {
-  const src = input.replace(/×/g, "*").replace(/÷/g, "/").replace(/,/g, ".").replace(/\s+/g, "").replace(/[０-９．]/g, (c) => String.fromCharCode(c.charCodeAt(0) - 0xfee0));
+  const src = toAscii(input).replace(/×/g, "*").replace(/÷/g, "/").replace(/,/g, ".").replace(/\s+/g, "");
   let i = 0;
   const peek = () => src[i];
   const num = (): number | null => {

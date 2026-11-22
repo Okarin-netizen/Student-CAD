@@ -17,6 +17,8 @@ export class CadClient {
   /** 計算できた形。doc は、その形を計算した設計図(画面の形が最新かどうかを見るのに使う) */
   onResult: (r: RebuildReply, doc: CadDocument) => void = () => {};
   onBusy: (busy: boolean) => void = () => {};
+  /** 形の計算そのものが失敗したとき(作業ごとの失敗は onResult の statuses に入る) */
+  onError: (err: unknown) => void = () => {};
 
   constructor() {
     this.worker = new Worker(new URL("../worker/cad.worker.ts", import.meta.url), { type: "module" });
@@ -40,8 +42,14 @@ export class CadClient {
       while (this.pending) {
         const doc = this.pending;
         this.pending = null;
-        const r = await this.api.rebuild(doc);
-        if (!this.pending) this.onResult(r, doc);
+        try {
+          const r = await this.api.rebuild(doc);
+          if (!this.pending) this.onResult(r, doc);
+        } catch (err) {
+          // Worker の中で思わぬエラーが出ても、次の計算は続ける(ここで止まると、形が二度と更新されなくなる)
+          console.error(err);
+          if (!this.pending) this.onError(err);
+        }
       }
     } finally {
       this.running = false;

@@ -221,6 +221,11 @@ export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, edgePick,
 
     // タップ(動かさずに離した)で平面・面を選ぶ
     let down: { x: number; y: number; t: number } | null = null;
+    /**
+     * いま画面にふれている指(ポインター)。2本指でズームしたときは、指をはなしてもタップにしない。
+     * (2本指で少しだけズームすると、はなした指がタップになり、平面をえらんだり辺をえらんだりしていた。2026-11-22)
+     */
+    const touching = new Set<number>();
     const hover = (e: PointerEvent) => {
       if (!pickRef.current.picking && !pickRef.current.facePick) return;
       const h = pickAt(stage, e.clientX, e.clientY);
@@ -228,8 +233,17 @@ export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, edgePick,
     };
     const onDown = (e: PointerEvent) => {
       hideHowTo();
-      down = { x: e.clientX, y: e.clientY, t: performance.now() };
-      hover(e);
+      // 最初の指(isPrimary)なら、前の記録はのこっていても捨てる(はなしたことが届かなかったときのため)
+      if (e.isPrimary) touching.clear();
+      touching.add(e.pointerId);
+      // 2本目の指が置かれたら、ズーム・移動の操作なので、タップとしては数えない
+      down = touching.size === 1 ? { x: e.clientX, y: e.clientY, t: performance.now() } : null;
+      if (down) hover(e);
+    };
+    /** 指がはなれた・とり消された(OS のジェスチャーなど)ときに、指の記録を消す */
+    const onRelease = (e: PointerEvent) => {
+      touching.delete(e.pointerId);
+      if (e.type === "pointercancel") down = null;
     };
     const onMove = (e: PointerEvent) => {
       // マウスのときは、ボタンを押していなくても指している面を見せる
@@ -279,6 +293,9 @@ export function Viewer3D({ mesh, sketches, picking, onPick, onMessage, edgePick,
     renderer.domElement.addEventListener("pointerdown", onDown);
     renderer.domElement.addEventListener("pointermove", onMove);
     renderer.domElement.addEventListener("pointerup", onUp);
+    // onUp のあとに指の記録を消す(onUp では、まだ指が数に入っている)
+    renderer.domElement.addEventListener("pointerup", onRelease);
+    renderer.domElement.addEventListener("pointercancel", onRelease);
 
     const onCube = (e: PointerEvent) => {
       const rect = cubeRenderer.domElement.getBoundingClientRect();
