@@ -14,6 +14,9 @@ export default defineConfig({
   use: {
     baseURL: "http://localhost:4173",
     trace: "retain-on-failure",
+    // オフライン用の Service Worker は、ふだんのテストでは止める(テストごとに約28MBをしまいはじめて遅くなるため)。
+    // オフラインのテスト(pwa.spec.ts)だけ、テストの中で "allow" にする。2026-11-23
+    serviceWorkers: "block",
   },
   webServer: {
     command: "npm run build && npx vite preview --port 4173 --strictPort",
@@ -35,7 +38,8 @@ export default defineConfig({
     },
     {
       name: "chromebook",
-      testIgnore: "phone.spec.ts",
+      // pwa.spec.ts は dist/sw.js を一時的に書きかえるので、ipad-landscape だけで動かす(同時に動くと、まざるため)
+      testIgnore: ["phone.spec.ts", "pwa.spec.ts"],
       use: { ...devices["Desktop Chrome"], viewport: { width: 1366, height: 768 } },
     },
     // スマホ(2026-11-21 追加)。たて向き・横向きで、画面の外にはみ出さないかだけを確かめる

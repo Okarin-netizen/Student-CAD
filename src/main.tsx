@@ -29,3 +29,6 @@ async function start() {
 }
 
 start();
+
+// オフラインで開けるようにする(2026-11-23)。画面の表示を待たせないよう、あとから登録する
+import("./app/pwa").then((m) => m.registerServiceWorker());

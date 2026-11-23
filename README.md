@@ -41,6 +41,10 @@
 2026-11-20 追加:
 - **ARで見る**: 作った立体を、タブレットのカメラごしに机の上へ実物大で置いて見る。iPad・iPhone は AR クイックルック、Android は Chrome の WebXR を使う。Chromebook・パソコンは、印刷したマーカー(A4、黒い四角 10cm)をカメラにうつす「マーカーAR」になる(前のカメラだけでも使える)
 
+2026-11-23 追加:
+- **ネットがなくても開ける**: 一度開くと、アプリを端末にしまう。2回目からは、学校のネットが遅い・切れるときでも開いて使える。新しい版があると画面の上に「開き直す」が出る
+- **このアプリについて**: 「ファイル」の中。版・作った人・ライセンス・オフラインで開けるかを見られる
+
 ほかに、作業のれきし(あとから寸法をなおすと形が作り直される)、もどす/やりなおす、
 端末の中への自動保存、作品ファイル(.scad.json)の保存と読み込み、専門用語への切り替えがあります。
 
@@ -79,6 +83,8 @@
 | `math/`・`util/` | いろいろな所で使う小さな関数(ベクトル計算、XML の書きかえ) |
 | `bench/` | フェーズ0(技術検証)の計測ページ |
 
+オフライン用の Service Worker のひな形は `pwa/service-worker.js` です。ビルドのとき `vite.config.ts` が `dist/sw.js` にします。
+
 ## 開発
 
 ```sh
@@ -91,7 +97,7 @@ npm run build
 
 `main` に入ると GitHub Actions で GitHub Pages に公開されます(初回のみ、Settings → Pages の Source を「GitHub Actions」にしてください)。
 
-変更履歴は [CHANGELOG.md](CHANGELOG.md) にあります。使っているライブラリと、これからの見通しは [docs/dependencies.md](docs/dependencies.md) にあります。
+変更履歴は [CHANGELOG.md](CHANGELOG.md) にあります。何を満たせばよいか(要求)の一覧は [docs/requirements.md](docs/requirements.md) にあります。使っているライブラリと、これからの見通しは [docs/dependencies.md](docs/dependencies.md) にあります。
 
 
 
@@ -100,7 +106,3 @@ npm run build
 MIT ライセンス(© 2026 技術科　岡田)。著作権表示(クレジット)とライセンス文を残せば、改変・再配布・授業での利用は自由です。くわしくは [LICENSE](LICENSE) を見てください。
 
 使用している OSS とそのライセンスは [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) にあります。3D形状カーネル(OpenCascade)と拘束ソルバ(planegcs)は LGPL ですが、改変しない別ファイルとして配信しているので、アプリ本体を MIT で配布できます。
-
-## 要求の一覧
-
-この制作物の目的・要求・受入条件・データの扱いは [docs/requirements.md](docs/requirements.md) にまとめています。直す前や、点検で指摘を受けたときは、まずここを更新します。

@@ -2583,3 +2583,48 @@ input:focus-visible {
     font-size: 0.9rem;
   }
 }
+
+/* ---- このアプリについて・新しい版の帯(2026-11-23) ---- */
+
+.about-list {
+  display: grid;
+  grid-template-columns: max-content 1fr;
+  gap: 6px 12px;
+  margin: 0 0 12px;
+}
+
+.about-list dt {
+  color: var(--muted);
+}
+
+.about-list dd {
+  margin: 0;
+}
+
+.about-dialog a {
+  color: var(--accent);
+}
+
+/* 新しい版があるときの帯。手順バーやトーストとかさならないよう、画面の上に出す */
+.update-banner {
+  position: fixed;
+  top: calc(8px + env(safe-area-inset-top));
+  left: 50%;
+  transform: translateX(-50%);
+  width: max-content;
+  max-width: calc(100% - 16px);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  background: var(--surface);
+  border: 1px solid var(--text);
+  border-radius: var(--r);
+  padding: 6px 6px 6px 14px;
+  z-index: 55;
+}
+
+.update-banner button {
+  background: var(--accent);
+  border-color: var(--accent);
+  color: #fff;
+}
