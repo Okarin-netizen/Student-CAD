@@ -100,3 +100,7 @@ npm run build
 MIT ライセンス(© 2026 技術科　岡田)。著作権表示(クレジット)とライセンス文を残せば、改変・再配布・授業での利用は自由です。くわしくは [LICENSE](LICENSE) を見てください。
 
 使用している OSS とそのライセンスは [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md) にあります。3D形状カーネル(OpenCascade)と拘束ソルバ(planegcs)は LGPL ですが、改変しない別ファイルとして配信しているので、アプリ本体を MIT で配布できます。
+
+## 要求の一覧
+
+この制作物の目的・要求・受入条件・データの扱いは [docs/requirements.md](docs/requirements.md) にまとめています。直す前や、点検で指摘を受けたときは、まずここを更新します。
