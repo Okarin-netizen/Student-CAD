@@ -59,6 +59,8 @@ import { SubmitDialog } from "./SubmitDialog";
 import { ArDialog } from "./ArDialog";
 import { ReplayBar } from "./ReplayBar";
 import { NewDialog } from "./NewDialog";
+import { AboutDialog } from "./AboutDialog";
+import { UpdateBanner } from "./UpdateBanner";
 import { Icon } from "./Icon";
 import { TipLayer } from "./TipLayer";
 import type { PadVariable } from "./NumberPad";
@@ -84,7 +86,7 @@ export function App() {
   const savedDoc = useAutoSave(s, loaded);
   useUndoShortcuts();
   const [showVariables, setShowVariables] = useState(false);
-  const [dialog, setDialog] = useState<"new" | "assignment" | "submit" | "ar" | null>(null);
+  const [dialog, setDialog] = useState<"new" | "assignment" | "submit" | "ar" | "about" | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const pro = s.proTerms;
 
@@ -256,6 +258,8 @@ export function App() {
       label: pro ? "ふだんの言葉にもどす" : "専門用語で表示する",
       run: () => setProTerms(!pro),
     },
+    // 版・作った人・ライセンス・オフラインの様子(2026-11-23)
+    { id: "file-about", icon: "help", label: "このアプリについて", run: () => setDialog("about") },
   ];
 
   /** 「そのほか」の作業(対称・ならべる・つなぐ・なぞる・くりぬく) */
@@ -531,6 +535,9 @@ export function App() {
       )}
 
       {dialog === "ar" && s.result?.mesh && <ArDialog mesh={s.result.mesh} onClose={() => setDialog(null)} />}
+      {dialog === "about" && <AboutDialog onClose={() => setDialog(null)} />}
+
+      <UpdateBanner />
 
       {mode === "drawing" && clientRef.current && (
         <DrawingView client={clientRef.current} title={s.doc.name} version={s.result} onClose={cancelMode} />

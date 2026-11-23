@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <!-- Student-CAD のアイコン(2026-11-23)。定規のみどりに、線でかいた立方体。© 2026 技術科　岡田 / MIT -->
+  <rect width="512" height="512" fill="#0f7356"/>
+  <g fill="none" stroke="#ffffff" stroke-width="22" stroke-linejoin="round" stroke-linecap="round">
+    <path d="M256 112 L392 190 L392 346 L256 424 L120 346 L120 190 Z"/>
+    <path d="M120 190 L256 268 L392 190 M256 268 L256 424"/>
+  </g>
+</svg>

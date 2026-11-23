@@ -2,8 +2,8 @@
   "name": "student-cad",
   "private": true,
   "license": "MIT",
-  "version": "0.0.1",
-  "description": "中学生がタブレットで使えるブラウザCAD(フェーズ1: 最初に使える版)",
+  "version": "0.9.0",
+  "description": "中学生がタブレットで使えるブラウザCAD",
   "type": "module",
   "scripts": {
     "dev": "vite",
