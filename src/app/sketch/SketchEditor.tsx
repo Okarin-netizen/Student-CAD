@@ -19,6 +19,7 @@ import {
 import {
   addArc,
   addCircle,
+  addConstraint,
   addConstraintOverAuto,
   addLine,
   addPolygon,
@@ -37,6 +38,7 @@ import {
 } from "../../sketch/edit";
 import { measureAngle, measureLength, solveSketch } from "../../sketch/solver";
 import { findProfiles } from "../../sketch/profiles";
+import { checkSketch, hasIssues, type SketchIssues } from "../../sketch/sketchCheck";
 import { pointerWords, term, type TermKey } from "../terms";
 import { NumberPad, type PadVariable } from "../NumberPad";
 import { referenceCorners } from "./references";
@@ -129,6 +131,8 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
   const ents = useMemo(() => new Map(sketch.entities.map((e) => [e.id, e])), [sketch.entities]);
   const status = useMemo(() => solveSketch(gcs, data), [sketch.entities, sketch.constraints]); // eslint-disable-line react-hooks/exhaustive-deps
   const profiles = useMemo(() => findProfiles(data), [sketch.entities, sketch.constraints]); // eslint-disable-line react-hooks/exhaustive-deps
+  /** 立体にできない原因(閉じていない はし・重なり・交差など)の場所 */
+  const issues = useMemo(() => checkSketch(data), [sketch.entities, sketch.constraints]); // eslint-disable-line react-hooks/exhaustive-deps
   const refs = references ?? NO_REFS;
   const refCorners = useMemo(() => referenceCorners(refs), [refs]);
   /** 下がき(かいている面)の範囲。文字が面からはみ出していないかを見るのに使う */
@@ -871,6 +875,43 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
     return { x: s[0], y: s[1] - 44, text };
   })();
 
+  // 線をかいているとちゅうは、まだ閉じていなくて当たり前なので、赤い印は出さない
+  const showIssues = pending.length === 0 && hasIssues(issues);
+
+  /** すき間の小さい はしどうしを、一致のきまりでつなぐ */
+  const joinNearEnds = () => {
+    let cur: SketchData = data;
+    let joined = 0;
+    for (const pair of issues.nearPairs) {
+      const r = addConstraint(gcs, cur, { id: newId("c"), type: "coincident", a: pair.a, b: pair.b });
+      if (!r.ok) continue;
+      cur = r.sketch;
+      joined++;
+    }
+    if (joined === 0) {
+      onMessage("はしを つなげませんでした。寸法やきまりで形が決まっているときは、寸法を1つけしてから ためしてください", "error");
+      return;
+    }
+    onEdit(cur, data);
+    setGuide(null);
+    onMessage(`はしを ${joined}か所 つなぎました`);
+  };
+
+  /** 線・円・円弧を、同じ形の別の見た目でかく(赤いふちどりに使う) */
+  const curveShape = (e: SketchEntity, className: string, key: string) => {
+    if (e.type === "line") {
+      const a = S(pos.get(e.p1)!);
+      const b = S(pos.get(e.p2)!);
+      return <line key={key} x1={a[0]} y1={a[1]} x2={b[0]} y2={b[1]} className={className} />;
+    }
+    if (e.type === "circle") {
+      const c = S(pos.get(e.c)!);
+      return <circle key={key} cx={c[0]} cy={c[1]} r={e.r * vp.scale} className={className} />;
+    }
+    if (e.type === "arc") return <path key={key} d={arcPath(vp, pos.get(e.c)!, e.r, e.a0, e.a1)} className={className} />;
+    return null;
+  };
+
   const dofText = !status.ok
     ? "寸法や拘束が矛盾しています"
     : sketch.entities.length === 0
@@ -984,6 +1025,13 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
             />
           )}
 
+          {/* 閉じていない線・重なった線を、うしろから赤くふちどる(線をかいているとちゅうは出さない) */}
+          {showIssues &&
+            sketch.entities.map((e) => {
+              const cls = issues.overlaps.includes(e.id) ? "sk-issue-curve overlap" : issues.openCurves.includes(e.id) ? "sk-issue-curve" : null;
+              return cls ? curveShape(e, cls, `issue-${e.id}`) : null;
+            })}
+
           {sketch.entities.map((e) => {
             const cls = e.construction ? "sk-curve construction" : "sk-curve";
             const stroke = color(e);
@@ -1050,6 +1098,8 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
             return <circle key={id} cx={s[0]} cy={s[1]} r={id === ORIGIN_ID ? 5 : 4} className={id === ORIGIN_ID ? "sk-origin" : sel ? "sk-point selected" : "sk-point"} />;
           })}
 
+          {showIssues && <IssueMarks issues={issues} S={S} />}
+
           {preview}
           {pending.map((p, i) => (
             <circle key={i} cx={S(p.xy)[0]} cy={S(p.xy)[1]} r={6} className="sk-pending" />
@@ -1086,7 +1136,18 @@ export function SketchEditor({ sketch, gcs, pro, references, onEdit, onPreview, 
           <span className={defined ? "sk-dof done" : "sk-dof"} data-testid="sketch-dof" data-tip={dofTip}>
             {dofText}
           </span>
-          {profiles.openChains > 0 && <span className="sk-warn">閉じていない線があります</span>}
+          {showIssues && (
+            <span className="sk-warn" data-testid="sketch-issues">
+              <button type="button" className="sk-warn-what" data-testid="sketch-issues-why" onClick={() => setGuide(issueGuide(issues, profiles.regions.length > 0))}>
+                {issueSummary(issues, profiles.regions.length > 0)}
+              </button>
+              {issues.nearPairs.length > 0 && (
+                <button type="button" data-testid="sketch-issues-join" onClick={joinNearEnds}>
+                  はしを つなぐ
+                </button>
+              )}
+            </span>
+          )}
           {overflowText && (
             <span className="sk-warn" data-testid="text-overflow">
               文字が面からはみ出しています
@@ -1177,4 +1238,62 @@ function normal(a: Vec2, b: Vec2): Vec2 {
   const dy = b[1] - a[1];
   const l = Math.hypot(dx, dy) || 1;
   return [dy / l, -dx / l];
+}
+
+/** 赤い印: はし(○)、線のとちゅうのはし(◎)、分かれ道(□)、交差(×) */
+function IssueMarks({ issues, S }: { issues: SketchIssues; S: (p: Vec2) => Vec2 }) {
+  return (
+    <g data-testid="sketch-issue-marks">
+      {issues.looseEnds.map((end) => {
+        const [x, y] = S(end.at);
+        return (
+          <g key={`end-${end.point}`} className={end.onCurve ? "sk-issue-end on-curve" : "sk-issue-end"} data-testid="issue-end">
+            <circle cx={x} cy={y} r={13} />
+            {end.onCurve && <circle cx={x} cy={y} r={7} />}
+          </g>
+        );
+      })}
+      {issues.branches.map((p, i) => {
+        const [x, y] = S(p);
+        return <rect key={`br-${i}`} x={x - 12} y={y - 12} width={24} height={24} className="sk-issue-branch" data-testid="issue-branch" />;
+      })}
+      {issues.crossings.map((p, i) => {
+        const [x, y] = S(p);
+        return <path key={`x-${i}`} d={`M${x - 10} ${y - 10}L${x + 10} ${y + 10}M${x + 10} ${y - 10}L${x - 10} ${y + 10}`} className="sk-issue-cross" data-testid="issue-cross" />;
+      })}
+    </g>
+  );
+}
+
+/**
+ * 下に出す短い知らせ。hasRegion は、ほかに閉じた形(うすい色の面)があるか。
+ * 閉じた形があれば、その形は立体にできるので「使われない線がある」と知らせる
+ */
+function issueSummary(i: SketchIssues, hasRegion: boolean): string {
+  const ends = i.looseEnds.length;
+  if (ends > 0 && i.branches.length + i.overlaps.length + i.crossings.length === 0) {
+    return hasRegion ? `閉じていない線があります(赤い○ ${ends}か所)` : `形が閉じていません(赤い○ ${ends}か所)`;
+  }
+  const count = ends + i.branches.length + i.crossings.length + (i.overlaps.length > 0 ? 1 : 0);
+  return hasRegion ? `使われない線があります(赤い印 ${count}か所)` : `立体にできない所があります(赤い印 ${count}か所)`;
+}
+
+/** 知らせをタップしたときに、上に出す説明 */
+function issueGuide(i: SketchIssues, hasRegion: boolean): string {
+  const lines: string[] = [];
+  if (hasRegion) lines.push("うすい色の面だけが立体になります。赤い印のついた線は使われません");
+  const ends = i.looseEnds.filter((e) => !e.onCurve);
+  const onCurve = i.looseEnds.filter((e) => e.onCurve);
+  if (ends.length > 0) {
+    lines.push("赤い○は、ほかの線とつながっていない はしです。はしを ほかの線の はしに重ねると、形が閉じます");
+    if (i.nearPairs.length > 0) lines.push("すき間が小さい所は「はしを つなぐ」でくっつけられます");
+  }
+  if (onCurve.length > 0) lines.push("赤い◎は、線のとちゅうに つけた はしです。形のかどにならないので、その線を ◎の所で終わる2本にかき直しましょう");
+  if (i.branches.length > 0) lines.push("赤い□は、3本より多くの線が集まる所です。よぶんな線を けしましょう");
+  if (i.overlaps.length > 0) lines.push("太い赤の線は、同じ所に2本かいた線です。1本けしましょう");
+  if (i.crossings.length > 0) lines.push("赤い×は、線どうしが交わっている所です。交わらないように かき直しましょう");
+  if (ends.length === 2 && i.looseEnds.length === 2 && i.branches.length + i.overlaps.length + i.crossings.length === 0) {
+    lines.push("(「なぞる」の道すじに使う線なら、閉じていなくて だいじょうぶです)");
+  }
+  return lines.join("。");
 }

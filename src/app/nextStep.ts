@@ -4,6 +4,7 @@
 import { usedSketchIds } from "../doc/links";
 import type { CadDocument, SketchFeature } from "../doc/types";
 import { findProfiles } from "../sketch/profiles";
+import { checkSketch } from "../sketch/sketchCheck";
 
 /** スケッチを「かけた!」のあとに、自動で始める作業(または出す案内) */
 export type NextStep =
@@ -42,10 +43,15 @@ export function nextStepAfterSketch(doc: CadDocument, sk: SketchFeature): NextSt
   if (regions === 1 && otherPath) return { kind: "sweep" };
   if (regions > 0 && hasAxis) return { kind: "revolve" };
   if (regions > 0 || hasText) return { kind: "extrude" };
+  // はしとはしが近い(閉じそこねた)ときは、なぞるの道すじではなく、閉じわすれとして知らせる(2026-11-25)
+  if (paths > 0 && checkSketch(sk).nearPairs.length > 0) {
+    return { kind: "hint", text: "形が少しだけ閉じていません。「なおす」で絵を開き、赤い○の はしを「はしを つなぐ」でつなぎましょう" };
+  }
   if (paths > 0) {
     // 閉じていない線だけのスケッチは、なぞるの道すじに使える
     if (otherShape) return { kind: "sweep" };
     return { kind: "hint", text: "閉じていない線は「なぞる」の道すじに使えます。次に、どこかの面の原点のまわりに断面の形(円など)をかきましょう" };
   }
+  if (own.openChains > 0) return { kind: "hint", text: "閉じた形がないので、まだ立体にはできません。「なおす」で絵を開くと、閉じていない所に赤い印が出ます" };
   return { kind: "hint", text: "閉じた形がないので、まだ立体にはできません" };
 }
