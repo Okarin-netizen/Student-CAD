@@ -10,7 +10,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 async function startNameplate(page: Page) {
-  await page.goto("/");
+  await page.goto("/?cad");
   await page.getByTestId("open-file-menu").click();
   await page.getByTestId("file-new").click();
   await page.getByTestId("template-nameplate").click();

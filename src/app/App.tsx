@@ -61,6 +61,7 @@ import { ReplayBar } from "./ReplayBar";
 import { NewDialog } from "./NewDialog";
 import { AboutDialog } from "./AboutDialog";
 import { UpdateBanner } from "./UpdateBanner";
+import { TopPage, startsAtTop, type SavedWork } from "./TopPage";
 import { Icon } from "./Icon";
 import { TipLayer } from "./TipLayer";
 import type { PadVariable } from "./NumberPad";
@@ -89,6 +90,8 @@ export function App() {
   const [dialog, setDialog] = useState<"new" | "assignment" | "submit" | "ar" | "about" | null>(null);
   const fileRef = useRef<HTMLInputElement>(null);
   const pro = s.proTerms;
+  // トップページを出しているか(2026-11-25)。作業画面は うしろで準備を進めておく
+  const [atTop, setAtTop] = useState(startsAtTop);
 
   // ---- 形の計算: 設計図(編集中のものを含む)が変わるたびに Worker へ ----
   // 角を丸める辺・くりぬく面をえらんでいる間は、えらんだものが変わっても見せる形は同じなので、計算し直さない
@@ -233,20 +236,35 @@ export function App() {
 
   const applyOpen = (doc: CadDocument) => {
     setPendingOpen(null);
+    setAtTop(false);
     replaceDoc(doc);
     const a = doc.assignment;
     toast(a ? `課題「${a.title}」を開きました。右上の課題カードを見ながら作りましょう` : `「${doc.name}」を開きました`);
   };
 
   const startFrom = (t: Template) => {
+    setPendingNew(null);
+    setAtTop(false);
     replaceDoc(t.make());
     setDialog(null);
     if (t.id !== "blank") toast(`課題「${t.label}」を始めました。右上の課題カードを見ながら作りましょう`);
   };
 
+  // ---- トップページ ----
+
+  /** トップページで えらんだ ひな形(いまの作品を閉じてよいか確かめている間だけ入る) */
+  const [pendingNew, setPendingNew] = useState<Template | null>(null);
+  const savedWork: SavedWork = !loaded
+    ? { kind: "loading" }
+    : s.doc.features.length === 0
+      ? { kind: "none" }
+      : { kind: "some", name: s.doc.name, steps: s.doc.features.length, assignment: s.doc.assignment?.title };
+  const newFromTop = (t: Template) => (s.doc.features.length > 0 ? setPendingNew(t) : startFrom(t));
+
   // ---- メニューの中身 ----
 
   const fileMenu: MenuItem[] = [
+    { id: "file-top", icon: "home", label: "トップページへ", run: () => setAtTop(true) },
     { id: "file-new", icon: "plus", label: "新しく", run: () => setDialog("new") },
     { id: "file-open", icon: "open", label: "ひらく", run: () => fileRef.current?.click() },
     { id: "save-file", icon: "save", label: "ファイルに保存", run: saveFile },
@@ -526,6 +544,16 @@ export function App() {
 
       <TipLayer />
 
+      {atTop && (
+        <TopPage
+          saved={savedWork}
+          onContinue={() => setAtTop(false)}
+          onNew={newFromTop}
+          onOpenFile={() => fileRef.current?.click()}
+          onAbout={() => setDialog("about")}
+        />
+      )}
+
       {dialog === "new" && <NewDialog hasWork={s.doc.features.length > 0} onPick={startFrom} onClose={() => setDialog(null)} />}
       {dialog === "assignment" && (
         <AssignmentEditor initial={s.doc.assignment} onSave={setAssignment} onExport={exportAssignment} onClose={() => setDialog(null)} />
@@ -565,6 +593,21 @@ export function App() {
               ? `今回なおしたところは元にもどせません。前の${term("sketch", pro)}はそのまま残ります。`
               : `捨てると、この${term("sketch", pro)}でかいたものは元にもどせません。`}
           </p>
+        </ConfirmDialog>
+      )}
+
+      {pendingNew && (
+        <ConfirmDialog
+          label="新しく作る確認"
+          title={`「${pendingNew.label}」で新しく作りますか?`}
+          cancelText="やめる"
+          okText="新しく作る"
+          cancelTestId="new-cancel"
+          okTestId="new-ok"
+          onCancel={() => setPendingNew(null)}
+          onOk={() => startFrom(pendingNew)}
+        >
+          <p className="panel-warning">いまの作品「{s.doc.name}」は閉じます。残したいときは、先に「つづきから」で開いて「ファイルに保存」してください。</p>
         </ConfirmDialog>
       )}
 

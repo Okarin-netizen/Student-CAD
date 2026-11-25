@@ -5,7 +5,7 @@ import { readFileSync } from "node:fs";
 import { expect, test, type Page } from "@playwright/test";
 
 async function startTemplate(page: Page, id: string) {
-  await page.goto("/");
+  await page.goto("/?cad");
   await page.getByTestId("open-file-menu").click();
   await page.getByTestId("file-new").click();
   await page.getByTestId(`template-${id}`).click();
@@ -60,7 +60,7 @@ test("提出用ファイルは 学籍番号_氏名_作品名.zip で、名前は
 });
 
 test("先生が課題を作って課題ファイルに保存し、開くと課題カードが出る", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await page.getByTestId("open-file-menu").click();
   await page.getByTestId("file-assignment").click();
   await page.getByTestId("assignment-title").fill("ふでばこを作ろう");

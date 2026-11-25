@@ -27,7 +27,7 @@ async function drawRect(page: Page) {
 }
 
 test.beforeEach(async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await expect(page.getByTestId("new-sketch")).toBeVisible();
 });
 
@@ -105,4 +105,14 @@ test("図面の紙と、印刷のボタンに届く", async ({ page }) => {
   await page.getByTestId("drawing-print").scrollIntoViewIfNeeded();
   await expectInsideViewport(page, page.getByTestId("drawing-print"));
   await expectInsideViewport(page, page.getByTestId("drawing-close"));
+});
+
+// トップページ(2026-11-25)も、スマホで横にはみ出さず、大きなボタンが押せる所にある
+test("トップページが横にはみ出さない", async ({ page }) => {
+  await page.goto("/");
+  await expect(page.getByTestId("top-page")).toBeVisible();
+  const vp = page.viewportSize()!;
+  const w = await page.getByTestId("top-page").evaluate((el) => el.scrollWidth);
+  expect(w).toBeLessThanOrEqual(vp.width);
+  await expectInsideViewport(page, page.getByTestId("top-open"));
 });

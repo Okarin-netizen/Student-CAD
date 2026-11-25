@@ -16,7 +16,7 @@ async function drawRect(page: Page) {
 }
 
 test("ひらいたメニューは、外をタップする・Esc・ほかの画面へ進むと とじる", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await expect(page.getByTestId("new-sketch")).toBeVisible();
 
   // 外(3D の画面)をタップすると とじる
@@ -46,7 +46,7 @@ test("ひらいたメニューは、外をタップする・Esc・ほかの画�
 
 test("縦向きのタブレットでも「そのほか」のメニューが画面からはみ出さない", async ({ page }) => {
   await page.setViewportSize({ width: 820, height: 1180 });
-  await page.goto("/");
+  await page.goto("/?cad");
   await drawRect(page);
   await page.getByTestId("open-more").click();
   const box = (await page.locator(".more-menu").boundingBox())!;
@@ -55,7 +55,7 @@ test("縦向きのタブレットでも「そのほか」のメニューが画�
 });
 
 test("絵がないときは、次に押す「絵をかく」が青く、「そのほか」はうすくて押すと案内が出る", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await expect(page.getByTestId("new-sketch")).toHaveClass(/next/);
   await expect(page.getByTestId("open-more")).toHaveClass(/not-ready/);
   await page.getByTestId("open-more").click({ force: true });
@@ -77,7 +77,7 @@ test("絵がないときは、次に押す「絵をかく」が青く、「そ�
 });
 
 test("専門用語の切りかえは「ファイル」の中にある", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await expect(page.getByTestId("new-extrude")).toContainText("立体にする");
   await page.getByTestId("open-file-menu").click();
   await page.getByTestId("pro-terms").click();
@@ -90,7 +90,7 @@ test("専門用語の切りかえは「ファイル」の中にある", async ({
 
 test("縦向きでは、れきしはボタン1つにたたまれ、押すと開いて外をタップすると とじる", async ({ page }) => {
   await page.setViewportSize({ width: 820, height: 1180 });
-  await page.goto("/");
+  await page.goto("/?cad");
   await drawRect(page);
   await expect(page.getByTestId("feature-tree")).toBeHidden();
   await expect(page.getByTestId("tree-toggle")).toContainText("1");

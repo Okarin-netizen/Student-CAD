@@ -11,7 +11,7 @@ async function tapCanvas(page: Page, fx: number, fy: number) {
 }
 
 test("長方形と円には、かいたときから大きさの数字が出て、タップで直せる", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await page.getByTestId("new-sketch").click();
   await page.getByTestId("plane-top").click();
   await page.getByTestId("tool-rect").click();
@@ -37,7 +37,7 @@ test("長方形と円には、かいたときから大きさの数字が出て�
 });
 
 test("図面の「かくれ線・寸法・等角図」は、押すたびに切りかわるボタン", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await page.getByTestId("new-sketch").click();
   await page.getByTestId("plane-top").click();
   await page.getByTestId("tool-rect").click();

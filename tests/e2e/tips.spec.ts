@@ -4,7 +4,7 @@
 import { expect, test } from "@playwright/test";
 
 test("はじめて開いても使い方ガイドは出ない。マウスをのせるとボタンの説明が出る", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await expect(page.getByTestId("new-sketch")).toBeVisible();
   await expect(page.locator(".tutorial-bubble")).toHaveCount(0);
 
@@ -15,7 +15,7 @@ test("はじめて開いても使い方ガイドは出ない。マウスをの�
 });
 
 test("タブレットでは長押しで説明が出て、そのボタンは押されない", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   const btn = page.getByTestId("new-sketch");
   await expect(btn).toBeVisible();
   const box = (await btn.boundingBox())!;

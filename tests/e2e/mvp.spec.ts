@@ -11,7 +11,7 @@ async function tapCanvas(page: Page, fx: number, fy: number) {
 test("長方形をかいて寸法を入れ、押し出して STL を書き出せる", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  await page.goto("/");
+  await page.goto("/?cad");
   await expect(page.getByTestId("new-sketch")).toBeVisible();
 
   // 1. 上の面にスケッチ
@@ -70,7 +70,7 @@ test("長方形をかいて寸法を入れ、押し出して STL を書き出せ
 });
 
 test("円をかいて、直径を入れて、平らな面にけずる穴をあけられる", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await page.getByTestId("new-sketch").click();
   await page.getByTestId("plane-top").click();
   await page.getByTestId("tool-rect").click();
@@ -109,7 +109,7 @@ test("円をかいて、直径を入れて、平らな面にけずる穴をあ�
 
 test("指のタップでも長方形をかける", async ({ page }, info) => {
   test.skip(!info.project.use.hasTouch, "タッチ画面の端末だけ");
-  await page.goto("/");
+  await page.goto("/?cad");
   await page.getByTestId("new-sketch").tap();
   await page.getByTestId("plane-front").tap();
   await page.getByTestId("tool-rect").tap();
@@ -122,7 +122,7 @@ test("指のタップでも長方形をかける", async ({ page }, info) => {
 });
 
 test("立体の上の面をタップして、その面にスケッチをかける", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await page.getByTestId("new-sketch").click();
   await page.getByTestId("plane-top").click();
   await page.getByTestId("tool-rect").click();
@@ -153,7 +153,7 @@ test("立体の上の面をタップして、その面にスケッチをかけ�
 });
 
 test("線をタップするとすぐ長さを入れられ、かいた絵は確認してから捨てる", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await page.getByTestId("new-sketch").click();
   await page.getByTestId("plane-top").click();
   await expect(page.getByTestId("sketch-scale")).toContainText("mm");

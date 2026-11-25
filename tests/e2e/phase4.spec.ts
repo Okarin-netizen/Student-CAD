@@ -24,7 +24,7 @@ async function circleSketch(page: Page, offset: number) {
 }
 
 test("ずらした面にかいた形と、下の形をつなぐ(ロフト)", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await circleSketch(page, 0);
   // 1つ目は押し出しがすすめられるが、つなぐので やめる
   await page.getByRole("dialog", { name: "立体にする" }).getByRole("button", { name: "やめる" }).click();
@@ -42,7 +42,7 @@ test("ずらした面にかいた形と、下の形をつなぐ(ロフト)", asy
 });
 
 test("箱の上の面をタップして、くりぬく(シェル)", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await page.getByTestId("new-sketch").click();
   await page.getByTestId("plane-top").click();
   await page.getByTestId("tool-rect").click();
@@ -73,7 +73,7 @@ test("箱の上の面をタップして、くりぬく(シェル)", async ({ pag
 });
 
 test("線をかいて道すじにし、断面の円をそれにそって動かす(スイープ)", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   // 道すじ: 上の面に、折れ線(閉じていない線)
   await page.getByTestId("new-sketch").click();
   await page.getByTestId("plane-top").click();

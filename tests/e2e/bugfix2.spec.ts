@@ -34,7 +34,7 @@ async function openFile(page: Page, name: string) {
 }
 
 test("作業があるときにファイルを開くと、いまの作品を閉じてよいか聞く", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await makeBox(page);
   await openFile(page, "べつの作品");
   const ask = page.getByRole("dialog", { name: "ファイルをひらく確認" });
@@ -50,7 +50,7 @@ test("作業があるときにファイルを開くと、いまの作品を閉�
 });
 
 test("かいてある絵をなおすときは「えらぶ」から始まり、やめるときは なおしたところだけ捨てると出る", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await makeBox(page);
   await page.getByTestId("feature-tree").locator("li").nth(0).locator(".tree-item").dblclick();
   await expect(page.getByTestId("tool-select")).toHaveClass(/active/);
@@ -66,7 +66,7 @@ test("かいてある絵をなおすときは「えらぶ」から始まり、�
 });
 
 test("ふだんの言葉のときは、案内に「スケッチ」と出さない", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await makeBox(page);
   await page.getByTestId("open-more").click();
   await page.getByTestId("new-loft").click();
@@ -76,7 +76,7 @@ test("ふだんの言葉のときは、案内に「スケッチ」と出さな�
 
 test("縦向きでは、3D の操作の説明が「作業のれきし」ボタンと重ならない", async ({ page }) => {
   await page.setViewportSize({ width: 820, height: 1180 });
-  await page.goto("/");
+  await page.goto("/?cad");
   const howto = (await page.getByTestId("howto-3d").boundingBox())!;
   const toggle = (await page.getByTestId("tree-toggle").boundingBox())!;
   const overlap = howto.x < toggle.x + toggle.width && toggle.x < howto.x + howto.width && howto.y < toggle.y + toggle.height && toggle.y < howto.y + howto.height;

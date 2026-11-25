@@ -19,7 +19,7 @@ async function pointerSequence(page: Page, steps: { type: "pointerdown" | "point
 }
 
 test("面をえらぶ画面で2本指でさわっても、平面をえらんだことにしない", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await page.getByTestId("new-sketch").click();
   await expect(page.locator(".app")).toHaveClass(/mode-pickPlane/);
 

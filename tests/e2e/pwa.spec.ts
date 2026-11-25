@@ -11,7 +11,7 @@ test.use({ serviceWorkers: "allow" });
 
 test("一度開けば、ネットが切れても開いて形を計算できる", async ({ page, context }) => {
   test.setTimeout(240_000);
-  await page.goto("/");
+  await page.goto("/?cad");
   await expect(page.getByTestId("new-sketch")).toBeVisible();
 
   // 「このアプリについて」に、しまい終わったことが出るまで待つ
@@ -37,7 +37,7 @@ test("一度開けば、ネットが切れても開いて形を計算できる",
 
 test("新しい版がしまわれたら帯が出て、「開き直す」で切りかわる", async ({ page }) => {
   test.setTimeout(240_000);
-  await page.goto("/");
+  await page.goto("/?cad");
   await expect(page.getByTestId("new-sketch")).toBeVisible();
   // 前の版が動きはじめるまで待つ
   await page.waitForFunction(async () => !!(await navigator.serviceWorker.ready).active, null, { timeout: 180_000 });

@@ -49,7 +49,7 @@ async function makeBox(page: Page) {
 
 test("線を引いている途中で「もどす」を押しても、続けてかける", async ({ page }) => {
   const errors = collectErrors(page);
-  await page.goto("/");
+  await page.goto("/?cad");
   await drawTwoLines(page);
   // もどすと、最後の線と、その終わりの点が消える。消えた点から線を引き続けてはいけない
   await page.getByTestId("undo").click();
@@ -63,7 +63,7 @@ test("線を引いている途中で「もどす」を押しても、続けて�
 
 test("寸法で点を1つえらんでから「もどす」を押しても、止まらない", async ({ page }) => {
   const errors = collectErrors(page);
-  await page.goto("/");
+  await page.goto("/?cad");
   await drawTwoLines(page);
   await page.getByTestId("sketch-pending-stop").click();
   await page.getByTestId("tool-dimension").click();
@@ -80,7 +80,7 @@ test("寸法で点を1つえらんでから「もどす」を押しても、止�
 });
 
 test("えらんだ線が「もどす」で消えたら、えらんでいないことにする", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await drawTwoLines(page);
   await page.getByTestId("sketch-pending-stop").click();
   await page.getByTestId("tool-select").click();
@@ -96,7 +96,7 @@ test("えらんだ線が「もどす」で消えたら、えらんでいない�
 });
 
 test("数字キーパッドが出ている間は、Ctrl+Z で作品が変わらない", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await drawTwoLines(page);
   await page.getByTestId("sketch-pending-stop").click();
   await page.getByTestId("tool-dimension").click();
@@ -112,7 +112,7 @@ test("数字キーパッドが出ている間は、Ctrl+Z で作品が変わら�
 });
 
 test("「辺をえらびなおす」の直後、計算が終わる前のタップでは、ちがう辺をえらばない", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await makeBox(page);
   await page.getByTestId("new-fillet").click();
   const view = (await page.getByTestId("viewer-3d").boundingBox())!;
@@ -142,7 +142,7 @@ test("「辺をえらびなおす」の直後、計算が終わる前のタッ�
 });
 
 test("面をずらす量は、パネルを閉じたら 0 にもどる", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await page.getByTestId("new-sketch").click();
   await page.getByRole("button", { name: "ずらす量を大きく" }).click();
   await expect(page.getByTestId("plane-offset")).toHaveText("5 mm");
@@ -152,7 +152,7 @@ test("面をずらす量は、パネルを閉じたら 0 にもどる", async ({
 });
 
 test("角を落とすに切りかえたら、れきしの名前も「角落とし」になる", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await makeBox(page);
   await page.getByTestId("new-fillet").click();
   await page.getByTestId("op-chamfer").click();
@@ -166,7 +166,7 @@ test("角を落とすに切りかえたら、れきしの名前も「角落と�
 });
 
 test("回すスケッチを変えたら、軸も新しいスケッチに合わせる", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   // 1つ目: 補助線(回す軸)と長方形。かけたら「回す」が出るので、いったんやめる
   await page.getByTestId("new-sketch").click();
   await page.getByTestId("plane-front").click();
@@ -206,7 +206,7 @@ test("回すスケッチを変えたら、軸も新しいスケッチに合わ�
 });
 
 test("図面: 寸法を消してまた出したら、えらびかけの点は残らない", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await makeBox(page);
   await page.getByTestId("open-drawing").click();
   const sheet = page.getByTestId("drawing-sheet");
@@ -222,7 +222,7 @@ test("図面: 寸法を消してまた出したら、えらびかけの点は残
 });
 
 test("きまりの記号の近くで線をタップしても、線がえらばれる(記号の当たりが線まで届いていた)", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await drawTwoLines(page);
   await page.getByTestId("sketch-pending-stop").click();
   await page.getByTestId("tool-select").click();

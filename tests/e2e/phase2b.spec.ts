@@ -10,7 +10,7 @@ async function tapCanvas(page: Page, fx: number, fy: number) {
 
 /** 上の面に長方形をかいて押し出し、板を作る */
 async function makePlate(page: Page) {
-  await page.goto("/");
+  await page.goto("/?cad");
   await page.getByTestId("new-sketch").click();
   await page.getByTestId("plane-top").click();
   await page.getByTestId("tool-rect").click();
@@ -86,7 +86,7 @@ test("立体を対称にし、穴をならべられる", async ({ page }) => {
 });
 
 test("変数を作って寸法とあつさに使い、変数を変えると形が変わる", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await page.getByTestId("open-variables").click();
   await page.getByTestId("var-add").click();
   const name = page.getByTestId("var-name-数1");
