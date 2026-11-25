@@ -2,6 +2,7 @@
 // Copyright (c) 2026 技術科　岡田
 
 import { ORIGIN_ID, type Id, type SketchFeature, type Vec2 } from "../doc/types";
+import { pointGroups } from "./sketchCheck";
 
 /** 閉じた輪郭を作る1本の辺 */
 export type LoopSegment =
@@ -39,20 +40,7 @@ export function findProfiles(sketch: Pick<SketchFeature, "entities" | "constrain
   for (const e of sketch.entities) if (e.type === "point") pos.set(e.id, [e.x, e.y]);
 
   // 一致拘束でつながった点は同じ点として扱う
-  const parent = new Map<Id, Id>();
-  const find = (a: Id): Id => {
-    let r = a;
-    while (parent.has(r) && parent.get(r) !== r) r = parent.get(r)!;
-    parent.set(a, r);
-    return r;
-  };
-  for (const c of sketch.constraints) {
-    if (c.type === "coincident") {
-      const ra = find(c.a);
-      const rb = find(c.b);
-      if (ra !== rb) parent.set(ra, rb);
-    }
-  }
+  const find = pointGroups(sketch.constraints);
 
   const loops: Loop[] = [];
   type Edge = { a: Id; b: Id; seg: (fromA: boolean) => LoopSegment };
