@@ -96,3 +96,11 @@ export function pointerWords(text: string, mouse = mouseFirst): string {
   if (!mouse) return text;
   return text.replace(/指を置いたまま/g, "ボタンを押したまま").replace(/タップ/g, "クリック");
 }
+
+/**
+ * 画面に出す案内の文(知らせ・ボタンの説明)を、画面の設定に合わせる(2026-11-25 まとめた)。
+ * ふだんの言葉なら「スケッチ」→「絵」、マウスの端末なら「タップ」→「クリック」。
+ */
+export function screenWords(text: string, pro: boolean): string {
+  return pointerWords(easyWords(text, pro));
+}

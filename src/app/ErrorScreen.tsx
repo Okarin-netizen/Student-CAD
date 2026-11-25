@@ -7,6 +7,7 @@
 import { Component, type ReactNode } from "react";
 import { emptyDocument } from "../doc/types";
 import { downloadFile, saveDoc } from "./persist";
+import { docFileName } from "../util/fileName";
 import { docForSave, getState } from "./store";
 
 interface Props {
@@ -31,7 +32,7 @@ export class ErrorScreen extends Component<Props, State> {
   /** いまの作品をファイルに保存する(先生に見せる・あとで「ひらく」で戻すため) */
   private saveFile = () => {
     const doc = docForSave(getState());
-    downloadFile(JSON.stringify(doc, null, 1), `${doc.name || "作品"}.scad.json`, "application/json");
+    downloadFile(JSON.stringify(doc, null, 1), docFileName(doc.name, "scad.json"), "application/json");
   };
 
   /** 自動保存してある作品を空にして、はじめから */

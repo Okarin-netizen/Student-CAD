@@ -6,6 +6,8 @@
 
 import { useEffect, useRef, useState } from "react";
 import { tipFor } from "./tips";
+import { getState } from "./store";
+import { screenWords } from "./terms";
 
 const HOVER_MS = 450;
 const LONG_PRESS_MS = 500;
@@ -39,7 +41,8 @@ export function TipLayer() {
   useEffect(() => {
     const show = (el: Element) => {
       const text = tipFor(el);
-      if (text) setShown({ text, rect: el.getBoundingClientRect() });
+      // 知らせ(toast)と同じく、ふだんの言葉なら「スケッチ」→「絵」、マウスなら「タップ」→「クリック」にする(2026-11-25)
+      if (text) setShown({ text: screenWords(text, getState().proTerms), rect: el.getBoundingClientRect() });
     };
     const hide = () => {
       window.clearTimeout(timer.current);

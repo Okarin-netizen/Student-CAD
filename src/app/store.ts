@@ -30,14 +30,14 @@ import type { RebuildReply } from "../worker/cad.worker";
 import type { SketchData } from "../sketch/edit";
 import { applyVariables, forgetName, renameInDoc } from "../doc/variables";
 import { dependents, usedSketchIds } from "../doc/links";
-import { easyWords, pointerWords } from "./terms";
+import { screenWords } from "./terms";
 
 export type Mode =
   | { kind: "model" }
   /** スケッチを描く平面を選んでいるところ */
   | { kind: "pickPlane" }
   | { kind: "sketch"; isNew: boolean }
-  /** 押し出し・回転・角を丸める・対称・ならべるの設定中 */
+  /** 押し出し・回転・角を丸める・対称・ならべる・つなぐ・くりぬく・なぞるの設定中(draftOp に入っている) */
   | { kind: "op"; isNew: boolean }
   /** 図面を見ている */
   | { kind: "drawing" }
@@ -61,7 +61,7 @@ export interface State {
   sketchPast: SketchData[];
   sketchFuture: SketchData[];
   draftOp: OpFeature | null;
-  /** 角を丸めるとき、できあがりを見せるか(見せない間は、丸める前の立体で辺をえらぶ) */
+  /** 角を丸める・くりぬくとき、できあがりを見せるか(見せない間は、その作業の前の立体で辺・面をえらぶ) */
   opPreview: boolean;
   selectedFeature: Id | null;
   result: RebuildReply | null;
@@ -216,7 +216,7 @@ export function redo() {
   }
   const [next, ...rest] = s.future;
   if (!next) return;
-  setState({ doc: next, past: [...s.past, s.doc], future: rest });
+  setState({ doc: next, past: [...s.past, s.doc].slice(-HISTORY_LIMIT), future: rest });
 }
 
 const pick = (s: SketchFeature): SketchData => ({ entities: s.entities, constraints: s.constraints });
@@ -268,11 +268,18 @@ export function finishSketch(): SketchFeature | null {
   return sk;
 }
 
+/**
+ * 立体ができているか。なければ「先に立体を作って」と知らせて false。
+ * 図面・角を丸める・対称・くりぬくのように、立体がないと始められない作業の入り口で使う
+ */
+function requireBody(): boolean {
+  if (state.result?.mesh) return true;
+  toast("先に立体を作ってください", "error");
+  return false;
+}
+
 export function startDrawing() {
-  if (!state.result?.mesh) {
-    toast("先に立体を作ってください", "error");
-    return;
-  }
+  if (!requireBody()) return;
   setState({ mode: { kind: "drawing" }, selectedFeature: null });
 }
 
@@ -352,10 +359,7 @@ export function startLoft() {
 
 /** くりぬく。取りのぞく面は 3D でタップしてえらぶ */
 export function startShell() {
-  if (!state.result?.mesh) {
-    toast("先に立体を作ってください", "error");
-    return;
-  }
+  if (!requireBody()) return;
   startOp({ id: newId("sh"), type: "shell", name: nextName("くりぬき", names()), thickness: 2, faces: [] });
 }
 
@@ -395,19 +399,13 @@ export function startRevolve(sketchId?: Id) {
 }
 
 export function startFillet(kind: FilletFeature["kind"] = "fillet") {
-  if (!state.result?.mesh) {
-    toast("先に立体を作ってください", "error");
-    return;
-  }
+  if (!requireBody()) return;
   startOp({ id: newId("fl"), type: "fillet", name: nextName(kind === "fillet" ? "丸め" : "面取り", names()), kind, radius: 2, edges: [] });
 }
 
 /** 対称にする。ふつうは立体全体を、右の面(左右の真ん中)で写す */
 export function startMirror() {
-  if (!state.result?.mesh) {
-    toast("先に立体を作ってください", "error");
-    return;
-  }
+  if (!requireBody()) return;
   startOp({ id: newId("mi"), type: "mirror", name: nextName("ミラー", names()), source: "body", plane: "right" });
 }
 
@@ -540,7 +538,7 @@ export function previewDoc(s: State): CadDocument {
   const draft: Feature | null = s.mode.kind === "op" ? s.draftOp : s.mode.kind === "sketch" ? s.draftSketch : null;
   if (!draft) return s.doc;
   const idx = s.doc.features.findIndex((f) => f.id === draft.id);
-  // 角を丸める辺をえらんでいる間は、その作業より前の形を見せる(丸めた辺はえらべないので)
+  // 角を丸める辺・くりぬく面をえらんでいる間は、その作業より前の形を見せる(丸めたあとの辺はえらべないので)
   if (s.mode.kind === "op" && !s.opPreview) return { ...s.doc, features: idx >= 0 ? s.doc.features.slice(0, idx) : s.doc.features };
   const features = idx >= 0 ? s.doc.features.map((f) => (f.id === draft.id ? draft : f)) : [...s.doc.features, draft];
   return { ...s.doc, features };
@@ -559,6 +557,6 @@ let toastTimer: ReturnType<typeof setTimeout> | undefined;
 export function toast(text: string, kind: "info" | "error" = "info") {
   clearTimeout(toastTimer);
   // 「スケッチ」などの言葉は、画面の設定(ふだんの言葉 / 専門用語)に合わせる
-  setState({ toast: { text: pointerWords(easyWords(text, state.proTerms)), kind } });
+  setState({ toast: { text: screenWords(text, state.proTerms), kind } });
   toastTimer = setTimeout(() => setState({ toast: null }), kind === "error" ? 5000 : 2500);
 }

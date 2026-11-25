@@ -15,7 +15,7 @@ describe("作った人", () => {
 
   it("ファイル名は 学籍番号_氏名_作品名。空白とファイル名に使えない文字はとる", () => {
     expect(fileBaseName(taro, "マグカップ")).toBe("2312_技術太郎_マグカップ");
-    expect(fileBaseName(taro, "A/B", "第三角法")).toBe("2312_技術太郎_AB_第三角法");
+    expect(fileBaseName(taro, "A/B", "第三角法")).toBe("2312_技術太郎_A_B_第三角法");
     expect(fileBaseName({ ...taro, studentId: "", name: "" }, "")).toBe("作品");
   });
 

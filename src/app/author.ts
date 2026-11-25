@@ -6,6 +6,7 @@
 
 import type { Author } from "../doc/types";
 import { toAscii } from "../doc/expr";
+import { safeFileName } from "../util/fileName";
 
 const STUDENT_KEY = "student-cad:student";
 /** 前の版で図面の名前だけを覚えていた所(古い端末のために読む) */
@@ -45,13 +46,11 @@ export const digitsOnly = (v: string) => toAscii(v).replace(/[^0-9]/g, "");
 /** 学籍番号が 4 けたの数字か */
 export const isStudentId = (v: string) => /^[0-9]{4}$/.test(v.trim());
 
-/** ファイル名に使えない文字と空白をとる */
-const safe = (v: string) => v.replace(/[\\/:*?"<>|\s]+/g, "");
 
 /**
  * 保存するファイルの名前(拡張子なし)。「学籍番号_氏名_作品名」(例 "2312_技術太郎_マグカップ")。
  * 入っていない所は とばす。
  */
 export function fileBaseName(a: Author | undefined, title: string, suffix?: string): string {
-  return [a?.studentId, a?.name, title || "作品", suffix].map((v) => safe(v ?? "")).filter(Boolean).join("_");
+  return [a?.studentId, a?.name, title || "作品", suffix].map((v) => safeFileName(v ?? "")).filter(Boolean).join("_");
 }

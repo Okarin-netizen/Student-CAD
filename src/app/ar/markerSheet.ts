@@ -77,7 +77,7 @@ export function markerSheetSvg(): string {
   return [
     `<svg xmlns="http://www.w3.org/2000/svg" width="${W}mm" height="${H}mm" viewBox="0 0 ${W} ${H}" ${font}>`,
     `<rect width="${W}" height="${H}" fill="#fff"/>`,
-    `<text x="${W / 2}" y="28" font-size="9" font-weight="700" text-anchor="middle">Student CAD  ARマーカー</text>`,
+    `<text x="${W / 2}" y="28" font-size="9" font-weight="700" text-anchor="middle">Student-CAD  ARマーカー</text>`,
     `<text x="${W / 2}" y="40" font-size="4.5" text-anchor="middle">この紙をカメラにうつすと、作った立体が乗って見えます</text>`,
     // まわりの白い余白(マーカーを見つけやすくする)を細い線で示す
     `<rect x="${mx - 12}" y="${my - 12}" width="${MARKER_MM + 24}" height="${MARKER_MM + 24}" fill="none" stroke="#bbb" stroke-width="0.3" stroke-dasharray="2 2"/>`,

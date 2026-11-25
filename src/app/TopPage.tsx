@@ -11,10 +11,10 @@
 // 作業画面(App)は このページのうしろで先に準備を始めておく(計算部品の読みこみに数秒かかるため)。
 // URL に ?cad をつけると、トップページをとばして作業画面から始まる(テストや、先生が直接開きたいとき)。
 
-import { TEMPLATES, type Template } from "../doc/templates";
+import type { Template } from "../doc/templates";
+import { APP_COPYRIGHT, APP_LICENSE, APP_NAME, versionLabel } from "./appInfo";
 import { Icon } from "./Icon";
-import { TEMPLATE_ICONS } from "./NewDialog";
-import { versionLabel } from "./AboutDialog";
+import { TemplateButtons } from "./TemplateButtons";
 
 /** トップページから始めるか(?cad がなければ トップページ) */
 export function startsAtTop(): boolean {
@@ -41,11 +41,14 @@ interface Props {
 export function TopPage({ saved, onContinue, onNew, onOpenFile, onAbout }: Props) {
   // みどりのボタンは1画面に1つだけ: 作品があれば「つづきから」、なければ「白紙」
   const hasWork = saved.kind === "some";
+  // 保存した作品を読みこんでいる間は、新しく作る・ひらくを押せなくする。
+  // (押せると、あとから読みこんだ作品が、えらんだ ひな形の上に かぶさっていた。2026-11-25)
+  const loading = saved.kind === "loading";
   return (
     <div className="top-page" data-testid="top-page">
       <header className="top-head">
         <h1>
-          <Icon name="cube" size={36} stroke={1.5} /> Student CAD
+          <Icon name="cube" size={36} stroke={1.5} /> {APP_NAME}
         </h1>
         <p>立体を作って、図面にする CAD</p>
       </header>
@@ -53,7 +56,7 @@ export function TopPage({ saved, onContinue, onNew, onOpenFile, onAbout }: Props
       <div className="top-body">
         <section className="top-side" aria-label="作品を開く">
           <ContinueButton saved={saved} onContinue={onContinue} />
-          <button type="button" className="top-big" onClick={onOpenFile} data-testid="top-open">
+          <button type="button" className="top-big" onClick={onOpenFile} disabled={loading} data-testid="top-open">
             <Icon name="open" size={28} />
             <span className="top-big-text">
               <strong>ファイルをひらく</strong>
@@ -66,23 +69,14 @@ export function TopPage({ saved, onContinue, onNew, onOpenFile, onAbout }: Props
         <section className="top-new" aria-labelledby="top-new-title">
           <h2 id="top-new-title">新しく作る</h2>
           {hasWork && <p className="top-note">新しく作ると、いまの作品「{saved.name}」は閉じます</p>}
-          <div className="top-templates" data-testid="top-templates">
-            {TEMPLATES.map((t) => (
-              <button
-                key={t.id}
-                type="button"
-                className={saved.kind === "none" && t.id === "blank" ? "template primary" : "template"}
-                onClick={() => onNew(t)}
-                data-testid={`top-template-${t.id}`}
-              >
-                <span className="template-icon" aria-hidden>
-                  <Icon name={TEMPLATE_ICONS[t.id] ?? "blank"} size={32} stroke={1.5} />
-                </span>
-                <strong>{t.label}</strong>
-                <small>{t.summary}</small>
-              </button>
-            ))}
-          </div>
+          <TemplateButtons
+            className="top-templates"
+            testId="top-templates"
+            buttonTestIdPrefix="top-template-"
+            primaryId={saved.kind === "none" ? "blank" : undefined}
+            disabled={loading}
+            onPick={onNew}
+          />
         </section>
       </div>
 
@@ -94,7 +88,7 @@ export function TopPage({ saved, onContinue, onNew, onOpenFile, onAbout }: Props
           <Icon name="help" /> このアプリについて
         </button>
         <span className="top-credit">
-          版 {versionLabel()} ・ © 2026 技術科　岡田 ・ MIT ライセンス
+          版 {versionLabel()} ・ {APP_COPYRIGHT} ・ {APP_LICENSE}
         </span>
       </footer>
     </div>

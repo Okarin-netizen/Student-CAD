@@ -57,7 +57,7 @@ const REQUIRED_LISTS: Record<string, string[]> = {
 };
 
 /**
- * Student CAD の作品ファイルか。
+ * Student-CAD の作品ファイルか。
  * こわれたファイル(途中で切れた・手でなおした など)を開いて画面が止まらないよう、作業の形も確かめる。
  */
 export function isDoc(v: unknown): v is CadDocument {

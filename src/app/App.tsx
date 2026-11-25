@@ -12,6 +12,7 @@ import type { CadClient } from "./cadClient";
 import { OpPanel } from "./OpPanel";
 import { FeatureTree } from "./FeatureTree";
 import { downloadFile, isDoc } from "./persist";
+import { docFileName } from "../util/fileName";
 import { SketchEditor } from "./sketch/SketchEditor";
 import {
   cancelMode,
@@ -112,15 +113,10 @@ export function App() {
   const canUndo = mode === "sketch" ? s.sketchPast.length > 0 : mode === "model" && s.past.length > 0;
   const canRedo = mode === "sketch" ? s.sketchFuture.length > 0 : mode === "model" && s.future.length > 0;
   const hasBody = !!s.result?.mesh;
-  const opError = (() => {
-    if (!s.draftOp) return undefined;
-    const st = statuses.find((x) => x.id === s.draftOp!.id);
-    return st && !st.ok ? st.error : undefined;
-  })();
-  const opWarning = (() => {
-    const st = s.draftOp && statuses.find((x) => x.id === s.draftOp!.id);
-    return st && st.ok ? st.warning : undefined;
-  })();
+  // 設定中の作業(押し出しなど)の計算の結果。うまくいかなければ error、注意があれば warning
+  const opStatus = s.draftOp ? statuses.find((x) => x.id === s.draftOp!.id) : undefined;
+  const opError = opStatus && !opStatus.ok ? opStatus.error : undefined;
+  const opWarning = opStatus?.ok ? opStatus.warning : undefined;
 
   // 手順バー: 次に押すボタンをみどりに、まだ使えないボタンをうすくする(stepGuide.ts)
   const guide = useMemo(() => stepGuide(s.doc, hasBody, pro), [s.doc, hasBody, pro]);
@@ -200,18 +196,18 @@ export function App() {
       return toast(`${ext.toUpperCase()} を書き出せませんでした。形を少し変えてから、もう一度ためしてください`, "error");
     }
     if (!buf) return toast("書き出す立体がありません", "error");
-    downloadFile(buf, `${s.doc.name || "作品"}.${ext}`, mime);
+    downloadFile(buf, docFileName(s.doc.name, ext), mime);
     toast(done);
   };
 
   const saveFile = () => {
-    downloadFile(JSON.stringify(docForSave(s), null, 1), `${s.doc.name || "作品"}.scad.json`, "application/json");
+    downloadFile(JSON.stringify(docForSave(s), null, 1), docFileName(s.doc.name, "scad.json"), "application/json");
   };
 
   /** 課題ファイル: 作品の記録(作業時間など)は入れず、生徒が開いたときに新しく数え始める */
   const exportAssignment = (a: NonNullable<CadDocument["assignment"]>) => {
     const doc: CadDocument = { ...s.doc, assignment: a };
-    downloadFile(JSON.stringify(doc, null, 1), `課題_${a.title}.scad.json`, "application/json");
+    downloadFile(JSON.stringify(doc, null, 1), docFileName(`課題_${a.title}`, "scad.json"), "application/json");
     toast("課題ファイルを保存しました。生徒はこのファイルを「ひらく」で開きます");
   };
 
@@ -260,12 +256,19 @@ export function App() {
       ? { kind: "none" }
       : { kind: "some", name: s.doc.name, steps: s.doc.features.length, assignment: s.doc.assignment?.title };
   const newFromTop = (t: Template) => (s.doc.features.length > 0 ? setPendingNew(t) : startFrom(t));
+  /**
+   * いまの作品を閉じる前の確認に出す、残し方の案内。
+   * トップページには「ファイルに保存」のボタンがないので、先に「つづきから」で開いてもらう(2026-11-25)
+   */
+  const keepWorkHint = atTop
+    ? "「もどす」ではもどせないので、残したいときは先に「つづきから」で開いて「ファイルに保存」してください。"
+    : "「もどす」ではもどせないので、残したいときは先に「ファイルに保存」してください。";
 
   // ---- メニューの中身 ----
 
   const fileMenu: MenuItem[] = [
     { id: "file-top", icon: "home", label: "トップページへ", run: () => setAtTop(true) },
-    { id: "file-new", icon: "plus", label: "新しく", run: () => setDialog("new") },
+    { id: "file-new", icon: "plus", label: "新しく作る", run: () => setDialog("new") },
     { id: "file-open", icon: "open", label: "ひらく", run: () => fileRef.current?.click() },
     { id: "save-file", icon: "save", label: "ファイルに保存", run: saveFile },
     { id: "file-assignment", icon: "assignment", label: s.doc.assignment ? "課題をなおす(先生用)" : "課題を作る(先生用)", run: () => setDialog("assignment") },
@@ -345,14 +348,7 @@ export function App() {
         {mode === "sketch" && sketchFeature ? (
           <>
             <span className="topbar-title"><Icon name="sketch" /> {featureLabel(sketchFeature.name, pro)}</span>
-            <div className="topbar-group">
-              <button type="button" onClick={undo} disabled={!canUndo} aria-label="もどす" data-testid="undo">
-                <Icon name="undo" /> <span className="btn-label">もどす</span>
-              </button>
-              <button type="button" onClick={redo} disabled={!canRedo} aria-label="やりなおす" data-testid="redo">
-                <Icon name="redo" />
-              </button>
-            </div>
+            <UndoRedoButtons canUndo={canUndo} canRedo={canRedo} />
             <div className="topbar-group end">
               <button type="button" onClick={cancelSketch} data-testid="sketch-cancel">
                 やめる
@@ -383,14 +379,7 @@ export function App() {
               {/* スマホでは文字をかくし、しるしだけにする(読み上げでは聞こえる) */}
               <span className="save-text">{saveState === "busy" ? "計算中…" : saveState === "saved" ? "保存ずみ" : "保存中…"}</span>
             </span>
-            <div className="topbar-group">
-              <button type="button" onClick={undo} disabled={!canUndo} aria-label="もどす" data-testid="undo">
-                <Icon name="undo" /> <span className="btn-label">もどす</span>
-              </button>
-              <button type="button" onClick={redo} disabled={!canRedo} aria-label="やりなおす" data-testid="redo">
-                <Icon name="redo" />
-              </button>
-            </div>
+            <UndoRedoButtons canUndo={canUndo} canRedo={canRedo} />
             <div className="topbar-group end">
               <button type="button" onClick={() => setShowVariables(true)} disabled={mode !== "model"} data-testid="open-variables">
                 <Icon name="variables" /> {term("variables", pro)}
@@ -607,7 +596,7 @@ export function App() {
           onCancel={() => setPendingNew(null)}
           onOk={() => startFrom(pendingNew)}
         >
-          <p className="panel-warning">いまの作品「{s.doc.name}」は閉じます。残したいときは、先に「つづきから」で開いて「ファイルに保存」してください。</p>
+          <p className="panel-warning">いまの作品「{s.doc.name}」は閉じます。{keepWorkHint}</p>
         </ConfirmDialog>
       )}
 
@@ -622,7 +611,7 @@ export function App() {
           onCancel={() => setPendingOpen(null)}
           onOk={() => applyOpen(pendingOpen)}
         >
-          <p className="panel-warning">いまの作品「{s.doc.name}」は閉じます。「もどす」ではもどせないので、残したいときは先に「ファイルに保存」してください。</p>
+          <p className="panel-warning">いまの作品「{s.doc.name}」は閉じます。{keepWorkHint}</p>
         </ConfirmDialog>
       )}
 
@@ -645,5 +634,19 @@ function StepBarRow({ nextKey, children }: { nextKey: unknown; children: ReactNo
     <nav className="stepbar" aria-label="作り方の手順" ref={ref}>
       {children}
     </nav>
+  );
+}
+
+/** 上のバーの「もどす」「やりなおす」。絵をかいている間も、ふだんの画面でも同じ場所に出す */
+function UndoRedoButtons({ canUndo, canRedo }: { canUndo: boolean; canRedo: boolean }) {
+  return (
+    <div className="topbar-group">
+      <button type="button" onClick={undo} disabled={!canUndo} aria-label="もどす" data-testid="undo">
+        <Icon name="undo" /> <span className="btn-label">もどす</span>
+      </button>
+      <button type="button" onClick={redo} disabled={!canRedo} aria-label="やりなおす" data-testid="redo">
+        <Icon name="redo" />
+      </button>
+    </div>
   );
 }
