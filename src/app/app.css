@@ -840,6 +840,60 @@ button.danger:disabled {
   margin-left: auto;
 }
 
+/* 立体にできない原因の印(2026-11-25 追加)。色は危ないときの赤(--danger)にそろえる */
+/* 印はタップの じゃまをしない(下の線や点をえらべるようにする) */
+.sk-issue-curve,
+.sk-issue-end,
+.sk-issue-branch,
+.sk-issue-cross {
+  pointer-events: none;
+}
+
+.sk-issue-curve {
+  fill: none;
+  stroke: var(--danger);
+  stroke-opacity: 0.28;
+  stroke-width: 12;
+  stroke-linecap: round;
+}
+
+.sk-issue-curve.overlap {
+  stroke-opacity: 0.45;
+  stroke-width: 16;
+}
+
+.sk-issue-end circle,
+.sk-issue-branch {
+  fill: none;
+  stroke: var(--danger);
+  stroke-width: 3;
+}
+
+.sk-issue-cross {
+  stroke: var(--danger);
+  stroke-width: 4;
+  stroke-linecap: round;
+}
+
+/* 知らせの中のボタン(となりとの間は下の .sk-warn button で 8px あける) */
+.sk-warn {
+  display: inline-flex;
+  align-items: center;
+  flex-wrap: wrap;
+}
+
+.sk-warn .sk-warn-what {
+  background: none;
+  border: none;
+  color: inherit;
+  font: inherit;
+  font-weight: 700;
+  padding: 0;
+  margin-left: 0 !important;
+  text-decoration: underline dotted;
+  text-underline-offset: 3px;
+}
+
 /* 画面がせまいとき(縦向きのタブレットなど) */
 @media (max-width: 820px) {
   .tree {
