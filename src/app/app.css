@@ -43,6 +43,21 @@
   /* 押せないボタンの文字(白の上で 4.5:1 以上) */
   --disabled-text: #5b6963;
   --bw: 1px;
+  /* 重なりの順(z-index)。数が大きいほど上に出る。2026-11-25 ばらばらの数をここにまとめた。
+     新しく重ねる物を足すときは、ここに名前をつけて足す */
+  --z-howto: 3; /* 3D の操作の説明 */
+  --z-panel: 5; /* 作業のパネル・課題カード */
+  --z-tree: 7; /* たたんだ作業のれきし(たて向き・横向きのスマホ) */
+  --z-menu: 20; /* 「書き出す」「そのほか」のメニュー */
+  --z-file-menu: 30; /* 「ファイル」のメニュー */
+  --z-screen: 40; /* 画面いっぱいの画面(図面・トップページ) */
+  --z-file-menu-phone: 45; /* スマホでは「ファイル」のメニューを画面の下に出す */
+  --z-dialog: 50; /* ダイアログ・確認 */
+  --z-banner: 55; /* 「新しい版があります」の帯 */
+  --z-toast: 60; /* 下の知らせ */
+  --z-ar: 60; /* AR の画面 */
+  --z-camera: 70; /* マーカー AR のカメラ画面 */
+  --z-tip: 1000; /* ボタンの説明(いちばん上) */
   color-scheme: light;
   /* 読みまちがえにくい UD 書体を先に使う(Windows は BIZ UDPゴシック、iPad はヒラギノ、Chromebook は Noto) */
   font-family: "BIZ UDPGothic", "BIZ UDPゴシック", "Hiragino Sans", "Hiragino Kaku Gothic ProN", "Noto Sans JP", "Noto Sans CJK JP", "Yu Gothic UI", system-ui, sans-serif;
@@ -398,7 +413,7 @@ button.danger:disabled {
   display: flex;
   flex-direction: column;
   gap: 12px;
-  z-index: 5;
+  z-index: var(--z-panel);
   /* 設定が多いとき(ならべる など)は、パネルの中だけスクロールする */
   max-height: calc(100% - 24px);
   overflow-y: auto;
@@ -470,7 +485,7 @@ button.danger:disabled {
   background: #0005;
   display: grid;
   place-items: center;
-  z-index: 50;
+  z-index: var(--z-dialog);
 }
 
 .dialog {
@@ -542,7 +557,7 @@ button.danger:disabled {
   color: #fff;
   padding: 12px 18px;
   border-radius: var(--r);
-  z-index: 60;
+  z-index: var(--z-toast);
   pointer-events: none;
 }
 
@@ -988,7 +1003,7 @@ button.danger:disabled {
   border-radius: var(--r);
   font-size: 0.95rem;
   pointer-events: none;
-  z-index: 3;
+  z-index: var(--z-howto);
   white-space: nowrap;
 }
 
@@ -1131,7 +1146,7 @@ button.danger:disabled {
 .drawing-view {
   position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: var(--z-screen);
   background: var(--bg);
   display: flex;
   flex-direction: column;
@@ -1186,10 +1201,6 @@ button.danger:disabled {
 
 .drawing-who + .drawing-author {
   margin-left: 0;
-}
-
-.drawing-author.short input {
-  width: 6em; /* 見本「例: 2312」が入る幅 */
 }
 
 /* 氏名がまだ入っていないときは、入れる所を目立たせる */
@@ -1361,7 +1372,7 @@ button.danger:disabled {
   background: var(--surface);
   border: var(--bw) solid var(--border);
   border-radius: var(--r);
-  z-index: 20;
+  z-index: var(--z-menu);
 }
 
 .export-menu button {
@@ -1383,7 +1394,7 @@ button.danger:disabled {
   top: calc(100% + 8px);
   bottom: auto;
   width: 240px;
-  z-index: 30;
+  z-index: var(--z-file-menu);
 }
 
 .file-menu button {
@@ -1402,7 +1413,7 @@ button.danger:disabled {
   background: var(--surface);
   border: var(--bw) solid var(--border);
   border-radius: var(--r);
-  z-index: 5;
+  z-index: var(--z-panel);
 }
 
 .assignment-head {
@@ -1688,7 +1699,7 @@ button.danger:disabled {
 
 .tip {
   position: fixed;
-  z-index: 1000;
+  z-index: var(--z-tip);
   padding: 10px 14px;
   border: var(--bw) solid var(--border);
   border-radius: var(--r);
@@ -1875,7 +1886,7 @@ button.primary .icon,
     position: absolute;
     top: 12px;
     left: 12px;
-    z-index: 7;
+    z-index: var(--z-tree);
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -2092,7 +2103,7 @@ input:focus-visible {
   justify-content: space-between;
   padding: 16px;
   pointer-events: none;
-  z-index: 60;
+  z-index: var(--z-ar);
 }
 
 .ar-overlay[hidden] {
@@ -2135,7 +2146,7 @@ input:focus-visible {
 .marker-ar {
   position: fixed;
   inset: 0;
-  z-index: 70;
+  z-index: var(--z-camera);
   background: #000;
   display: grid;
   place-items: center;
@@ -2195,7 +2206,7 @@ input:focus-visible {
 .top-page {
   position: fixed;
   inset: 0;
-  z-index: 40;
+  z-index: var(--z-screen);
   display: flex;
   flex-direction: column;
   background: var(--bg);
@@ -2612,7 +2623,7 @@ button.template.primary small {
     width: auto;
     max-height: calc(100dvh - 16px);
     overflow-y: auto;
-    z-index: 45;
+    z-index: var(--z-file-menu-phone);
     box-shadow: 0 -2px 0 var(--line), 0 6px 24px #0004;
   }
 
@@ -2808,7 +2819,7 @@ button.template.primary small {
   /* 作業のれきしは、たて向きのタブレットと同じく、ボタン1つにたたむ */
   .tree-wrap {
     position: absolute;
-    z-index: 7;
+    z-index: var(--z-tree);
     display: flex;
     flex-direction: column;
     align-items: flex-start;
@@ -2960,7 +2971,7 @@ button.template.primary small {
   border: 1px solid var(--text);
   border-radius: var(--r);
   padding: 6px 6px 6px 14px;
-  z-index: 55;
+  z-index: var(--z-banner);
 }
 
 .update-banner button {

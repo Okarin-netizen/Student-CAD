@@ -45,6 +45,10 @@
 - **ネットがなくても開ける**: 一度開くと、アプリを端末にしまう。2回目からは、学校のネットが遅い・切れるときでも開いて使える。新しい版があると画面の上に「開き直す」が出る
 - **このアプリについて**: 「ファイル」の中。版・作った人・ライセンス・オフラインで開けるかを見られる
 
+2026-11-25 追加:
+- **トップページ**: 開くと、まず入口の画面が出る(つづきから・新しく作る・ファイルをひらく・作り方・せつめい書 PDF)。作業画面の「ファイル」→「トップページへ」で もどれる
+- **閉じていない線を知らせる**: 絵が立体にならないとき、原因の場所(つながっていない はし・線のとちゅうの はし・分かれ道・交差)を赤い印で見せる。すき間の小さい はしは「はしを つなぐ」で閉じられる
+
 ほかに、作業のれきし(あとから寸法をなおすと形が作り直される)、もどす/やりなおす、
 端末の中への自動保存、作品ファイル(.scad.json)の保存と読み込み、専門用語への切り替えがあります。
 
@@ -71,16 +75,16 @@
 | フォルダ | 中身 |
 | --- | --- |
 | `main.tsx` | 入り口。`?bench` をつけるとフェーズ0の計測ページ(`bench/`)になる。ふつうはトップページ(`app/TopPage.tsx`)から始まり、`?cad` をつけると作業画面から始まる |
-| `app/` | 画面(React)。`App.tsx` が全体、`store.ts` が画面の状態と「もどす」、`useCadEngine.ts` が起動の準備、`useAutoSave.ts` が自動保存、ほかは部品(メニュー・パネル・ダイアログ) |
+| `app/` | 画面(React)。`App.tsx` が全体、`store.ts` が画面の状態と「もどす」、`useCadEngine.ts` が起動の準備、`useAutoSave.ts` が自動保存、`TopPage.tsx` がトップページ、`terms.ts` が画面の言葉(ふだんの言葉と専門用語)、`tips.ts` がボタンの説明、`appInfo.ts` がアプリの名前・作った人・版、ほかは部品(メニュー・パネル・ダイアログ) |
 | `app/ar/` | ARで見る: AR 用の立体と USDZ を作る(`arModel.ts`)、端末に合わせた開き方(`arSupport.ts`・`quickLook.ts`・`webxrAr.ts`)、マーカーAR(`aruco.ts`・`markerTracker.ts`・`markerSheet.ts`) |
 | `app/sketch/` | スケッチの画面(`SketchEditor.tsx`)、道具の一覧と案内の言葉(`tools.ts`)、画面の座標・下がきの計算 |
 | `doc/` | 設計図(作品ファイル)のデータの形(`types.ts`)、基準面、式と変数、課題とひな形、作業のつながり |
-| `sketch/` | スケッチの計算: 拘束の計算(planegcs)、線や寸法を足す、閉じた形をさがす |
+| `sketch/` | スケッチの計算: 拘束の計算(planegcs)、線や寸法を足す、閉じた形をさがす(`profiles.ts`)、閉じていない はし・交差をさがす(`sketchCheck.ts`) |
 | `kernel/` | 立体の計算(OpenCascade): 設計図から立体を作り直す(`rebuild.ts`)、図面用に立体を見た線(`projection.ts`) |
 | `drawing/` | 図面(用紙・寸法・表題欄)を組み立てて、SVG・DXF にする |
 | `export/` | 3MF・提出用 ZIP を作る |
 | `worker/` | 重い計算を画面とは別に動かす Web Worker |
-| `math/`・`util/` | いろいろな所で使う小さな関数(ベクトル計算、XML の書きかえ) |
+| `math/`・`util/` | いろいろな所で使う小さな関数(ベクトル計算、XML の書きかえ、ファイル名) |
 | `bench/` | フェーズ0(技術検証)の計測ページ |
 
 オフライン用の Service Worker のひな形は `pwa/service-worker.js` です。ビルドのとき `vite.config.ts` が `dist/sw.js` にします。
@@ -91,15 +95,15 @@
 npm install
 npm run dev        # http://localhost:5173
 npm test           # 単体テスト(拘束計算・立体化・STL)
-npm run test:e2e   # iPad 横向き・Chromebook・スマホ(たて・横)の画面サイズでの操作テスト
+npm run test:e2e   # iPad 横向き・Chromebook・スマホ(たて・横)の画面サイズでの操作テスト(LANG=C.UTF-8 で動かす)
 npm run build
 ```
+
+URL のつけ足し: `?cad` でトップページをとばして作業画面から、`?bench` でフェーズ0の計測ページを開きます。e2e テストは `/?cad` から始めます。
 
 `main` に入ると GitHub Actions で GitHub Pages に公開されます(初回のみ、Settings → Pages の Source を「GitHub Actions」にしてください)。
 
 変更履歴は [CHANGELOG.md](CHANGELOG.md) にあります。何を満たせばよいか(要求)の一覧は [docs/requirements.md](docs/requirements.md) にあります。使っているライブラリと、これからの見通しは [docs/dependencies.md](docs/dependencies.md) にあります。
-
-
 
 ## ライセンス
 

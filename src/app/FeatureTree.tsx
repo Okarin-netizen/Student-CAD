@@ -51,7 +51,9 @@ export function FeatureTree({ doc, statuses, selected, pro, disabled, onSelect, 
       <ol data-testid="feature-tree">
         {doc.features.map((f, i) => {
           const st = status.get(f.id);
-          const bad = st && !st.ok;
+          const error = st && !st.ok ? st.error : undefined;
+          const bad = error !== undefined;
+          const summary = featureSummary(f, nameOf);
           return (
             <li
               key={f.id}
@@ -69,35 +71,7 @@ export function FeatureTree({ doc, statuses, selected, pro, disabled, onSelect, 
                 </span>
                 <span className="tree-name">
                   {label(f)}
-                  {f.type === "extrude" && <small> {nameOf(f.sketchId)} ・ {f.distance}mm</small>}
-                  {f.type === "revolve" && <small> {nameOf(f.sketchId)} ・ {f.angle}°</small>}
-                  {f.type === "fillet" && (
-                    <small>
-                      {" "}
-                      {f.kind === "fillet" ? "R" : "C"}
-                      {f.radius} ・ 辺 {f.edges.length} 本
-                    </small>
-                  )}
-                  {f.type === "mirror" && <small> {f.source === "body" ? "立体ぜんぶ" : nameOf(f.source)} ・ {BASE_PLANE_LABELS[f.plane]}</small>}
-                  {f.type === "sweep" && (
-                    <small>
-                      {" "}
-                      {nameOf(f.profileId)} を {nameOf(f.pathId)} にそって
-                    </small>
-                  )}
-                  {f.type === "loft" && <small> {f.sketchIds.map(nameOf).join(" → ")}</small>}
-                  {f.type === "shell" && (
-                    <small>
-                      {" "}
-                      あつさ {f.thickness}mm ・ 面 {f.faces.length} こ
-                    </small>
-                  )}
-                  {f.type === "pattern" && (
-                    <small>
-                      {" "}
-                      {nameOf(f.source)} ・ {f.kind === "linear" ? `${f.count}${f.count2 > 1 ? `×${f.count2}` : ""} こ` : `${f.count} こ / ${f.angle}°`}
-                    </small>
-                  )}
+                  {summary && <small> {summary}</small>}
                 </span>
                 {bad && (
                   <span className="tree-error" role="img" aria-label="エラー">
@@ -105,7 +79,7 @@ export function FeatureTree({ doc, statuses, selected, pro, disabled, onSelect, 
                   </span>
                 )}
               </button>
-              {bad && <p className="tree-error-text">{say((st as { error: string }).error)}</p>}
+              {bad && <p className="tree-error-text">{say(error)}</p>}
               {st?.ok && st.warning && <p className="tree-warning-text">{say(st.warning)}</p>}
               {selected === f.id && !disabled && (
                 <div className="tree-actions">
@@ -147,6 +121,34 @@ export function FeatureTree({ doc, statuses, selected, pro, disabled, onSelect, 
   );
 }
 
+/**
+ * れきしの名前の横に小さく出す説明(「絵1 ・ 10mm」など)。
+ * 新しい作業の種類を足したときは、ここにも1行足す(足さなければ説明なしで出る)
+ */
+function featureSummary(f: Feature, nameOf: (id: Id) => string): string {
+  switch (f.type) {
+    case "extrude":
+      return `${nameOf(f.sketchId)} ・ ${f.distance}mm`;
+    case "revolve":
+      return `${nameOf(f.sketchId)} ・ ${f.angle}°`;
+    case "fillet":
+      return `${f.kind === "fillet" ? "R" : "C"}${f.radius} ・ 辺 ${f.edges.length} 本`;
+    case "mirror":
+      return `${f.source === "body" ? "立体ぜんぶ" : nameOf(f.source)} ・ ${BASE_PLANE_LABELS[f.plane]}`;
+    case "sweep":
+      return `${nameOf(f.profileId)} を ${nameOf(f.pathId)} にそって`;
+    case "loft":
+      return f.sketchIds.map(nameOf).join(" → ");
+    case "shell":
+      return `あつさ ${f.thickness}mm ・ 面 ${f.faces.length} こ`;
+    case "pattern":
+      return `${nameOf(f.source)} ・ ${f.kind === "linear" ? `${f.count}${f.count2 > 1 ? `×${f.count2}` : ""} こ` : `${f.count} こ / ${f.angle}°`}`;
+    default:
+      return "";
+  }
+}
+
+/** れきしの作業のアイコン */
 function icon(f: Feature): IconName {
   switch (f.type) {
     case "sketch":

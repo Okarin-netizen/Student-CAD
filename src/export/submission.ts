@@ -10,6 +10,7 @@ import { fmt } from "../doc/assignment";
 import type { CadDocument, Feature } from "../doc/types";
 import { makeZip } from "./zip";
 import { escapeXml } from "../util/xml";
+import { safeFileName } from "../util/fileName";
 
 /** 提出する人。図面の表題欄と同じ「学籍番号・氏名」(2026-11-11 組・番号から変更) */
 export interface Student {
@@ -33,9 +34,9 @@ export interface SubmissionInput {
   now?: Date;
 }
 
-/** ファイル名に使えない文字を「_」にする */
+/** ファイル名に使えない文字を「_」にする(何も残らなければ「_」)。決まりは util/fileName.ts と同じ */
 export function safeName(s: string): string {
-  return s.replace(/[\\/:*?"<>|\s]+/g, "_").replace(/^_+|_+$/g, "") || "_";
+  return safeFileName(s) || "_";
 }
 
 /**
@@ -43,8 +44,7 @@ export function safeName(s: string): string {
  * 学籍番号が先なので、先生が並べたとき学籍番号の順になる。
  */
 export function submissionName(student: Student, title: string): string {
-  const part = (v: string) => safeName(v.replace(/\s+/g, ""));
-  return `${part(student.studentId)}_${part(student.name)}_${part(title || "作品")}.zip`;
+  return `${safeName(student.studentId)}_${safeName(student.name)}_${safeName(title || "作品")}.zip`;
 }
 
 export function makeSubmission(input: SubmissionInput): Uint8Array {
@@ -147,7 +147,7 @@ table{border-collapse:collapse;width:100%}th,td{border:1px solid #cbd2d9;padding
 ol{padding-left:1.6em}li{margin:2px 0}
 </style></head><body>
 <h1>提出カード</h1>
-<p class="muted">Student CAD で作った作品です。いっしょに入っている .scad.json を Student CAD で開くと、作り方を再生できます。</p>
+<p class="muted">Student-CAD で作った作品です。いっしょに入っている .scad.json を Student-CAD で開くと、作り方を再生できます。</p>
 <table>${rows.map(([k, v]) => `<tr><th>${escapeXml(k)}</th><td>${escapeXml(v)}</td></tr>`).join("")}</table>
 ${input.image ? `<h2>作品の見た目</h2><img src="${input.image}" alt="作品の 3D の絵">` : ""}
 ${

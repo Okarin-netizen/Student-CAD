@@ -9,9 +9,10 @@
 import * as THREE from "three";
 import { USDZExporter } from "three/examples/jsm/exporters/USDZExporter.js";
 import type { BodyMesh } from "../../kernel/rebuild";
+import { viewerColors } from "../viewerColors";
 
-/** 立体の色(3D 画面と同じ青) */
-export const AR_BODY_COLOR = 0x4f8fe6;
+/** 立体の色。なぜ 3D 画面(白)とちがう色かは viewerColors.ts の arBody に書いた */
+export const AR_BODY_COLOR = viewerColors.arBody;
 
 /** 1mm は 0.001m */
 const MM_TO_M = 0.001;

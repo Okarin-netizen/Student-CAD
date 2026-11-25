@@ -4,7 +4,7 @@
 /**
  * 3D の画面の色。2026-11-21 追加(デザインの改善 段階2)。
  * これまで立体は青、基準の板は青・緑・オレンジで、画面のほかの所(三角定規の墨とみどり)と合っていなかった。
- * 色はここにまとめ、Viewer3D はここだけを見る。
+ * 色はここにまとめ、Viewer3D と AR(ar/arModel.ts)はここだけを見る。
  */
 export interface ViewerColors {
   /** 立体の色 */
@@ -25,6 +25,11 @@ export interface ViewerColors {
   pick: number;
   /** えらべない面 */
   pickNg: number;
+  /**
+   * AR(カメラの映像に重ねる)の立体の色。3D 画面の白い立体は、ふちの線がない AR では
+   * 白い机や紙にまぎれて見えにくいので、AR だけ はっきりした青にしている(2026-11-20 から)
+   */
+  arBody: number;
   /** ビューキューブ */
   cubeFace: string;
   cubeLine: string;
@@ -43,6 +48,7 @@ const PAPER: ViewerColors = {
   sketch: 0x0f7356,
   pick: 0xe8590c,
   pickNg: 0x9fada6,
+  arBody: 0x4f8fe6,
   cubeFace: "#ffffff",
   cubeLine: "#14201b",
   cubeText: "#14201b",

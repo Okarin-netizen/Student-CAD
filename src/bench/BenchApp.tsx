@@ -186,7 +186,7 @@ export function BenchApp() {
   return (
     <div className="app">
       <header className="topbar">
-        <h1>Student CAD <small>技術検証版</small></h1>
+        <h1>Student-CAD <small>技術検証版</small></h1>
         <ol className="steps" aria-label="作業の流れ">
           <li className="done">① 平面をえらぶ</li>
           <li className="current">② 絵をかく(スケッチ)</li>
