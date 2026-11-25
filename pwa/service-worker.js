@@ -37,8 +37,10 @@ self.addEventListener("message", (event) => {
 self.addEventListener("fetch", (event) => {
   const req = event.request;
   if (req.method !== "GET" || new URL(req.url).origin !== self.location.origin) return;
-  // ページそのもの(?bench などがついていても)は、しまってある index.html を出す
-  const navigate = req.mode === "navigate";
+  // ページそのもの(?bench などがついていても)は、しまってある index.html を出す。
+  // ただし せつめい書(PDF)など、名前に .pdf などがつくファイルを開くときは、そのファイルを出す(2026-11-25)
+  const path = new URL(req.url).pathname;
+  const navigate = req.mode === "navigate" && !/\.(?!html$)[a-z0-9]+$/i.test(path);
   const key = navigate ? "./" : req.url;
   // ignoreVary: しまったときと読むときで、サーバーの Vary(Origin など)の見出しがちがっても同じファイルとして出す
   event.respondWith(

@@ -15,7 +15,7 @@ interface Props {
 /** 新しく始める画面。白紙か、課題のひな形をえらぶ */
 
 /** ひな形ごとの線のアイコン */
-const TEMPLATE_ICONS: Record<string, IconName> = {
+export const TEMPLATE_ICONS: Record<string, IconName> = {
   blank: "blank",
   nameplate: "nameplate",
   coaster: "coaster",

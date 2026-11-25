@@ -9,7 +9,7 @@ async function tapCanvas(page: Page, fx: number, fy: number) {
 }
 
 async function makeBox(page: Page) {
-  await page.goto("/");
+  await page.goto("/?cad");
   await page.getByTestId("new-sketch").click();
   await page.getByTestId("plane-top").click();
   await page.getByTestId("tool-rect").click();

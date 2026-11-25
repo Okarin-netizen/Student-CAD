@@ -6,7 +6,7 @@
 import { expect, test } from "@playwright/test";
 
 test("まだ押せないボタンも、うすくせず読める濃さで出す(点線のわく)", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   for (const id of ["new-extrude", "undo"]) {
     const look = await page.getByTestId(id).evaluate((el) => {
       const cs = getComputedStyle(el);
@@ -19,7 +19,7 @@ test("まだ押せないボタンも、うすくせず読める濃さで出す(�
 });
 
 test("Esc で、いちばん上の画面だけが とじる", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await page.getByTestId("new-sketch").click();
   await expect(page.getByTestId("plane-top")).toBeVisible();
   // 面をずらす数字キーパッドの上で Esc → キーパッドだけ とじる

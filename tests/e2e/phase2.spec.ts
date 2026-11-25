@@ -9,7 +9,7 @@ async function tapCanvas(page: Page, fx: number, fy: number) {
 }
 
 async function makeBox(page: Page) {
-  await page.goto("/");
+  await page.goto("/?cad");
   await page.getByTestId("new-sketch").click();
   await page.getByTestId("plane-top").click();
   await page.getByTestId("tool-rect").click();
@@ -21,7 +21,7 @@ async function makeBox(page: Page) {
 }
 
 test("補助線を軸にして回すと、回転の立体ができる", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await page.getByTestId("new-sketch").click();
   await page.getByTestId("plane-front").click();
   // 原点を通るたての補助線(軸)と、その右に長方形

@@ -2185,6 +2185,292 @@ input:focus-visible {
 }
 
 /* ======================================================================
+   トップページ(2026-11-25 追加。TopPage.tsx)
+   ----------------------------------------------------------------------
+   作業画面と同じ「三角定規」: 白い紙・墨の線・みどりは次に押すボタン1つだけ。
+   上の帯の下のふちに、作業画面の上のバーと同じ目もりを引く。
+   ダイアログ(50)・トースト(60)より下に重ねる。
+   ====================================================================== */
+
+.top-page {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  display: flex;
+  flex-direction: column;
+  background: var(--bg);
+  overflow-y: auto;
+  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
+}
+
+.top-head {
+  position: relative;
+  background: var(--surface);
+  /* 文字の左はしを、下の本文(はば 1180px まで・まん中よせ)の左はしにそろえる */
+  padding: 28px max(32px, calc((100% - 1180px) / 2 + 32px)) 30px;
+}
+
+/* 目もり(.topbar::after と同じ描き方) */
+.top-head::after {
+  content: "";
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: 9px;
+  border-top: 1px solid var(--tick);
+  pointer-events: none;
+  background:
+    repeating-linear-gradient(90deg, var(--tick) 0 1px, transparent 1px 60px) 0 0 / 100% 9px no-repeat,
+    repeating-linear-gradient(90deg, var(--tick) 0 1px, transparent 1px 30px) 0 0 / 100% 6px no-repeat,
+    repeating-linear-gradient(90deg, var(--tick) 0 1px, transparent 1px 6px) 0 0 / 100% 3px no-repeat;
+}
+
+.top-head h1 {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin: 0;
+  font-size: 2.2rem;
+  letter-spacing: 0.02em;
+}
+
+.top-head h1 .icon {
+  color: var(--accent);
+}
+
+.top-head p {
+  margin: 6px 0 0;
+  color: var(--muted);
+}
+
+.top-body {
+  flex: 1;
+  display: grid;
+  grid-template-columns: minmax(260px, 1fr) minmax(0, 1.7fr);
+  align-content: start;
+  gap: 28px;
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 28px 32px;
+}
+
+.top-side {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+
+/* 大きなボタン(つづきから・ファイルをひらく)。アイコン・名前・小さな説明を横にならべる */
+button.top-big {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  min-height: 96px;
+  padding: 14px 18px;
+  text-align: left;
+}
+
+.top-big-text {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  min-width: 0;
+}
+
+.top-big-text strong {
+  font-size: 1.3rem;
+}
+
+/* 作品の名前が長いときは「…」で切る(ボタンの文字は1行) */
+.top-big-text small {
+  font-weight: 400;
+  color: var(--muted);
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+button.top-big.primary small,
+button.template.primary small {
+  color: var(--accent-text);
+}
+
+.top-empty {
+  margin: 0;
+  padding: 16px 18px;
+  background: var(--surface);
+  border: 1px dashed var(--border);
+  border-radius: var(--r);
+  line-height: 1.6;
+}
+
+/* 作り方(押せないので、ボタンに見えないよう わくをつけない) */
+.top-howto {
+  margin-top: 8px;
+}
+
+.top-howto h2,
+.top-new h2 {
+  margin: 0 0 10px;
+  font-size: 1.2rem;
+}
+
+.top-howto ol {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.top-howto li {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 40px;
+  font-weight: 700;
+  border-bottom: 1px solid var(--border-soft);
+}
+
+.top-howto .step-num {
+  width: 1.2em;
+  color: var(--accent);
+  font-variant-numeric: tabular-nums;
+}
+
+.top-howto p {
+  margin: 10px 0 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+  line-height: 1.6;
+}
+
+.top-note {
+  margin: 0 0 10px;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.top-templates {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(190px, 1fr));
+  gap: 12px;
+}
+
+/* ひな形の説明は2行まで折り返してよい(ボタンの名前は1行のまま) */
+.top-templates .template small {
+  white-space: normal;
+}
+
+.top-templates button.template.primary .icon {
+  color: inherit;
+}
+
+.top-foot {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px 16px;
+  width: 100%;
+  max-width: 1180px;
+  margin: 0 auto;
+  padding: 12px 32px 20px;
+  border-top: 1px solid var(--border-soft);
+}
+
+/* 下の小さなリンク(せつめい書・このアプリについて)。わくをなくし、文字とアイコンだけ */
+.top-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-height: var(--touch);
+  padding: 0 10px;
+  border: none;
+  background: none;
+  color: var(--accent);
+  font-weight: 700;
+  text-decoration: none;
+  font-size: 1rem;
+}
+
+/* 1つ目のリンクの文字を、上の本文の左はしにそろえる */
+.top-foot .top-link:first-child {
+  margin-left: -10px;
+}
+
+.top-credit {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+/* たて向き(iPad のたて・スマホ)は1列にする */
+@media (max-width: 820px) {
+  .top-body {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 14px;
+    padding: 20px 16px;
+  }
+  /* 1列のときは「作り方」を「新しく作る」のあとにまわす(大きなボタンを先に見せる) */
+  .top-side {
+    display: contents;
+  }
+  .top-new {
+    order: 1;
+    margin-top: 6px;
+  }
+  .top-howto {
+    order: 2;
+  }
+  .top-head {
+    padding: 20px 16px 24px;
+  }
+  .top-head h1 {
+    font-size: 1.7rem;
+  }
+  .top-foot {
+    padding: 8px 16px 16px;
+  }
+  .top-credit {
+    margin-left: 0;
+  }
+}
+
+/* スマホ: ひな形は 2列、説明は短く見せる */
+@media (max-width: 600px) {
+  .top-templates {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 8px;
+  }
+  .top-templates .template {
+    min-height: 0;
+  }
+  .top-templates .template small {
+    display: none;
+  }
+  button.top-big {
+    min-height: 72px;
+  }
+}
+
+/* 横向きのスマホ: 上の帯を うすくする */
+@media (max-height: 500px) {
+  .top-head {
+    padding: 10px 16px 16px;
+  }
+  .top-head p,
+  .top-howto {
+    display: none;
+  }
+  .top-body {
+    padding: 14px 16px;
+    gap: 16px;
+  }
+}
+
+/* ======================================================================
    スマホ対応(2026-11-21 おかだ さんの依頼「スマホでもできる様に」)
    ----------------------------------------------------------------------
    iPad・Chromebook の見た目は変えず、次の2つの画面だけ つくりを変える。

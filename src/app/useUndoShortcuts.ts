@@ -14,6 +14,8 @@ export function useUndoShortcuts() {
       if ((e.target as HTMLElement).closest?.("input, select, textarea")) return;
       // 数字キーパッドなどの小さな画面が出ている間は、うしろの作品を変えない(2026-11-13)
       if (document.querySelector(".dialog-backdrop")) return;
+      // トップページが出ている間も、うしろの作品を変えない(2026-11-25)
+      if (document.querySelector(".top-page")) return;
       if (!(e.ctrlKey || e.metaKey)) return;
       const k = e.key.toLowerCase();
       if (k === "z" && !e.shiftKey) {

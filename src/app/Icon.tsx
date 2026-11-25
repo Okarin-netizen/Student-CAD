@@ -62,7 +62,8 @@ export type IconName =
   | "last"
   | "prev"
   | "next"
-  | "ar";
+  | "ar"
+  | "home";
 
 const PATHS: Record<IconName, string> = {
   sketch: "M3 21h4L19 9l-4-4L3 17z M13 7l4 4",
@@ -122,6 +123,8 @@ const PATHS: Record<IconName, string> = {
   prev: "M15 5l-8 7 8 7z",
   next: "M9 5l8 7-8 7z",
   // AR: 四すみのかぎ(カメラのわく)の中に立体。2026-11-20
+  // トップページへ: 家。2026-11-25
+  home: "M3 11l9-7 9 7 M5 9.5V20h14V9.5 M10 20v-6h4v6",
   ar: "M4 8V4h4 M16 4h4v4 M20 16v4h-4 M8 20H4v-4 M12 7l5 2.8v5.4L12 18l-5-2.8V9.8z M12 12.6l5-2.8 M12 12.6V18 M12 12.6L7 9.8",
 };
 

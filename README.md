@@ -70,7 +70,7 @@
 
 | フォルダ | 中身 |
 | --- | --- |
-| `main.tsx` | 入り口。`?bench` をつけるとフェーズ0の計測ページ(`bench/`)になる |
+| `main.tsx` | 入り口。`?bench` をつけるとフェーズ0の計測ページ(`bench/`)になる。ふつうはトップページ(`app/TopPage.tsx`)から始まり、`?cad` をつけると作業画面から始まる |
 | `app/` | 画面(React)。`App.tsx` が全体、`store.ts` が画面の状態と「もどす」、`useCadEngine.ts` が起動の準備、`useAutoSave.ts` が自動保存、ほかは部品(メニュー・パネル・ダイアログ) |
 | `app/ar/` | ARで見る: AR 用の立体と USDZ を作る(`arModel.ts`)、端末に合わせた開き方(`arSupport.ts`・`quickLook.ts`・`webxrAr.ts`)、マーカーAR(`aruco.ts`・`markerTracker.ts`・`markerSheet.ts`) |
 | `app/sketch/` | スケッチの画面(`SketchEditor.tsx`)、道具の一覧と案内の言葉(`tools.ts`)、画面の座標・下がきの計算 |

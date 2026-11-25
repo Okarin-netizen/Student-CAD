@@ -22,7 +22,7 @@ async function makeBox(page: Page) {
 }
 
 test("押し出しをなおしている間に Ctrl+Z を押しても、作業は消えない", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await makeBox(page);
   await page.getByTestId("feature-tree").locator("li").nth(1).locator(".tree-item").dblclick();
   await expect(page.getByTestId("op-ok")).toBeVisible();
@@ -38,7 +38,7 @@ test("押し出しをなおしている間に Ctrl+Z を押しても、作業は
 });
 
 test("0 になってしまう小さすぎる数は、数字キーパッドで入れられない", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await page.getByTestId("new-sketch").click();
   await page.getByTestId("plane-top").click();
   await page.getByTestId("tool-rect").click();
@@ -53,7 +53,7 @@ test("0 になってしまう小さすぎる数は、数字キーパッドで入
 });
 
 test("円・多角形で同じ所を2回タップしても、大きさ0の形はできない", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await page.getByTestId("new-sketch").click();
   await page.getByTestId("plane-top").click();
   for (const tool of ["circle", "polygon"]) {
@@ -68,7 +68,7 @@ test("円・多角形で同じ所を2回タップしても、大きさ0の形は
 });
 
 test("作品の名前を空にすると、入力欄は元の名前にもどる", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   const name = page.getByLabel("作品の名前");
   await name.fill("");
   await name.press("Enter");
@@ -78,7 +78,7 @@ test("作品の名前を空にすると、入力欄は元の名前にもどる",
 test("こわれた作品ファイルを開いても、画面は止まらない", async ({ page }) => {
   const errors: string[] = [];
   page.on("pageerror", (e) => errors.push(String(e)));
-  await page.goto("/");
+  await page.goto("/?cad");
   await page.getByTestId("open-file-menu").click();
   const chooser = page.waitForEvent("filechooser");
   await page.getByTestId("file-open").click();
@@ -92,7 +92,7 @@ test("こわれた作品ファイルを開いても、画面は止まらない",
 });
 
 test("点を動かしている途中で指の操作が取り消されたら、形をもとにもどす", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await page.getByTestId("new-sketch").click();
   await page.getByTestId("plane-top").click();
   await page.getByTestId("tool-line").click();
@@ -138,7 +138,7 @@ async function pickOneEdge(page: Page) {
 
 // 2026-11-13: 「できあがりを見る」→「ぜんぶはずす」のあと、辺をえらびなおせなくなっていた
 test("角を丸める: できあがりを見たあと「ぜんぶはずす」を押しても、また辺をえらべる", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await makeBox(page);
   await page.getByTestId("new-fillet").click();
   await pickOneEdge(page);
@@ -151,7 +151,7 @@ test("角を丸める: できあがりを見たあと「ぜんぶはずす」を
 });
 
 test("面取り: できあがりを見たあと「ぜんぶはずす」を押しても、また辺をえらべる", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await makeBox(page);
   await page.getByTestId("new-fillet").click();
   await page.getByTestId("op-chamfer").click();
@@ -162,7 +162,7 @@ test("面取り: できあがりを見たあと「ぜんぶはずす」を押し
 });
 
 test("くりぬく: できあがりを見たあと「ぜんぶはずす」を押しても、また面をえらべる", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await makeBox(page);
   await page.getByTestId("open-more").click();
   await page.getByTestId("new-shell").click();

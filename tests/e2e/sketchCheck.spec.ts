@@ -11,7 +11,7 @@ async function tapCanvas(page: Page, fx: number, fy: number) {
 }
 
 test("すき間のある三角は赤い○で知らせ、「はしを つなぐ」で閉じられる", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await page.getByTestId("new-sketch").click();
   await page.getByTestId("plane-top").click();
   await page.getByTestId("tool-line").click();
@@ -38,7 +38,7 @@ test("すき間のある三角は赤い○で知らせ、「はしを つなぐ�
 });
 
 test("交わった線は赤い×で知らせる", async ({ page }) => {
-  await page.goto("/");
+  await page.goto("/?cad");
   await page.getByTestId("new-sketch").click();
   await page.getByTestId("plane-top").click();
   await page.getByTestId("tool-rect").click();
